@@ -87,6 +87,25 @@ export function captureComposeDraft(): void {
   clearParkedDraft(scope);
 }
 
+/**
+ * Add `text` to a pane's unsent message while another screen has the page (the
+ * files screen quoting a line). The pane's own field is not mounted there, so
+ * the words go into the draft it opens with: on a line of their own after
+ * whatever was already waiting (`ownLine`), or after a space for a field whose
+ * text must stay on one line. False, and nothing is added, when the draft has
+ * no room for all of it: a quotation is never kept in part.
+ */
+export function appendPaneDraft(paneId: string, mode: ComposeInputMode, text: string, ownLine = true): boolean {
+  if (!paneId || !text) return false;
+  const scope: ComposeDraftScope = { daemonId: currentDaemonId(), herdSession: currentHerdSession(), paneId, mode };
+  const waiting = readStoredDraft(scope).text;
+  const lead = !waiting ? "" : ownLine ? (waiting.endsWith("\n") ? "" : "\n") : /\s$/u.test(waiting) ? "" : " ";
+  const fitted = fitOperationPrompt(`${waiting}${lead}${text}`);
+  if (fitted.truncated) return false;
+  writeStoredDraft(scope, { text: fitted.text, error: "", revision: nextDraftRevision() });
+  return true;
+}
+
 export function applyComposeDraft(): void {
   const scope = currentComposeDraftScope();
   if (!scope) {

@@ -20,16 +20,25 @@
   gap: 10px;
 }
 
+/* Zoom out · scale · zoom in | fit · 1:1 … full screen: the info bar's icon buttons. */
 .workspace-media-toolbar {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  align-items: center;
+  gap: 2px;
   flex: none;
 }
-
-.workspace-media-toolbar .btn {
-  min-height: 44px;
+.workspace-media-toolbar .icon-btn { color: var(--muted); }
+.workspace-media-toolbar .icon-btn[aria-pressed="true"] { background: var(--surface-2); color: var(--accent); }
+.workspace-media-scale {
+  min-width: 3.6em;
+  color: var(--ink);
+  font: var(--text-caption) var(--mono);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }
+.workspace-media-toolbar-rule { width: 1px; height: 18px; margin: 0 6px; background: var(--line-strong); }
+.workspace-media-toolbar .workspace-media-actual { font: 650 0.72rem var(--mono); letter-spacing: -0.02em; }
+.workspace-media-toolbar .workspace-media-fullscreen { margin-left: auto; }
 
 .workspace-media-stage {
   display: flex;
@@ -99,6 +108,18 @@
   background: #000;
 }
 
-@media (min-width: 900px) {
-  .workspace-media-toolbar .btn { min-height: 36px; }
+/* A precise pointer needs less room than a finger, as in the info bar above. */
+@media (hover: hover) and (pointer: fine) {
+  .workspace-media-toolbar .icon-btn {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+    border-radius: var(--r-sm);
+  }
+  .workspace-media-toolbar .icon-btn:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+  /* A double click enlarges the fitted picture to its own size; an enlarged one is dragged. */
+  .workspace-media-viewer[data-enlarges] { cursor: zoom-in; }
+  .workspace-media-viewer[data-zoomed] { cursor: grab; }
+  .workspace-media-viewer[data-zoomed]:active { cursor: grabbing; }
 }

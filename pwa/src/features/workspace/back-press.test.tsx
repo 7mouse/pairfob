@@ -159,26 +159,28 @@ afterEach(async () => {
   happy.happyDOM.setWindowSize({ width: 390, height: 844 });
 });
 
-describe("the inspector's file chip", () => {
-  test("pressed twice, it returns to the list and the second press does not open the branch sheet under it", async () => {
+describe("the inspector's way back to the list", () => {
+  test("pressed twice, it returns to the list and the second press does not fold the group under it", async () => {
     await bootInspector();
     await act(async () => { await loadGitDiff("app.ts", "worktree"); });
     await settle();
-    expect(await pointerPress(one(".inspector-switch-file"))).toBeTrue();
+    expect(await pointerPress(one(".inspector-back"))).toBeTrue();
     expect(workspaceModel.view).toBe("browser");
-    expect(await pointerPress(one(".inspector-list .workspace-branch"))).toBeFalse();
-    expect(branchReads).toBe(0);
-    expect(document.querySelector("dialog.workspace-branch-sheet")).toBeNull();
+    // The list starts where the chip was: its first group's title is under the pointer now.
+    const group = () => one(".inspector-list .workspace-change-group-title");
+    expect(await pointerPress(group())).toBeFalse();
+    expect(group().getAttribute("aria-expanded")).toBe("true");
   });
 
   test("Enter on it arms nothing: the next press is the reader's own", async () => {
     await bootInspector();
     await act(async () => { await loadGitDiff("app.ts", "worktree"); });
     await settle();
-    await keyPress(one(".inspector-switch-file"));
+    await keyPress(one(".inspector-back"));
     expect(workspaceModel.view).toBe("browser");
-    expect(await pointerPress(one(".inspector-list .workspace-branch"))).toBeTrue();
-    expect(branchReads).toBe(1);
+    const group = () => one(".inspector-list .workspace-change-group-title");
+    expect(await pointerPress(group())).toBeTrue();
+    expect(group().getAttribute("aria-expanded")).toBe("false");
   });
 });
 

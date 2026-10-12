@@ -8,7 +8,8 @@ import { computersStore, liveSession } from '../computers/catalog-store';
 import { t } from '../../lib/i18n';
 import { messageOf } from '../../lib/notices';
 import { ProtocolError } from '../../lib/protocol/errors';
-import type { PreviewControls } from './preview-controls';
+import { notePreviewStage, usePreviewFrameWidth, type PreviewControls } from './preview-controls';
+import type { FoundLines } from './file-find';
 import { FileSource } from './file-source';
 import type { WorkspaceSnapshot } from './model';
 import { activeScope, getWorkspaceSnapshot, issueTicket, subscribeWorkspace, workspaceContentVersion, workspacePaneCwd } from './store';
@@ -18,7 +19,11 @@ import { preparePreviewDocument } from './preview-document';
 export { isHTMLFile } from "./preview-controls";
 type Loaded = { token: string; source: string; html: string; resources: PreviewResources };
 
-function PreviewFrame({ loaded, onError, hidden }: { hidden: boolean; loaded: Loaded; onError: (error: string) => void }) {
+function PreviewFrame({ loaded, onError, hidden, width }: {
+  hidden: boolean; loaded: Loaded; onError: (error: string) => void;
+  /** The width the page is tried at, in pixels; null takes the stage's own. Resizing the frame never reloads it. */
+  width: number | null;
+}) {
   const frame = useRef<HTMLIFrameElement>(null);
   const [ready, setReady] = useState(false);
   const connect = useRef<() => void>(() => undefined);
@@ -52,11 +57,16 @@ function PreviewFrame({ loaded, onError, hidden }: { hidden: boolean; loaded: Lo
     return () => { alive = false; clearTimeout(timer); channel?.port1.close(); connect.current = () => undefined; };
   }, [loaded, onError]);
   return <iframe aria-busy={!ready} data-preview-ready={ready ? "true" : "false"} hidden={hidden} ref={frame} className="workspace-html-frame" title={t('preview.title')}
+    style={width === null ? undefined : { width: `${width}px` }}
     src="/preview/runner.html" sandbox="allow-scripts allow-forms allow-downloads allow-popups"
     referrerPolicy="no-referrer" onLoad={() => connect.current()} />;
 }
 
-export function HTMLPreview({ snapshot, wrap, controls }: { snapshot: WorkspaceSnapshot; wrap: boolean; controls: PreviewControls }) {
+export function HTMLPreview({ snapshot, wrap, controls, found = null }: {
+  snapshot: WorkspaceSnapshot; wrap: boolean; controls: PreviewControls;
+  /** What a find in the page's source matched, marked when the source is what is shown. */
+  found?: FoundLines | null;
+}) {
   const file = snapshot.file!;
   const session = liveSession();
   const contentVersion = useSyncExternalStore(subscribeWorkspace, workspaceContentVersion);
@@ -67,6 +77,19 @@ export function HTMLPreview({ snapshot, wrap, controls }: { snapshot: WorkspaceS
   const [source, setSource] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [runtimeError, setRuntimeError] = useState('');
+  const stage = useRef<HTMLElement>(null);
+  const frameWidth = usePreviewFrameWidth();
+  // The info bar offers the width choice by this stage's own width, not the window's.
+  useLayoutEffect(() => {
+    const node = stage.current;
+    if (!node) return;
+    const measure = () => notePreviewStage(node.clientWidth);
+    measure();
+    const sized = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
+    sized?.observe(node);
+    return () => { sized?.disconnect(); notePreviewStage(0); };
+  }, []);
+  const sized = frameWidth !== null && mode === 'preview';
   useEffect(() => {
     setLoaded(null); setSource(null); setError(''); setRuntimeError('');
     const ticket = issueTicket({ content: 'keep' });
@@ -99,8 +122,9 @@ export function HTMLPreview({ snapshot, wrap, controls }: { snapshot: WorkspaceS
     })();
     return () => { alive = false; stops.forEach(stop => stop()); resources.close(); };
   }, [session, snapshot.paneId, snapshot.descriptor?.root, file.path, file.revision, reload, started, direct, contentVersion]);
-  return <section className="workspace-html" aria-label={t('preview.title')}>
-    {loaded && started && direct && <PreviewFrame key={loaded.token} loaded={loaded} hidden={mode !== 'preview'} onError={setRuntimeError} />}
+  return <section ref={stage} className={`workspace-html${sized ? ' is-sized' : ''}`} aria-label={t('preview.title')}>
+    {loaded && started && direct && <PreviewFrame key={loaded.token} loaded={loaded} hidden={mode !== 'preview'} onError={setRuntimeError}
+      width={sized ? frameWidth : null} />}
     {mode === 'preview' ? <>
       {!direct ? <p className="workspace-feedback" role="status">{t('preview.p2pRequired')}</p>
         : error ? <p className="workspace-feedback workspace-error" role="alert">{error}</p>
@@ -108,7 +132,7 @@ export function HTMLPreview({ snapshot, wrap, controls }: { snapshot: WorkspaceS
         : <p className="workspace-feedback" role="status">{t('preview.loading')}</p>}
       {runtimeError && <p className="workspace-feedback workspace-error" role="status">{runtimeError}</p>}
     </> : <>
-      <FileSource path={file.path} content={source ?? file.content} wrap={wrap} line={snapshot.sourceLine} />
+      <FileSource path={file.path} content={source ?? file.content} wrap={wrap} line={snapshot.sourceLine} found={found} />
       {!source && file.truncated && <p className="workspace-limit">{t('workspace.previewTruncated')}</p>}
       {error && <p className="workspace-feedback workspace-error" role="status">{error}</p>}
     </>}

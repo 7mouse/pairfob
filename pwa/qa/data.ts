@@ -15,6 +15,7 @@ import {
 } from "../src/lib/protocol/workspace-media";
 import { FIXED_NOW } from "./environment";
 import { CODEX_APPROVAL_SCREEN } from "../src/lib/terminal-dialog.fixtures";
+import { WIDE_PNG, WIDE_PNG_HEIGHT, WIDE_PNG_PATH, WIDE_PNG_SHA, WIDE_PNG_WIDTH } from "./wide-image";
 
 export const REVISION = "a".repeat(64);
 export const PANE = "w1:p1";
@@ -29,6 +30,11 @@ const TINY_PNG = new Uint8Array([
 ]);
 const TINY_PNG_SHA = "d6ad79754ddf8117ef07ae148ac239cf61d9ff537511a2b6f86e5d5b8de08d6b";
 const MEDIA_HANDLE = "media_" + "a".repeat(32);
+const WIDE_HANDLE = "media_" + "b".repeat(32);
+/** The image a path names: the large one by its own path, the single pixel for every other. */
+const imageAt = (path: string) => path === WIDE_PNG_PATH
+  ? { bytes: WIDE_PNG, sha: WIDE_PNG_SHA, handle: WIDE_HANDLE, width: WIDE_PNG_WIDTH, height: WIDE_PNG_HEIGHT }
+  : { bytes: TINY_PNG, sha: TINY_PNG_SHA, handle: MEDIA_HANDLE, width: 1, height: 1 };
 export const ROOT = "/work/pairfob";
 export const PANE_TEXT = [
   "\u001b[1;36mPairfob\u001b[0m  ·  workspace /work/pairfob",
@@ -244,7 +250,8 @@ export function directory(path = ""): WorkspaceDirectoryPage {
       file("schema.proto", path, 640), file("query.sql", path, 410), file("App.vue", path, 380), file("Widget.svelte", path, 290),
     ]
     : path === "public"
-      ? [file("logo.svg", path, 812), file("index.html", path, 420), file("app.css", path, 160), file("notes.txt", path, 88)]
+      ? [file("logo.svg", path, 812), file("pixel.png", path, TINY_PNG.length), file("wide.png", path, WIDE_PNG.length), file("index.html", path, 420), file("report.html", path, 640), file("app.css", path, 160),
+        file("notes.txt", path, 88)]
       : path
         ? [file("app.ts"), file("styles.scss", path, 1840), file("types.ts", path, 312)]
         : [
@@ -258,6 +265,10 @@ export function directory(path = ""): WorkspaceDirectoryPage {
 }
 
 export function file(path = "src/app.ts"): WorkspaceFile {
+  // An image is read as bytes through the media calls; the file read only says that it is one.
+  if (/\.(png|jpe?g|gif|webp)$/i.test(path)) {
+    return { path, kind: "binary", size: imageAt(path).bytes.length, modified_ms: FIXED_NOW - 3600000, content: "", truncated: false, revision: REVISION };
+  }
   const content = 'import { createRoot } from "react-dom/client";\n\nexport function App() {\n  return <main className="workspace">Ready</main>;\n}\n\ncreateRoot(document.getElementById("app")!).render(<App />);\n';
   return { path, kind: "text", size: new TextEncoder().encode(content).length, modified_ms: FIXED_NOW - 3600000,
     content, truncated: false, revision: REVISION };
@@ -270,29 +281,64 @@ export function mediaOpen(path: string): WorkspaceMediaOpen {
     : "download";
   const mime = kind === "image" ? "image/png" : kind === "video" ? "video/mp4" : kind === "audio" ? "audio/mpeg"
     : path.endsWith(".svg") ? "image/svg+xml" : "application/octet-stream";
+  const image = imageAt(path);
   return {
-    handle: MEDIA_HANDLE, path, kind, mime, size: TINY_PNG.length, modified_ms: FIXED_NOW - 3600000, sha256: TINY_PNG_SHA,
+    handle: image.handle, path, kind, mime, size: image.bytes.length, modified_ms: FIXED_NOW - 3600000, sha256: image.sha,
     expires_ms: FIXED_NOW + 60_000, chunk_bytes: MEDIA_CHUNK_BYTES,
     max_bytes: kind === "image" ? MEDIA_IMAGE_MAX_BYTES : MEDIA_MAX_BYTES,
-    max_pixels: MEDIA_MAX_PIXELS, width: kind === "image" ? 1 : 0, height: kind === "image" ? 1 : 0,
+    max_pixels: MEDIA_MAX_PIXELS, width: kind === "image" ? image.width : 0, height: kind === "image" ? image.height : 0,
   };
 }
 
 export function mediaChunk(handle: string, offset: number, length: number): WorkspaceMediaChunk {
-  const bytes = TINY_PNG.subarray(offset, offset + length);
-  return { handle, offset, length: bytes.length, bytes, eof: offset + bytes.length >= TINY_PNG.length };
+  const all = handle === WIDE_HANDLE ? WIDE_PNG : TINY_PNG;
+  const bytes = all.subarray(offset, offset + length);
+  return { handle, offset, length: bytes.length, bytes, eof: offset + bytes.length >= all.length };
 }
 
 export function status(): GitStatus {
   return { branch: "main", head: "1234567890abcdef", upstream: "origin/main", ahead: 1, behind: 0,
     truncated: false, revision: REVISION, changes: [
-      { path: "src/app.ts", original_path: null, index: "M", worktree: "M" },
-      { path: "src/styles.scss", original_path: null, index: " ", worktree: "M" },
-      { path: "README.md", original_path: null, index: "A", worktree: " " },
+      // As a daemon with git_change_stats answers: each layer's line counts and when the file last changed.
+      { path: "src/app.ts", original_path: null, index: "M", worktree: "M",
+        stat: { staged: { additions: 4, deletions: 2 }, worktree: { additions: 4, deletions: 2 } }, modified_ms: FIXED_NOW - 2 * 60_000 },
+      { path: "src/styles.scss", original_path: null, index: " ", worktree: "M",
+        stat: { worktree: { additions: 8, deletions: 2 } }, modified_ms: FIXED_NOW - 5 * 60_000 },
+      { path: "README.md", original_path: null, index: "A", worktree: " ",
+        stat: { staged: { additions: 12, deletions: 0 } }, modified_ms: FIXED_NOW - 3 * 3_600_000 },
     ] };
 }
 
+/**
+ * A working tree with more changes than a list is read through at a glance:
+ * the usual three first, as every other scene has them, then a dozen more
+ * files changed on disk. Sixteen diffs in all, past the number from which the
+ * column's file switcher offers its filter.
+ */
+export function manyStatus(): GitStatus {
+  const base = status();
+  const more = ["api/client.ts", "api/routes.ts", "api/schema.ts", "lib/cache.ts", "lib/dates.ts", "lib/format.ts",
+    "ui/button.tsx", "ui/dialog.tsx", "ui/list.tsx", "ui/menu.tsx", "ui/sheet.tsx", "ui/tabs.tsx"];
+  return { ...base, revision: "b".repeat(64), changes: [...base.changes, ...more.map((name, index) => ({
+    path: `src/${name}`, original_path: null, index: " ", worktree: "M",
+    stat: { worktree: { additions: 3 + index, deletions: index % 4 } }, modified_ms: FIXED_NOW - (10 + index) * 60_000,
+  }))] };
+}
+
+/** Every file the fixture workspace lists, for a search by name. */
+export function searchFiles(query: string, limit = 30): { query: string; items: { path: string; name: string }[]; truncated: boolean } {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  const all = ["", "src", "public"].flatMap((folder) => directory(folder).entries.filter((entry) => entry.kind === "file").map((entry) => entry.path));
+  const matches = words.length ? all.filter((path) => words.every((word) => path.toLowerCase().includes(word))) : [];
+  return { query, items: matches.slice(0, limit).map((path) => ({ path, name: path.slice(path.lastIndexOf("/") + 1) })), truncated: matches.length > limit };
+}
+
+/** What the agent's edit tools wrote in its current turn, as they named the files. */
+export function turnWrites(): string[] {
+  return [`${ROOT}/src/app.ts`, "src/styles.scss"];
+}
+
 export function diff(path = "src/app.ts", layer: "staged" | "worktree" = "worktree"): GitDiff {
-  return { path, layer, patch: 'diff --git a/src/app.ts b/src/app.ts\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,4 +1,6 @@\n import { createRoot } from "react-dom/client";\n \n-export const ready = false;\n+export function App() {\n+  return <main className="workspace">Ready</main>;\n+}\n ', additions: 3, deletions: 1,
+  return { path, layer, patch: 'diff --git a/src/app.ts b/src/app.ts\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,4 +1,6 @@\n import { createRoot } from "react-dom/client";\n \n-export const ready = false;\n+export function App() {\n+  return <main className="workspace">Ready</main>;\n+}\n \n@@ -24,3 +26,3 @@ function mount(root: HTMLElement) {\n   const app = createRoot(root);\n-  app.render(<App />);\n+  app.render(<App ready />);\n }\n', additions: 4, deletions: 2,
     binary: false, truncated: false, revision: REVISION };
 }

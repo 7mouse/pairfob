@@ -44,6 +44,8 @@ let directoryVersion = 0;
 let statusVersion = 0;
 let branchesVersion = 0;
 let workspaceSession: Session | null = null;
+/** The Herdr session the open pane was entered in: the connection may have moved on by the time it is left. */
+let workspaceHerd: string | null = null;
 let workspaceScope: WorkspaceScope | null = null;
 let directoryPageCount = 1;
 const workspaceCache = new WeakMap<Session, Map<string, WorkspaceNavigation>>();
@@ -335,6 +337,7 @@ export function beginEnter(session: Session, paneId: string, returnView: Workspa
 } {
   const cached = takeCachedModel(session, paneId);
   workspaceSession = session;
+  workspaceHerd = session.herdSession?.() ?? null;
   retirePending();
   directoryPageCount = 1;
   notesEpoch++;
@@ -372,13 +375,21 @@ export function readCache(session: Session): WorkspaceReadCache {
   return cache;
 }
 
+/**
+ * Where a pane was left is kept by the Herdr session it is in as well: pane
+ * ids repeat across the sessions of one connection, and another session's
+ * pane of the same id is another pane.
+ */
+const cacheKey = (herd: string | null, paneId: string): string => `${herd ?? ""}\0${paneId}`;
+
 function takeCachedModel(session: Session, paneId: string): WorkspaceNavigation | null {
   cacheCurrent();
   const cache = workspaceCache.get(session);
-  const cached = cache?.get(paneId);
+  const key = cacheKey(session.herdSession?.() ?? null, paneId);
+  const cached = cache?.get(key);
   if (!cache || !cached) return null;
-  cache.delete(paneId);
-  cache.set(paneId, cached);
+  cache.delete(key);
+  cache.set(key, cached);
   return cached;
 }
 
@@ -389,8 +400,9 @@ function cacheCurrent(): void {
     cache = new Map();
     workspaceCache.set(workspaceSession, cache);
   }
-  cache.delete(model.paneId);
-  cache.set(model.paneId, {
+  const key = cacheKey(workspaceHerd, model.paneId);
+  cache.delete(key);
+  cache.set(key, {
     root: model.descriptor.root,
     navigation: {
       tab: model.tab,

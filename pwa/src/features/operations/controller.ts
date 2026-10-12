@@ -1,74 +1,56 @@
 import { parseAnsi } from "../../lib/ansi";
-import { agentStatusLabel, agentTitle, canPromptAgent, tabSiblings, workspaceSiblings } from "../../lib/dashboard";
-import {
-  beginDiffNoteSend,
-  composeDiffNotesPrompt,
-  diffNoteScope,
-  diffNoteSendOpen,
-  diffNotesFor,
-  endDiffNoteSend,
-  removeDiffNotes,
-} from "../../lib/diff-notes";
+import { agentStatusLabel, agentTitle, tabSiblings, workspaceSiblings } from "../../lib/dashboard";
 import { askConfirm, askText } from "../../lib/dom";
 import { t } from "../../lib/i18n";
 import { displayDeviceLabel } from "../../lib/ui-model";
-import { clearAgentTraceCache, forgetAgentTrace } from "../../lib/agent-trace-cache";
-import { type NoticeScope } from "../../lib/notice-scope";
+import { forgetAgentTrace } from "../../lib/agent-trace-cache";
 import {
   OPERATION_INPUT_LIMITS,
-  reconcileMutationFailure,
-  openWorktreeFromSummary,
-  worktreeScope,
   type CreateConversationInput,
-  type CreateWorktreeInput,
-  type OpenWorktreeInput,
-  type ListWorktreesInput,
   type CreateTabInput,
-  type WorktreeDraft,
   type SplitDirection,
   type SplitPaneInput,
-  type WorktreeSummary,
-  parseWorktrees,
 } from "../../lib/operations";
-import { type GitLayer } from "../../lib/workspace";
-import { askAgentPrompt, askCreateConversation, askCreateTab, askSplitPane, showWorktrees } from "./operation-ui";
+import { askCreateConversation, askCreateTab, askSplitPane } from "./operation-ui";
 import { ProtocolError, type DeviceSummary, type LiveSession } from "../../lib/protocol/client";
 import { type AgentCard } from "../../lib/ranking";
-import { startWorktreeJob, type WorktreeJobDriver } from "../../lib/worktree-jobs";
-import { applyComposeDraft, acquirePromptLock, currentViewIncarnation, parkComposeView, releasePromptLock } from "../session/drafts/compose-drafts";
-import { liveView } from "../connection/generations";
-import { boardStore, focusBoard, selectBoardTab, selectBoardWorkspace } from "../board/layout-store";
-import { advertisedAgentKinds, capabilitiesStore, capabilityEnabled, operationBusy } from "./capabilities-store";
-import { computersStore, currentDaemonId, liveSession } from "../computers/catalog-store";
+import { applyComposeDraft, acquirePromptLock, currentViewIncarnation, parkComposeView } from "../session/drafts/compose-drafts";
+import { advertisedAgentKinds, capabilityEnabled, operationBusy } from "./capabilities-store";
+import { computersStore, liveSession } from "../computers/catalog-store";
 import { dashboardStore, selectedAgent } from "../dashboard/catalog-store";
 import { currentScreen, leavePaneScreen } from "../../app/navigation-store";
-import { connectionStore } from "../connection/connection-store";
 import { applyDeviceList } from "../connection/runtime-store";
 import { isFullTerminal, openPaneId, selectPane, sessionStore } from "../session/session-store";
-import { landAfterDisconnect, openPane, openPaneWithOwner, refreshFromSession, refreshPane } from "../connection/controller";
-import { reconcileAmbiguousMutation, refreshSnapshotOnly } from "../connection/mutations";
+import { landAfterDisconnect, refreshFromSession } from "../connection/controller";
+import { reconcileAmbiguousMutation } from "../connection/mutations";
 import { commitView } from "../../app/host";
-import { promptLockHeld } from "../session/drafts/state-drafts";
 import { captureNoticeScope, noticeScopeIsCurrent, showError, showStatus } from "../../app/notices-store";
-import { markPaneSubmitted } from "../dashboard/catalog-store";
 import { messageOf } from "../../lib/notices";
 import { resetPaneView } from "../session/session-store";
-import { openWorktreeTargetError, type SheetOutcome } from "./operation-form-model";
-import { followWorktreeJob } from "./worktree-outcome";
-import { showWorktreeForm, type OperationGate } from "./worktree-sheet";
+import { type SheetOutcome } from "./operation-form-model";
 import { disposeFullTerminal, leaveFullTerminalWithTransition } from "../session/full-terminal/full-terminal";
 import { dropQueuedKeys } from "../../features/session/guided/keys";
-import {
-  operationOwner as ownedOperation,
-  ownsComputer as ownerOwnsComputer,
-  ownsOperationView as ownerOwnsView,
-  reportOwnedError as reportError,
-  runHerdOperation as runOwnedOperation,
-  NOT_RUN,
-  sheetOutcome,
-  type MutationRunnerPorts,
-  type OperationOwner,
-} from "./run";
+import { selectCreatedPane } from "./created-pane";
+import { operationOwner, ownsComputer, ownsOperationView, reportOwnedError, runHerdOperation } from "./live-run";
+import { NOT_RUN, sheetOutcome, type OperationOwner } from "./run";
+
+/**
+ * The operations a reader runs on the selected session, its tab and its
+ * workspace: pairing, creating, layout, renaming and closing. Prompts to the
+ * agent (`agent-prompt`) and Worktrees (`worktree-controller`) have modules of
+ * their own and are named here too, for the callers that know one controller.
+ */
+export { promptSelectedAgent, sendAllDiffNotesToAgent, sendDiffNotesToAgent } from "./agent-prompt";
+export {
+  createPaneWorktree,
+  createSelectedWorktree,
+  createWorktreeFrom,
+  listSelectedWorktrees,
+  loadPaneWorktrees,
+  openPaneWorktree,
+  openSelectedWorktree,
+  operationGate,
+} from "./worktree-controller";
 
 export async function revokeSelf(): Promise<void> {
   const session = liveSession();
@@ -112,119 +94,7 @@ export async function revokeDevice(device: DeviceSummary): Promise<void> {
   }
 }
 
-const mutationPorts: MutationRunnerPorts = {
-  currentIncarnation: currentViewIncarnation,
-  currentViewVersion: liveView,
-  promptLockHeld,
-  currentLive: liveSession,
-  currentDaemonId: () => currentDaemonId(),
-  busy: operationBusy,
-  connected: () => liveSession()?.isConnected() === true,
-  capabilityEnabled,
-  acquirePromptLock,
-  releasePromptLock,
-  reconcile: reconcileAmbiguousMutation,
-  refreshFromSession,
-  commitView,
-};
-
-function operationOwner(session: LiveSession): OperationOwner {
-  return ownedOperation(session, currentViewIncarnation(), liveView());
-}
-
-function ownsComputer(owner: OperationOwner): boolean {
-  return ownerOwnsComputer(owner, liveSession(), currentDaemonId());
-}
-
-function ownsOperationView(owner: OperationOwner): boolean {
-  return ownerOwnsView(owner, mutationPorts, liveSession(), currentDaemonId());
-}
-
-async function reportOwnedError(owner: OperationOwner, error: unknown): Promise<void> {
-  await reportError(owner, error, mutationPorts);
-}
-
-type HerdOperationOptions<T> = {
-  owner?: OperationOwner;
-  capability?: Parameters<typeof capabilityEnabled>[0];
-  conflictMessage?: string;
-  unsupportedMessage?: string;
-  after?: (result: T, owner: OperationOwner) => Promise<void>;
-  reconcileWorktrees?: ListWorktreesInput;
-  noticeScope?: NoticeScope;
-};
-
-async function runHerdOperation<T>(
-  pending: string,
-  success: string,
-  action: () => Promise<T>,
-  options: HerdOperationOptions<T> = {},
-): Promise<void> {
-  await runOwnedOperation(pending, success, action, mutationPorts, options);
-}
-
 export type { SheetOutcome };
-
-async function selectCreatedPane(result: { pane_id?: string; workspace_id?: string; tab_id?: string }, owner: OperationOwner): Promise<void> {
-  const paneId = typeof result.pane_id === "string" && result.pane_id ? result.pane_id : "";
-  // Refresh first so the switch below sees the new pane in the snapshot, then
-  // reuse the normal open path: it applies the pane's remembered / default
-  // view mode and tears down a live full-terminal bridge instead of leaking it.
-  if (!ownsOperationView(owner)) return;
-  await refreshFromSession();
-  if (!ownsOperationView(owner)) return;
-  if (currentScreen() === "board") {
-    const workspaceId = typeof result.workspace_id === "string" ? result.workspace_id : "";
-    const tabId = typeof result.tab_id === "string" ? result.tab_id : "";
-    if (workspaceId && tabId) focusBoard(workspaceId, tabId);
-    else if (workspaceId) selectBoardWorkspace(workspaceId, boardStore.get().boardTabId);
-    else if (tabId) selectBoardTab(tabId);
-    return;
-  }
-  if (paneId) {
-    const navigation = await openPaneWithOwner(paneId);
-    if (ownsComputer(owner) && navigation?.isCurrent()) {
-      owner.scope = navigation.scope;
-      owner.incarnation = navigation.incarnation;
-    }
-  }
-}
-
-/**
- * CreateWorktree runs as a background job card instead of a global
- * `operationBusy` lock: `git fetch` + `worktree add` can take a while and the
- * rest of the app must stay usable meanwhile. Retry means a new create call
- * with a fresh operation_id; cancel only drops the card (there is no cancel
- * RPC), and a late result is ignored.
- */
-function worktreeJobDriver(session: LiveSession, scope: ListWorktreesInput): WorktreeJobDriver {
-  const herdSession = session.herdSession?.() ?? null;
-  const sameTarget = () => (session.herdSession?.() ?? null) === herdSession;
-  const ownsTarget = () => liveSession() === session && sameTarget();
-  return {
-    create: async (input) => {
-      if (!sameTarget()) throw new ProtocolError("conflict", t("err.worktreeSessionChanged"));
-      return session.createWorktree(input);
-    },
-    // The job outlives the dialog: effects must still own both the connection
-    // and its original Herdr target after every awaited step.
-    refresh: async () => {
-      if (ownsTarget()) await refreshFromSession();
-    },
-    openPane: async (paneId) => {
-      if (ownsTarget()) await openPane(paneId);
-    },
-    reconcile: (error) => reconcileMutationFailure(error, {
-      snapshot: async () => { if (ownsTarget()) await refreshSnapshotOnly(session, ownsTarget); },
-      listWorktrees: async () => { if (ownsTarget()) await session.listWorktrees(scope); },
-    }).then(() => undefined),
-    messageOf,
-    repaint: commitView,
-    succeeded: () => {
-      if (ownsTarget()) showStatus(t("op.createdWorktree"));
-    },
-  };
-}
 
 /** `prepared` is input the create sheet already collected. */
 export async function startNewConversation(prepared?: CreateConversationInput): Promise<void> {
@@ -294,213 +164,6 @@ export async function splitSelectedPane(selected = selectedAgent(), options: Pan
       done();
     } },
   ));
-}
-
-export async function promptSelectedAgent(): Promise<void> {
-  const session = liveSession();
-  const selected = selectedAgent();
-  if (!session || !canPromptAgent(selected) || !capabilityEnabled("prompt_agent")) return;
-  const owner = operationOwner(session);
-  const text = await askAgentPrompt();
-  if (!text || !ownsOperationView(owner) || !capabilityEnabled("prompt_agent")) return;
-  const noticeScope = captureNoticeScope();
-  await runHerdOperation(
-    t("op.sendingTask"),
-    t("op.sentTask"),
-    () => session.promptAgent({ pane_id: selected.paneId, text }),
-    {
-      owner, capability: "prompt_agent", noticeScope,
-      after: async () => {
-        markPaneSubmitted(selected.paneId);
-        if (liveSession() === session && noticeScopeIsCurrent(noticeScope)) await refreshPane();
-      },
-    },
-  );
-}
-
-/**
- * Batch every diff note for one path/layer into ONE PromptAgent call; never
- * one RPC per comment. Oversize batches are refused, never silently clipped,
- * and mutations are never retried automatically on ambiguous outcomes.
- */
-export async function sendDiffNotesToAgent(path: string, layer: GitLayer): Promise<void> {
-  const session = liveSession();
-  const selected = selectedAgent();
-  const owner = diffNoteScope();
-  if (!session || !path || !owner || !canPromptAgent(selected) || !capabilityEnabled("prompt_agent")) return;
-  if (operationBusy() || diffNoteSendOpen() || !session.isConnected()) return;
-  if (owner.session !== session || owner.paneId !== selected.paneId) return;
-  const list = diffNotesFor(path, layer);
-  if (!list.length) return;
-  const composed = composeDiffNotesPrompt(path, layer, list);
-  if (composed.truncated) {
-    showError(t("diffNotes.tooBig"));
-    commitView();
-    return;
-  }
-  const sentIds = list.map((note) => note.id);
-  const noticeScope = captureNoticeScope();
-  beginDiffNoteSend(sentIds);
-  try {
-    await runHerdOperation(
-      t("diffNotes.sending"),
-      t("diffNotes.sent"),
-      () => session.promptAgent({ pane_id: selected.paneId, text: composed.text }),
-      {
-        noticeScope,
-        after: async () => {
-          removeDiffNotes(sentIds);
-          markPaneSubmitted(selected.paneId);
-          if (liveSession() === session && noticeScopeIsCurrent(noticeScope)) await refreshPane();
-        },
-      },
-    );
-  } finally {
-    endDiffNoteSend();
-  }
-}
-
-function selectedWorktreeDefaults(selected: Pick<AgentCard, "workspaceId" | "cwd"> | undefined = selectedAgent()): WorktreeDraft | null {
-  return selected ? worktreeScope(selected.workspaceId, selected.cwd) : null;
-}
-
-/** The pane sheet's Worktree list, read in place. Throws what the page shows. */
-export async function loadPaneWorktrees(agent: AgentCard): Promise<WorktreeSummary[]> {
-  const session = liveSession();
-  const scope = selectedWorktreeDefaults(agent);
-  if (!session || !scope || !capabilityEnabled("list_worktrees")) return [];
-  return parseWorktrees(await session.listWorktrees(scope));
-}
-
-/** Open a listed Worktree, or one named by path or branch, from the pane sheet. */
-export async function openPaneWorktree(agent: AgentCard, target: { path?: string; branch?: string; label?: string }): Promise<SheetOutcome> {
-  const session = liveSession();
-  const scope = selectedWorktreeDefaults(agent);
-  if (!session || !scope || !capabilityEnabled("open_worktree")) return NOT_RUN;
-  const path = target.path?.trim() || "";
-  const branch = target.branch?.trim() || "";
-  const invalid = openWorktreeTargetError(path, branch);
-  if (invalid) return { ok: false, message: invalid };
-  const input = { ...scope, ...(path ? { path } : { branch }), ...(target.label ? { label: target.label } : {}) } as OpenWorktreeInput;
-  return sheetOutcome(done => runHerdOperation(t("op.openingWorktree"), t("op.openedWorktree"), () => session.openWorktree(input), {
-    capability: "open_worktree", reconcileWorktrees: scope,
-    after: async (result, owner) => { await selectCreatedPane(result, owner); done(); },
-  }));
-}
-
-/**
- * Start the background create job for the pane's repository. The promise
- * settles with the job, for the form that stays open on it; null when no job
- * could be started.
- */
-export function createPaneWorktree(agent: AgentCard, fields: { branch?: string; base?: string; label?: string; path?: string }): Promise<SheetOutcome> | null {
-  const scope = selectedWorktreeDefaults(agent);
-  if (!scope) return null;
-  const input: CreateWorktreeInput = { ...scope };
-  for (const key of ["branch", "base", "label", "path"] as const) {
-    const text = fields[key]?.trim();
-    if (text) input[key] = text;
-  }
-  return startWorktree(input);
-}
-
-/**
- * Why a form that runs its operation in place cannot run it right now:
- * offline, or another operation holds the lock. The session panel's pages and
- * the same forms in a dialog of their own follow this one reading.
- */
-export const operationGate: OperationGate = {
-  subscribe(listener) {
-    const stops = [capabilitiesStore.subscribe(listener), connectionStore.subscribe(listener)];
-    return () => { for (const stop of stops) stop(); };
-  },
-  read: () => !connectionStore.get().networkOnline || !liveSession()?.isConnected() ? t("boardMenu.offline")
-    : operationBusy() ? t("boardMenu.busy") : "",
-};
-
-/**
- * The repository's Worktrees in a dialog. Resolves once the list is read;
- * `closed` hears how the dialog went away, as the two forms below tell it:
- * true when a Worktree was opened from it, false when it was only put away.
- */
-export async function listSelectedWorktrees(closed?: (opened: boolean) => void): Promise<void> {
-  const session = liveSession();
-  const defaults = selectedWorktreeDefaults();
-  if (!session || !defaults || !capabilityEnabled("list_worktrees")) return closed?.(false);
-  const owner = operationOwner(session);
-  await showWorktrees(
-    async () => {
-      const result = await session.listWorktrees(defaults);
-      return ownsOperationView(owner) && capabilityEnabled("list_worktrees") ? result : { worktrees: [] };
-    },
-    capabilityEnabled("open_worktree")
-      ? async (item) => {
-          if (!ownsOperationView(owner) || !capabilityEnabled("open_worktree")) return;
-          try {
-            const input = openWorktreeFromSummary(defaults, item);
-            if (!input) throw new Error(t("err.worktreeNoTarget"));
-            const result = await session.openWorktree(input);
-            if (!ownsOperationView(owner)) return;
-            await selectCreatedPane(result, owner);
-            if (ownsOperationView(owner)) {
-              showStatus(t("op.openedWorktree"));
-              commitView();
-            }
-          } catch (error) {
-            await reconcileAmbiguousMutation(session, error, defaults);
-            if (error instanceof ProtocolError) throw new ProtocolError(error.code, messageOf(error));
-            throw error;
-          }
-        }
-      : undefined,
-    closed,
-  );
-}
-
-/**
- * New Worktree for the selected session's repository, asked from outside the
- * session panel: the panel's own form in a sheet of its own (`worktree-sheet`),
- * run in place at every width. `closed` hears how the form went away: true
- * when it closed on the Worktree it created, false when the reader put it away.
- */
-export async function createSelectedWorktree(closed?: (created: boolean) => void): Promise<void> {
-  const agent = selectedAgent();
-  if (!liveSession() || !agent || !selectedWorktreeDefaults(agent) || !capabilityEnabled("create_worktree")) return closed?.(false);
-  const created = await showWorktreeForm({ kind: "create", gate: operationGate, dir: agent.workspaceCwd || agent.cwd,
-    start: fields => createPaneWorktree(agent, fields) });
-  closed?.(created);
-}
-
-/**
- * Start the create job for the repository `input` names. The promise settles
- * with the job (`worktree-outcome`); null when no job could be started.
- */
-function startWorktree(input: CreateWorktreeInput): Promise<SheetOutcome> | null {
-  const session = liveSession();
-  const scope = worktreeScope(input.workspace_id, input.cwd);
-  if (!session || !scope || !capabilityEnabled("create_worktree")) return null;
-  const followed = followWorktreeJob(worktreeJobDriver(session, scope));
-  const job = startWorktreeJob(followed.driver, input);
-  if (job) return followed.outcome(job);
-  showError(t("op.worktreeJobLimit"));
-  commitView();
-  return null;
-}
-
-/**
- * Create a worktree the create sheet described, scoped by the repository
- * directory it names. Runs as the same background job card as the menu path.
- */
-export function createWorktreeFrom(input: CreateWorktreeInput): boolean {
-  return startWorktree(input) !== null;
-}
-
-/** Open a Worktree by path or branch, asked from outside the session panel; as `createSelectedWorktree`. */
-export async function openSelectedWorktree(closed?: (opened: boolean) => void): Promise<void> {
-  const agent = selectedAgent();
-  if (!liveSession() || !agent || !selectedWorktreeDefaults(agent) || !capabilityEnabled("open_worktree")) return closed?.(false);
-  const opened = await showWorktreeForm({ kind: "open", gate: operationGate, open: target => openPaneWorktree(agent, target) });
-  closed?.(opened);
 }
 
 export async function layoutSelectedPane(kind: "resize" | "swap" | "zoom", selected = selectedAgent(),

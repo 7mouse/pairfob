@@ -28,6 +28,8 @@ import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 const seedRestorer = new WorkspaceSnapshotRestorer();
 const revision = "a".repeat(64);
 const PATCH = "@@ -1,3 +1,3 @@\n keep\n-false\n+true\n tail\n";
+/** Every prompt sent to the pane's agent, in order. */
+const prompts: string[] = [];
 
 function liveFixture() {
   return {
@@ -58,6 +60,10 @@ function liveFixture() {
       items: [{ name: "main", kind: "local" as const, current: true, head: "1234567890", upstream: null }],
       truncated: false, revision,
     }),
+    promptAgent: async (input: { pane_id: string; text: string }) => {
+      prompts.push(input.text);
+      return { operation_id: `op-${prompts.length}` };
+    },
   };
 }
 
@@ -184,7 +190,7 @@ describe("a note written in the inspector", () => {
     const line = inColumn(".workspace-diff-line.diff-add");
     await press(line, "body");
 
-    expect(document.querySelector("dialog.diff-note-modal")).toBeNull();
+    expect(document.querySelector("dialog[open]")).toBeNull();
     const form = inColumn<HTMLFormElement>("form.diff-note-inline");
     expect(form.previousElementSibling === line).toBeTrue();
     expect(form.getAttribute("aria-label")).toBe("给第 2 行写批注");
@@ -296,6 +302,20 @@ describe("a note written in the inspector", () => {
     expect(held()).toBeTrue();
   });
 
+  test("Ctrl+Shift+Enter in the note saves it and sends the diff's notes, from inside the column", async () => {
+    await boot();
+    await openDiff();
+    prompts.length = 0;
+    await press(inColumn(".workspace-diff-line.diff-add"), "body");
+    await type(editor(), "why true");
+    const sent = await key(editor(), { key: "Enter", ctrlKey: true, shiftKey: true });
+    // The column answered it: the key did not go on to the page, where the session reads keys.
+    expect(sent.defaultPrevented).toBeTrue();
+    expect(column().querySelector("form.diff-note-inline")).toBeNull();
+    expect(prompts).toHaveLength(1);
+    expect(prompts[0]).toContain("why true");
+  });
+
   test("an empty note is refused and a half-written one is not dropped for another line", async () => {
     await boot();
     await openDiff();
@@ -345,7 +365,12 @@ describe("a note written in the inspector", () => {
 describe("focus after the inspector's overlays", () => {
   test("the branch sheet closes back into the column even when the press never focused its button", async () => {
     await boot();
-    await press(inColumn("button.workspace-repo-title"), "body");
+    await press(inColumn(".inspector-repo"), "body");
+    const menu = document.querySelector<HTMLDialogElement>("dialog.workspace-repo-menu[open]");
+    const branches = [...menu?.querySelectorAll<HTMLElement>("button") ?? []].find((button) => button.textContent?.includes("分支与 Worktree"));
+    if (!branches) throw new Error("the repository menu did not offer branches");
+    await press(branches, "body");
+    await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 10)); });
     const sheet = document.querySelector<HTMLDialogElement>("dialog.workspace-branch-sheet");
     if (!sheet) throw new Error("the branch sheet did not open");
     await press(sheet.querySelector<HTMLElement>(".sheet-close")!, "body");

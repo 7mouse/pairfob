@@ -16,7 +16,9 @@ import { tryAppRoot } from "./dom-root";
  * compose field, or the terminal in live input). Arriving in the list or the
  * inspector focuses its current item, else its first control. With no other
  * column on screen F6 steps between the session's input and its header, so the
- * buttons there are still within reach of Tab.
+ * buttons there are still within reach of Tab. From the line that sizes a
+ * column, which Tab also stops at, F6 goes on to the column after it and
+ * Shift+F6 back to the one before.
  */
 const COLUMNS = [".rail", ".main", ".inspector"] as const;
 
@@ -62,6 +64,14 @@ export function moveKeyboardToColumn(step: 1 | -1): void {
   const main = columns.find(column => column.matches(".main"));
   const active = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   const onPage = !active || active === document.body || active === document.documentElement;
+  // The line between two columns is in neither: from it, on is the column after it and back the one before.
+  if (active?.matches(".column-divider") && columns.length > 1) {
+    const after = columns.findIndex(column => active.compareDocumentPosition(column) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const before = after < 0 ? columns.length - 1 : after - 1;
+    const next = step > 0 ? columns[after < 0 ? 0 : after] : columns[(before + columns.length) % columns.length];
+    if (next) enterColumn(next);
+    return;
+  }
   const here = columns.find(column => column.contains(active)) ?? (onPage ? heldKeyboardZone() ?? main : undefined);
   const at = here instanceof HTMLElement ? columns.indexOf(here) : -1;
   if (columns.length > 1 || at < 0) {

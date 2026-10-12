@@ -47,6 +47,7 @@ import * as data from "./data";
 import { BUSY_AGENT_KINDS, BUSY_PINNED, busyPaneText, busySnapshot } from "./demo-data";
 import { resetAttachmentFixture, seedAttachmentTray } from "./attachments";
 import { openInspectorScene } from "./inspector-scenes";
+import { WIDE_PNG_PATH } from "./wide-image";
 import { paneScreen, wideScreen } from "./terminal-screens";
 
 /**
@@ -120,6 +121,8 @@ export const scenes: FixtureScene[] = [
   { name: "workspace-file", description: "Highlighted source file" },
   { name: "workspace-file-loading", description: "Pending source file skeleton" },
   { name: "workspace-changes", description: "Staged and working-tree groups" },
+  { name: "workspace-changes-many", description: "Fifteen changed files: a list longer than its column" },
+  { name: "workspace-image", description: "A 1600 by 900 picture in the viewer: fitted under its own size, so 100% and a double press have somewhere to go" },
   { name: "workspace-diff", description: "Working-tree source diff" },
   { name: "workspace-diff-loading", description: "Pending diff skeleton" },
   { name: "workspace-error", description: "Workspace read failure" },
@@ -140,6 +143,7 @@ export const scenes: FixtureScene[] = [
   { name: "inspector-chat-changes", description: "Inspector beside agent chat: staged and working-tree groups; supply 900 px or more" },
   { name: "inspector-chat-diff", description: "Inspector beside agent chat: working-tree source diff" },
   { name: "inspector-chat-diff-note", description: "Inspector diff with a saved line note waiting to be sent" },
+  { name: "inspector-chat-diff-many", description: "Inspector diff among sixteen: the file switcher offers its filter" },
   { name: "inspector-chat-file", description: "Inspector beside agent chat: highlighted source file" },
   { name: "inspector-chat-files", description: "Inspector beside agent chat: root file browser" },
   { name: "chat", description: "Streaming execution trace" },
@@ -186,6 +190,7 @@ export function sceneSource(name: string): SessionSource {
   if (name === "chat-needs-you") return { snapshot: blockedFocusedSnapshot, paneText: () => data.NEEDS_YOU_SCREEN };
   if (name === "home-herd-sessions") return { herdSessions: [{ name: null, running: true }, { name: "release", running: true }, { name: "scratch", running: false }] };
   if (TERMINAL_SCREENS[name]) return { terminalScreen: TERMINAL_SCREENS[name] };
+  if (name.endsWith("-many")) return { status: data.manyStatus };
   return BUSY_SCENES.has(name) ? { snapshot: busySnapshot, paneText: busyPaneText, agentKinds: BUSY_AGENT_KINDS } : {};
 }
 
@@ -491,14 +496,20 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     }
     await enterWorkspace(data.PANE);
     // Beside the list a first look opens on changes; these scenes are the files tab at any width.
-    if (name !== "workspace-changes" && !name.startsWith("workspace-diff") && getWorkspaceSnapshot().tab !== "files") showWorkspaceTab("files");
+    if (!name.startsWith("workspace-changes") && !name.startsWith("workspace-diff") && getWorkspaceSnapshot().tab !== "files") showWorkspaceTab("files");
     if (name === "workspace-directory") await loadDirectory("src");
     if (name === "workspace-file-loading") session.hold("workspaceRead");
     if (name.startsWith("workspace-file") && name !== "workspace-files") {
       const pending = loadWorkspaceFile("src/app.ts");
       if (name.endsWith("loading")) { void pending; await pendingReveal(); } else await pending;
     }
-    if (name === "workspace-changes" || name.startsWith("workspace-diff")) showWorkspaceTab("changes");
+    if (name === "workspace-image") {
+      await loadWorkspaceFile(WIDE_PNG_PATH);
+      // The picture is read after the file: the scene is the viewer with it drawn.
+      for (let attempt = 0; attempt < 400 && getWorkspaceSnapshot().media.status !== "ready"; attempt++) await new Promise((resolve) => setTimeout(resolve, 5));
+      if (getWorkspaceSnapshot().media.status !== "ready") throw new Error("QA workspace-image fixture never loaded its picture");
+    }
+    if (name.startsWith("workspace-changes") || name.startsWith("workspace-diff")) showWorkspaceTab("changes");
     if (name === "workspace-diff-loading") session.hold("gitDiff");
     if (name.startsWith("workspace-diff")) {
       const pending = loadGitDiff("src/app.ts", "worktree");

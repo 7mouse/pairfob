@@ -23,6 +23,8 @@ ${'<!-- full-file integrity padding -->'.repeat(4300)}
 </body></html>`;
 const files: Record<string, string> = {
   [PREVIEW_FILE]: html,
+  // The folder lists this page too: it opens as a page, not as the stand-in source of a file nobody wrote.
+  'public/index.html': '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Pairfob</title><link rel="stylesheet" href="./report.css"></head><body><h1>Pairfob</h1><p>The project\'s landing page.</p></body></html>',
   "public/report%20draft.html": html,
   "public/My Report.html": html,
   'public/report.css': '@import "./colors.css"; body { font: 16px system-ui; padding: 20px; margin: 0; } button, a { padding: 12px; display:inline-block; }',

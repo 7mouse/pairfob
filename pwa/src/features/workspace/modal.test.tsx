@@ -51,7 +51,7 @@ test("unmount releases a sheet and restores its trigger without a spurious dismi
   opener.remove();
 });
 
-test("a mouse beside the list opens the note editor and the branch sheet as the card; a finger keeps the sheet", async () => {
+test("a mouse beside the list opens the branch sheet as the card; a finger keeps the sheet", async () => {
   const release = bindOverlayOrigin(document);
   const press = (pointerType: string) => document.body.dispatchEvent(
     new happy.PointerEvent("pointerdown", { bubbles: true, pointerType }) as unknown as Event);
@@ -59,10 +59,6 @@ test("a mouse beside the list opens the note editor and the branch sheet as the 
   try {
     happy.happyDOM.setWindowSize({ width: 850, height: 700 });
     press("mouse");
-    renderReact(<WorkspaceDialog className="modal text-edit diff-note-modal" titleId="note-title" keepOnBackdrop
-      onDismiss={() => {}}><h2 id="note-title">Note</h2><textarea /></WorkspaceDialog>);
-    expect(dialog().className).toBe("modal text-edit diff-note-modal desk-form");
-    unmountReact();
     renderReact(<WorkspaceDialog className="modal sheet workspace-branch-sheet" title="Branches" titleId="branch-title" sheet
       onDismiss={() => {}}><button type="button">main</button></WorkspaceDialog>);
     await act(async () => { await Promise.resolve(); });

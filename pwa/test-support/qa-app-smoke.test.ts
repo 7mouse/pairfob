@@ -19,8 +19,8 @@ import { act } from "react";
  * (no WebGL/PTY): the open/frame/close lifecycle is production code. The two
  * `shellOnly` scenes deliberately render the standalone FullTerminalScreen
  * shell fixture without an engine. Coverage is reported honestly:
- * 103 scenes render through the stable App (including the 5 mock-engine
- * terminals), 2 shellOnly scenes render the QA shell fixture — all 105 catalog
+ * 106 scenes render through the stable App (including the 5 mock-engine
+ * terminals), 2 shellOnly scenes render the QA shell fixture — all 108 catalog
  * scenes are exercised here; the browser matrix remains the full visual
  * contract.
  *
@@ -195,7 +195,7 @@ function assertPaneRoot(expectedPane: string): void {
 }
 
 test("every QA scene id + untitled built", () => {
-  expect(scenes.length).toBe(105);
+  expect(scenes.length).toBe(108);
   const seen = new Set<string>();
   for (const scene of scenes) {
     expect(seen.has(scene.name)).toBeFalse();
@@ -204,7 +204,7 @@ test("every QA scene id + untitled built", () => {
   }
 });
 
-test("every scene renders: 103 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
+test("every scene renders: 106 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
   expect(domReady).toBeTrue();
   const failures: string[] = [];
   const appRendered: string[] = [];
@@ -259,8 +259,8 @@ test("every scene renders: 103 through the stable App (incl. mock-engine termina
   }
   expect(failures).toEqual([]);
   expect(shellRendered).toEqual(["terminal-loading", "terminal-error"]);
-  expect(appRendered).toHaveLength(103);
-  expect(appRendered.length + shellRendered.length).toBe(105);
+  expect(appRendered).toHaveLength(106);
+  expect(appRendered.length + shellRendered.length).toBe(108);
 }, 180_000);
 
 test("attention QA scenes show all statuses and runtime replacement without filter pills", async () => {
@@ -405,6 +405,11 @@ test("inspector scenes put the column beside the session at desk width, on their
       expect(column()?.querySelector(".workspace-notes-bar")).not.toBeNull();
       expect(diffNotes()).toHaveLength(1);
     },
+    "inspector-chat-diff-many": () => {
+      expect(column()?.querySelector(".workspace-diff-view")?.textContent).toContain("export function App()");
+      // Sixteen diffs: the stepper counts them, and the switcher will offer its filter.
+      expect(column()?.querySelector(".workspace-step-where")?.textContent).toContain("16");
+    },
     "inspector-chat-file": () => {
       expect(column()?.querySelector(".workspace-detail-view:not(.workspace-diff-view)")?.textContent).toContain("createRoot");
     },
@@ -415,7 +420,8 @@ test("inspector scenes put the column beside the session at desk width, on their
   expect(scenes.filter((scene) => scene.name.startsWith("inspector")).map((scene) => scene.name).sort()).toEqual(Object.keys(shown).sort());
   await atDeskWidth(async () => {
     for (const [name, assertShown] of Object.entries(shown)) {
-      const session = await prepareScene(name);
+      // A scene's own computer, where it has one (the working tree with many changes).
+      const session = await prepareScene(name, sceneSource(name));
       try {
         expect(inspectorOpen()).toBeTrue();
         expect(column()).not.toBeNull();
@@ -730,6 +736,6 @@ test("scene names and descriptions are documented for the window.qa surface", ()
   const names = scenes.map((scene) => scene.name);
   expect(names).toContain("terminal-loading");
   expect(names).toContain("terminal-error");
-  expect(names.length).toBe(105);
+  expect(names.length).toBe(108);
   for (const scene of scenes) expect(scene.description).toBeTruthy();
 });

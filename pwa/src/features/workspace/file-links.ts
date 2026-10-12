@@ -55,7 +55,7 @@ export async function openChatFile(value: string, owner: ReturnType<typeof captu
     else {
       parkComposeView();
       leaveAgentChat({ rememberGuided: false, paint: false });
-      await enterWorkspace(owner.paneId, 'agent');
+      await enterWorkspace(owner.paneId, 'agent', false, 'files');
     }
     if (!current()) return;
     const snap = getWorkspaceSnapshot();

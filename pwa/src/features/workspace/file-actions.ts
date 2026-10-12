@@ -12,6 +12,7 @@ import { clearWorkspaceError, loadGitDiff, markWorkspaceBrowser, refreshWorkspac
 import { noteRowRenamed } from "./focus-landing";
 import { fileNameProblem, gitMarks, layersFor } from "./git-marks";
 import { notifyWorkspaceApp } from "./navigation";
+import { forgetRecentFile } from "./recent-files";
 import { getWorkspaceSnapshot, invalidateWorkspaceFiles, setWorkspaceError, workspacePaneCwd } from "./store";
 import { ownFilesDialog } from "./surface-dialogs";
 import { workspacePresented } from "./surface";
@@ -45,6 +46,18 @@ export async function copyWorkspacePath(path: string): Promise<void> {
     showStatus(t("workspace.copied"));
   } catch {
     showError(t("workspace.copyFailed", { path: text }));
+  }
+}
+
+/** The repository's own root, as a shell accepts it. */
+export async function copyWorkspaceRoot(): Promise<void> {
+  const root = getWorkspaceSnapshot().descriptor?.root.replace(/(.)\/+$/, "$1");
+  if (!root) return;
+  try {
+    await navigator.clipboard.writeText(root);
+    showStatus(t("workspace.copied"));
+  } catch {
+    showError(t("workspace.copyFailed", { path: root }));
   }
 }
 
@@ -123,8 +136,11 @@ export function workspaceFileMutations(entry: WorkspaceEntry): { rename?: () => 
       if (liveSession() === session) notifyWorkspaceApp();
       return;
     }
+    const renamedPath = `${entry.path.slice(0, entry.path.length - entry.name.length)}${newName}`;
     // The row keeps the reader's place under its new name.
-    if (rename && !errorText) noteRowRenamed(entry.path, `${entry.path.slice(0, entry.path.length - entry.name.length)}${newName}`);
+    if (rename && !errorText) noteRowRenamed(entry.path, renamedPath);
+    // The recently opened list follows the file, or lets go of one that is gone.
+    if (!errorText) forgetRecentFile(root, entry.path, rename ? renamedPath : undefined);
     // Refresh even on an uncertain result; never replay the mutation.
     markWorkspaceBrowser();
     await refreshWorkspace();

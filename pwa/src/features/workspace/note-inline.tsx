@@ -8,28 +8,32 @@ import { diffNoteEditorTitle, diffNotePinKey, submitOnModEnter, useNoteEditor } 
 import { bumpWorkspaceNotes } from "./store";
 
 /**
- * A note written under its diff line in the inspector.
+ * A note written under its diff line.
  *
- * Beside the session a note is edited in place: the form opens under its line,
- * inside the column, so the keyboard never leaves the column for a dialog and
- * falls back to the session when that dialog closes. The workspace screen keeps
- * its text-edit sheet (`note-sheet`).
+ * A note is edited in place wherever its diff is shown, in the inspector
+ * beside the session and on the workspace screen alike: the form opens under
+ * its line, inside the diff, so the reader keeps the code they are writing
+ * about in front of them and the keyboard never leaves for a dialog.
  *
- * The note itself is held in `note-drafts`, not in the column's component
- * state: the column comes and goes with the window's width and the files
- * button, and a half-written note has to be there when the reader returns to
- * its line, here or on the workspace screen.
+ * The note itself is held in `note-drafts`, not in the diff's component state:
+ * the column comes and goes with the window's width and the files button, the
+ * screen with the session, and a half-written note has to be there when the
+ * reader returns to its line on either one.
  *
- * Escape leaves the form the way those do, without an answer: the words stay
- * and wait under the line as the card the screen shows (`note-parked`). Only
- * Cancel throws them away.
+ * Escape leaves the form without an answer: the words stay and wait under the
+ * line as a card that says it is not saved yet (`note-parked`). Only Cancel
+ * throws them away.
  *
  * The keyboard goes with the note as well. A column that leaves while the
  * reader is typing in the form (the tablet turned upright, the window dragged
  * narrow) takes the field away under the caret, and the session next door
- * picks the keys up. When the column brings the form back the field takes the
+ * picks the keys up. When the form is back on the page the field takes the
  * keyboard again, unless the reader has pressed or typed somewhere in between:
  * then they have moved on, and the note waits as any other does.
+ *
+ * Under an on-screen keyboard the form is kept clear of it: the page's box
+ * follows the visual viewport, and each time that box changes while the field
+ * has focus the form is brought back into view with its line.
  */
 
 /** Focus the mounted editor's field; null while no editor is mounted. */
@@ -94,8 +98,8 @@ export function useInlineNote(diffKey: string): InlineNote {
       if (!owner) return;
       // The same line again, or another line while this one is half written:
       // a press never drops what the reader is typing. They save or cancel
-      // it first, as the sheet's backdrop makes them do. A note that waits
-      // under its line is half written too, and any line leads back into it.
+      // it first. A note that waits under its line is half written too, and
+      // any line leads back into it.
       if (waiting) {
         resumeNote(key);
         return;
@@ -115,9 +119,47 @@ export function useInlineNote(diffKey: string): InlineNote {
 }
 
 /**
+ * The note open on the workspace screen's diff. The screen's Escape counts
+ * wherever focus is, <body> included (`escape`), so it asks here first: a note
+ * being written is what is on top, and is set aside before the diff closes.
+ */
+let screenNote: InlineNote | null = null;
+
+/** The screen's diff says which note it shows, for as long as it shows it. */
+export function useScreenNote(note: InlineNote): void {
+  useLayoutEffect(() => {
+    screenNote = note;
+    return () => { if (screenNote === note) screenNote = null; };
+  });
+}
+
+/** Set the screen's open note aside. False when it has none open. */
+export function setScreenNoteAside(): boolean {
+  if (!screenNote?.note) return false;
+  screenNote.setAside();
+  return true;
+}
+
+/**
+ * Escape pressed anywhere in a diff while a note is open on it: the note is
+ * what is on top, so it is set aside before the key closes anything else. The
+ * form answers its own Escape (`InlineNoteEditor`); this is for the rest of
+ * the diff, on the section that holds it.
+ */
+export function setOpenNoteAside(note: InlineNote, event: KeyboardEvent<HTMLElement>): void {
+  const key = event.nativeEvent;
+  if (!note.note || key.key !== "Escape" || key.defaultPrevented || key.isComposing
+    || key.altKey || key.ctrlKey || key.metaKey || key.shiftKey) return;
+  if (!event.currentTarget.contains(event.target as Node)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  note.setAside();
+}
+
+/**
  * The form under the line: the body, then cancel and save where the pointer
- * already is. Escape sets the note aside and Ctrl/⌘+Enter saves, as in the
- * sheet. The line itself stays visible above, so nothing here quotes it.
+ * already is. Escape sets the note aside and Ctrl/⌘+Enter saves. The line
+ * itself stays visible above, so nothing here quotes it.
  */
 export function InlineNoteEditor({ note, onClose, onSetAside }: {
   note: OpenNote; onClose: (changed: boolean) => void; onSetAside: () => void;
@@ -145,6 +187,15 @@ export function InlineNoteEditor({ note, onClose, onSetAside }: {
       form.current?.scrollIntoView?.({ block: "nearest" });
     };
     focusOpenNote = focus;
+    // An on-screen keyboard rises after the field has focus and takes the lower
+    // part of the page: the form, and the line above it, come back into view.
+    const viewport = window.visualViewport;
+    const keepClear = () => {
+      if (!form.current?.contains(document.activeElement)) return;
+      form.current.previousElementSibling?.scrollIntoView?.({ block: "nearest" });
+      form.current.scrollIntoView?.({ block: "nearest" });
+    };
+    viewport?.addEventListener("resize", keepClear);
     // A note the column brought back with it waits where it is: only the press
     // that opens one moves the keyboard into it, or the column returning with
     // the note the reader was typing in when it left.
@@ -157,6 +208,7 @@ export function InlineNoteEditor({ note, onClose, onSetAside }: {
       // Still attached here, and still focused if the form is leaving under the reader.
       if (!note.aside && form.current?.contains(document.activeElement)) keepKeyboardFor(note);
       textarea.removeEventListener("focus", notePlaced);
+      viewport?.removeEventListener("resize", keepClear);
       if (focusOpenNote === focus) focusOpenNote = null;
     };
   }, []);

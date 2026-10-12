@@ -1,15 +1,18 @@
 import { ChevronDown, Ellipsis, GitBranch, RefreshCw } from "lucide-react";
-import { useSyncExternalStore } from "react";
-import { ROOMY_QUERY } from "../../app/viewport";
 import { t } from "../../lib/i18n";
+import { workspaceBreadcrumbs } from "../../lib/workspace";
 import { BackButton, Button } from "../../shared/ui/primitives";
-import { closeWorkspaceDetail, leaveWorkspace, refreshWorkspace } from "./actions";
+import { closeWorkspaceDetail, leaveWorkspace, loadDirectory, refreshWorkspace } from "./actions";
 import { openDetailMenu } from "./detail-menu";
+import { DiffStepper } from "./diff-stepper";
+import { openPathSheet } from "./files";
 import { backLabel } from "./format";
 import type { WorkspaceSnapshot } from "./model";
+import { changeTotals, reviewProgress, useReviewVersion } from "./review-progress";
+import { useListBeside } from "./list-beside";
 
 /** `main ↑2 ↓1`, or `HEAD 1a2b3c4d` when detached. */
-function branchParts(snapshot: WorkspaceSnapshot): { branch: string; sync: string } | null {
+export function branchParts(snapshot: WorkspaceSnapshot): { branch: string; sync: string } | null {
   const git = snapshot.descriptor?.git;
   const status = snapshot.status;
   if (!git && !status) return null;
@@ -20,18 +23,55 @@ function branchParts(snapshot: WorkspaceSnapshot): { branch: string; sync: strin
   return { branch, sync };
 }
 
-/** The repository's name over its branch and root; a button to the branch sheet when the daemon lists branches. */
+function BranchLine({ snapshot }: { snapshot: WorkspaceSnapshot }) {
+  const parts = branchParts(snapshot);
+  if (!parts) return null;
+  return <>
+    <GitBranch className="workspace-subline-icon" size={12} aria-hidden="true" />
+    <span className="workspace-subline-branch">{parts.branch}</span>
+    {parts.sync && <span className="workspace-subline-sync">{parts.sync}</span>}
+  </>;
+}
+
+/**
+ * The changes tab's summary, in the subtitle where the board keeps its own
+ * ("1 waiting · 1 done"): the lines the changes add and remove, once every
+ * one of them is known (a sum of some is not shown as the total), and how many
+ * of the diffs have been seen. It counts diffs, as the list's group titles and
+ * the stepper do (a file changed in both layers is two); the tab's badge
+ * already says how many files changed.
+ */
+export function ChangesSummary({ snapshot, lead }: { snapshot: WorkspaceSnapshot; lead: boolean }) {
+  useReviewVersion();
+  if (!snapshot.status || !snapshot.descriptor?.features.git_status) return null;
+  const progress = reviewProgress(snapshot);
+  if (!progress.total) return null;
+  const totals = changeTotals(snapshot);
+  return <>
+    {lead && <span className="workspace-subline-sep" aria-hidden="true">·</span>}
+    {totals && (totals.additions > 0 || totals.deletions > 0) && <span className="workspace-subline-totals">
+      {totals.additions > 0 && <span className="workspace-additions">{t("workspace.additions", { count: totals.additions })}</span>}
+      {totals.deletions > 0 && <span className="workspace-deletions">{t("workspace.deletions", { count: totals.deletions })}</span>}
+    </span>}
+    <span className={`workspace-subline-reviewed${progress.seen === progress.total ? " is-done" : ""}`}>
+      {t("workspace.reviewedCount", { seen: progress.seen, total: progress.total })}
+    </span>
+  </>;
+}
+
+/**
+ * The repository's name over its branch, how much of its changes is seen, and
+ * its root (which gives way first where the line is short); a button to the
+ * branch sheet when the daemon lists branches.
+ */
 export function RepoTitle({ snapshot, onBranches }: { snapshot: WorkspaceSnapshot; onBranches: () => void }) {
   const name = snapshot.descriptor?.name || t("workspace.title");
   const root = snapshot.descriptor?.root || "";
   const parts = branchParts(snapshot);
   const line = <span className="workspace-subline">
-    {parts && <>
-      <GitBranch className="workspace-subline-icon" size={12} aria-hidden="true" />
-      <span className="workspace-subline-branch">{parts.branch}</span>
-      {parts.sync && <span className="workspace-subline-sync">{parts.sync}</span>}
-      <span className="workspace-subline-sep" aria-hidden="true">·</span>
-    </>}
+    <BranchLine snapshot={snapshot} />
+    <ChangesSummary snapshot={snapshot} lead={Boolean(parts)} />
+    {parts && <span className="workspace-subline-sep" aria-hidden="true">·</span>}
     <span className="workspace-root">{root}</span>
   </span>;
   if (!snapshot.descriptor?.features.git_branches) {
@@ -44,6 +84,25 @@ export function RepoTitle({ snapshot, onBranches }: { snapshot: WorkspaceSnapsho
   </Button>;
 }
 
+/**
+ * The files tab inside a folder, on one screen at a time: the folder's name
+ * over its path. The path opens the jump sheet, as the folded trail does
+ * beside the list; Back climbs one level (`WorkspaceHeader`).
+ */
+function FolderTitle({ snapshot }: { snapshot: WorkspaceSnapshot }) {
+  const rootLabel = snapshot.descriptor?.name || t("workspace.root");
+  const crumbs = workspaceBreadcrumbs(snapshot.directory);
+  const current = crumbs[crumbs.length - 1];
+  const trail = crumbs.slice(0, -1).map((crumb) => crumb.path ? crumb.label : rootLabel).join(" / ");
+  // The name it shows is part of what it is called: "src, go to another folder".
+  return <Button className="workspace-title workspace-folder-title is-button" aria-label={t("workspace.jumpFrom", { name: current?.label || rootLabel })} aria-haspopup="dialog"
+    onClick={() => openPathSheet(snapshot, rootLabel)}>
+    <strong className="workspace-name">{current?.label || rootLabel}</strong>
+    <span className="workspace-subline-row"><span className="workspace-subline"><span className="workspace-root">{trail}</span></span>
+      <ChevronDown className="workspace-subline-open" size={12} aria-hidden="true" /></span>
+  </Button>;
+}
+
 function DetailTitle({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   const path = snapshot.file?.path || snapshot.diff?.path || snapshot.detailPath;
   const cut = path.lastIndexOf("/");
@@ -53,44 +112,42 @@ function DetailTitle({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   </div>;
 }
 
-function subscribeSideBySide(listener: () => void): () => void {
-  if (typeof window.matchMedia !== "function") return () => {};
-  const media = window.matchMedia(ROOMY_QUERY);
-  media.addEventListener("change", listener);
-  return () => media.removeEventListener("change", listener);
-}
-
-const sideBySide = (): boolean => typeof window.matchMedia === "function" && window.matchMedia(ROOMY_QUERY).matches;
-
 /**
- * The screen shows the list and the open file together. The style sheet makes
- * that arrangement on the same query (`workspace.scss`), so the header and the
- * layout change together.
- */
-function useSideBySide(): boolean {
-  return useSyncExternalStore(subscribeSideBySide, sideBySide);
-}
-
-/**
- * Browse: back to the session, the repository title (opens branches), refresh.
- * Detail on a phone: back to the list, the file's name over its folder, ⋯.
- * Side by side the list never left, so back has only the session to go to;
- * the header keeps the repository and puts ⋯ on the detail pane.
+ * Browse: back to the session, the repository title (opens branches, and says
+ * how much of the changes is seen), refresh. One screen at a time (a window under 900px) the title follows the
+ * tab: the changes tab keeps the repository; the files tab inside a folder names the folder, and
+ * Back climbs to its parent before it leaves for the session, so the list
+ * needs no trail of its own there. Detail, one screen at a time: back to the list, the
+ * file's name over its folder, ⋯; an open diff has the stepper from file to
+ * file where a file has refresh. Side by side the list never left, so back
+ * has only the session to go to; the header keeps the repository and puts ⋯
+ * on the detail pane.
  */
 export function WorkspaceHeader({ snapshot, onBranches }: { snapshot: WorkspaceSnapshot; onBranches: () => void }) {
   const detail = snapshot.view !== "browser";
-  const together = useSideBySide();
+  const together = useListBeside();
   /** One pane at a time and the detail is on top: back uncovers the list. */
   const stacked = detail && !together;
-  return <header className={`workspace-chrome${detail ? " is-detail" : ""}`}>
-    <BackButton onBack={() => stacked ? closeWorkspaceDetail() : leaveWorkspace()}
-      label={stacked ? t("workspace.closeDetail") : backLabel(snapshot.returnView)} />
-    <RepoTitle snapshot={snapshot} onBranches={onBranches} />
+  const inFolder = !detail && !together && snapshot.tab === "files" && snapshot.directory !== "";
+  const parent = inFolder ? workspaceBreadcrumbs(snapshot.directory).at(-2)?.path ?? "" : null;
+  const back = () => {
+    if (stacked) closeWorkspaceDetail();
+    else if (parent !== null) void loadDirectory(parent);
+    else leaveWorkspace();
+  };
+  const backTitle = stacked ? t("workspace.closeDetail") : parent !== null ? t("workspace.upDir") : backLabel(snapshot.returnView);
+  return <header className={`workspace-chrome${detail ? " is-detail" : ""}${inFolder ? " is-folder" : ""}`}>
+    {/* Up stays under the pointer (BackButton guards the tap): a doubled press would climb two folders. */}
+    <BackButton onBack={back} label={backTitle} />
+    {inFolder ? <FolderTitle snapshot={snapshot} /> : <RepoTitle snapshot={snapshot} onBranches={onBranches} />}
     {detail && <DetailTitle snapshot={snapshot} />}
     <div className="workspace-actions">
-      <Button className="icon-btn workspace-refresh" aria-label={t("workspace.refresh")} disabled={snapshot.loading} onClick={refreshWorkspace}>
-        <RefreshCw size={18} aria-hidden="true" />
-      </Button>
+      {/* A diff with the page to itself: from file to file here, and refresh waits in ⋯ beside it. */}
+      {stacked && snapshot.view === "diff"
+        ? <DiffStepper snapshot={snapshot} />
+        : <Button className="icon-btn workspace-refresh" aria-label={t("workspace.refresh")} disabled={snapshot.loading} onClick={refreshWorkspace}>
+          <RefreshCw size={18} aria-hidden="true" />
+        </Button>}
       {detail && <Button className="icon-btn workspace-detail-more" aria-label={t("workspace.moreActions")} aria-haspopup="dialog"
         onClick={() => openDetailMenu()}><Ellipsis size={20} aria-hidden="true" /></Button>}
     </div>

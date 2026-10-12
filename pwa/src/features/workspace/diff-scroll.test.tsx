@@ -76,15 +76,34 @@ describe("DiffScroller key lifecycle", () => {
     expect(next.scrollLeft).toBe(3);
   });
 
+  test("a file of the same name in another pane or repository starts at its own top", () => {
+    const show = (memory: string) => {
+      act(() => { root.render(<DiffScroller diffKey="README.md:worktree" memory={memory}>body</DiffScroller>); });
+      return host.querySelector<HTMLElement>(".workspace-diff")!;
+    };
+    const el = show("/work/a\np1\nREADME.md:worktree");
+    el.scrollTop = 77;
+    el.dispatchEvent(new window.Event("scroll"));
+    act(() => { root.render(null); });
+    expect(show("/work/b\np2\nREADME.md:worktree").scrollTop).toBe(0);
+    act(() => { root.render(null); });
+    // Its own diff, left a moment ago, is where it was left.
+    const back = show("/work/b\np2\nREADME.md:worktree");
+    back.scrollTop = 12;
+    back.dispatchEvent(new window.Event("scroll"));
+    act(() => { root.render(null); });
+    expect(show("/work/b\np2\nREADME.md:worktree").scrollTop).toBe(12);
+  });
+
   test("same mounted DiffDetail a.ts to b.ts does not keep scroll under the new key", () => {
-    act(() => { root.render(<DiffDetail snapshot={diffSnapshot("a.ts")} onEditNote={() => {}} />); });
+    act(() => { root.render(<DiffDetail snapshot={diffSnapshot("a.ts")} />); });
     const before = host.querySelector<HTMLElement>(".workspace-diff")!;
     before.scrollTop = 99;
     before.scrollLeft = 8;
     before.dispatchEvent(new window.Event("scroll"));
-    act(() => { root.render(<DiffDetail snapshot={diffSnapshot("b.ts")} onEditNote={() => {}} />); });
+    act(() => { root.render(<DiffDetail snapshot={diffSnapshot("b.ts")} />); });
+    // Another patch is another list of lines: it starts at its own top, whatever the last one was left at.
     const after = host.querySelector<HTMLElement>(".workspace-diff")!;
-    expectSameNode(after, before);
     expect(after.dataset.diffKey).toBe("b.ts:worktree");
     expect(after.scrollTop).toBe(0);
     expect(after.scrollLeft).toBe(0);

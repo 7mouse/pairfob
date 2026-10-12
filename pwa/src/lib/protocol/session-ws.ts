@@ -20,6 +20,8 @@ import {
   parseZoomPaneResult,
   advertisesTraceLabels,
   advertisesTraceTimes,
+  advertisesTraceWrites,
+  advertisesChangeStats,
   advertisesTraceMarkers,
   advertisesUploadV2,
   fitOperationPrompt,
@@ -72,6 +74,7 @@ import {
   parseWorkspaceDescriptor,
   parseWorkspaceDirectory,
   parseWorkspaceFile,
+  parseWorkspaceSearch,
   parseWorkspaceMutation,
   type GitLayer,
 } from "../workspace.ts";
@@ -150,7 +153,7 @@ class ReconnectingSession implements LiveSession {
   private readonly relayWarmup: RelayWarmup;
   private unwatchVisibility: () => void = () => undefined;
   private readonly agentTraceRPC = new AgentTraceRPC((op, params) => this.readRPC(op, params),
-    () => this.traceMarkers, () => this.traceLabels, () => this.traceTimes);
+    () => this.traceMarkers, () => this.traceLabels, () => this.traceTimes, () => this.traceWrites);
   // The Herdr session this connection targets; null is the default socket.
   // It belongs to this connection, so a pooled computer keeps its own choice.
   private herdSessionName: string | null = null;
@@ -167,6 +170,9 @@ class ReconnectingSession implements LiveSession {
   private traceMarkers = false;
   private traceLabels = false;
   private traceTimes = false;
+  private traceWrites = false;
+  /** git_change_stats: GitStatus is asked for line counts and modification times. */
+  private changeStats = false;
   private configRequest = 0;
   // Bumped synchronously at every switch begin, so an upload paused in a probe
   // wait is invalidated even by a switch that fails and returns the same
@@ -320,6 +326,8 @@ class ReconnectingSession implements LiveSession {
         this.traceMarkers = advertisesTraceMarkers(result);
         this.traceLabels = advertisesTraceLabels(result);
         this.traceTimes = advertisesTraceTimes(result);
+        this.traceWrites = advertisesTraceWrites(result);
+        this.changeStats = advertisesChangeStats(result);
       }
       // Guard failure assigns nothing: a newer result/epoch must survive.
       return result;
@@ -388,12 +396,15 @@ class ReconnectingSession implements LiveSession {
     this.agentTraceRPC.read(paneId, cursor, limit);
   agentTraceDetail = async (paneId: string, detailRef: string): Promise<AgentTraceDetail> =>
     this.agentTraceRPC.detail(paneId, detailRef);
+  agentTurnWrites = (paneId: string) => this.agentTraceRPC.turnWrites(paneId);
   listWorktrees = (params: ListWorktreesInput) => this.readRPC("ListWorktrees", params);
   workspaceRename = (paneId: string, root: string, path: string, newName: string, size: number, modifiedMS: number, revision: string) =>
     this.parsedMutation("WorkspaceRename", { pane_id: paneId, root, path, new_name: newName, size, modified_ms: modifiedMS, revision }, parseWorkspaceMutation);
   workspaceDelete = (paneId: string, root: string, path: string, size: number, modifiedMS: number, revision: string) =>
     this.parsedMutation("WorkspaceDelete", { pane_id: paneId, root, path, size, modified_ms: modifiedMS, revision }, parseWorkspaceMutation);
   workspaceResolve = async (paneId: string, root: string, path: string) => parseWorkspaceReference(await this.readRPC("WorkspaceResolve", { pane_id: paneId, root, path }));
+  workspaceSearch = async (paneId: string, root: string, query: string, limit = 30) =>
+    parseWorkspaceSearch(await this.readRPC("WorkspaceSearch", { pane_id: paneId, root, query, limit }), query);
   workspaceOpen = async (paneId: string) => parseWorkspaceDescriptor(await this.readRPC("WorkspaceOpen", { pane_id: paneId }));
   workspaceList = async (paneId: string, path = "", cursor = "", limit = 120, root?: string) =>
     parseWorkspaceDirectory(await this.readRPC(root === undefined ? "WorkspaceList" : "WorkspaceListAtRoot", { pane_id: paneId, path, cursor, limit, ...(root === undefined ? {} : { root }) }));
@@ -425,7 +436,10 @@ class ReconnectingSession implements LiveSession {
     parseUploadStateV2(await this.mutationRPC("WorkspaceUploadCommitV2", withOperationID({ pane_id: paneId, upload_id: uploadId })), uploadId);
   workspaceUploadCancelV2 = async (paneId: string, uploadId: string): Promise<UploadState> =>
     parseUploadStateV2(await this.mutationRPC("WorkspaceUploadCancelV2", withOperationID({ pane_id: paneId, upload_id: uploadId })), uploadId);
-  gitStatus = async (paneId: string) => parseGitStatus(await this.readRPC("GitStatus", { pane_id: paneId }));
+  gitStatus = async (paneId: string) => {
+    const stats = this.changeStats;
+    return parseGitStatus(await this.readRPC("GitStatus", { pane_id: paneId, ...(stats ? { stats: true } : {}) }), stats);
+  };
   gitDiff = async (paneId: string, path: string, layer: GitLayer) =>
     parseGitDiff(await this.readRPC("GitDiff", { pane_id: paneId, path, layer }));
   gitBranches = async (paneId: string) => parseGitBranches(await this.readRPC("GitBranches", { pane_id: paneId }));

@@ -1,7 +1,9 @@
 import { useEffect, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { currentScreen } from "../../app/navigation-store";
 import { closeWorkspaceDetail, leaveWorkspace } from "./actions";
+import { closeOpenFind } from "./file-find";
 import { closeWorkspaceInspector } from "./inspector";
+import { setScreenNoteAside } from "./note-inline";
 import { getWorkspaceSnapshot } from "./store";
 
 /**
@@ -9,8 +11,9 @@ import { getWorkspaceSnapshot } from "./store";
  *
  * A menu, sheet or dialog is in the top layer and closes itself. A note being
  * written under its line takes the key in its own form and is set aside
- * (`note-inline`). Below those the surface answers: an open file or diff closes
- * back to the list, and the list closes the surface, back to the session: the
+ * (`note-inline`); on the files screen it is set aside wherever the key was
+ * pressed. A find row open over a file closes next, and the file stays. Below
+ * those the surface answers: an open file or diff closes back to the list, and the list closes the surface, back to the session: the
  * inspector's column, or the files screen.
  *
  * The inspector answers only while focus is inside it. The session is right
@@ -29,6 +32,10 @@ export function plainEscape(event: Key): boolean {
 const OVERLAYS = "dialog, [popover], [role='dialog'], [role='menu'], [role='listbox']";
 
 function closeTop(surface: "screen" | "column"): void {
+  // On the screen a note being written is on top of its diff, wherever focus is.
+  if (surface === "screen" && setScreenNoteAside()) return;
+  // The find row is on top of its file, wherever in the file the key was pressed.
+  if (closeOpenFind()) return;
   if (getWorkspaceSnapshot().view !== "browser") closeWorkspaceDetail();
   else if (surface === "screen") leaveWorkspace();
   else closeWorkspaceInspector();

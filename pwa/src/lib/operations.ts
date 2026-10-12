@@ -23,6 +23,9 @@ export const OPERATION_CAPABILITY_KEYS = [
   "trace_markers",
   "trace_labels",
   "trace_times",
+  "trace_writes",
+  "git_change_stats",
+  "search_files",
 ] as const;
 
 export type OperationCapability = typeof OPERATION_CAPABILITY_KEYS[number];
@@ -50,6 +53,9 @@ export const NO_OPERATION_CAPABILITIES: OperationCapabilities = {
   trace_markers: false,
   trace_labels: false,
   trace_times: false,
+  trace_writes: false,
+  git_change_stats: false,
+  search_files: false,
 };
 
 export const OPERATION_INPUT_LIMITS = {
@@ -71,6 +77,16 @@ export function fitOperationPrompt(value: string): { text: string; truncated: bo
 /** Whether a raw GetConfig response lets AgentTraceSummary stamp items with their record time. */
 export function advertisesTraceTimes(config: unknown): boolean {
   return isRecord(config) && isRecord(config.capabilities) && config.capabilities.trace_times === true;
+}
+
+/** Whether a raw GetConfig response lets AgentTraceSummary name the files an edit tool wrote. */
+export function advertisesTraceWrites(config: unknown): boolean {
+  return isRecord(config) && isRecord(config.capabilities) && config.capabilities.trace_writes === true;
+}
+
+/** Whether a raw GetConfig response lets GitStatus add each change's line counts and modification time. */
+export function advertisesChangeStats(config: unknown): boolean {
+  return isRecord(config) && isRecord(config.capabilities) && config.capabilities.git_change_stats === true;
 }
 
 /** Whether a raw GetConfig response lets AgentTraceSummary label tool steps and report real failures. */
@@ -389,7 +405,7 @@ export function parseRuntimeOperationsConfig(value: unknown): RuntimeOperationsC
 	const rawCapabilities = isRecord(config.capabilities) ? config.capabilities : {};
 	const capabilities = { ...NO_OPERATION_CAPABILITIES };
 	const capabilityKeys = Object.keys(rawCapabilities);
-	const optionalCapabilities = new Set(["agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times"]);
+	const optionalCapabilities = new Set(["agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_writes", "git_change_stats", "search_files"]);
 	const capabilitiesValid = capabilityKeys.every((key) => (OPERATION_CAPABILITY_KEYS as readonly string[]).includes(key))
 		&& OPERATION_CAPABILITY_KEYS.every((key) => typeof rawCapabilities[key] === "boolean"
       || (optionalCapabilities.has(key) && !(key in rawCapabilities)));

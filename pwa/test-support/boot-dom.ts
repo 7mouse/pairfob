@@ -38,4 +38,25 @@ export async function resetTestDOM(): Promise<void> {
   if (bound && (bound.ownerDocument !== document || !bound.isConnected)) {
     document.body.append(bound);
   }
+  // What the files screen remembers on this device (recently opened files, diffs
+  // already seen, whether long lines wrap) is module state as well as storage: one case must not hand it
+  // to the next.
+  const { resetRecentFiles } = await import("../src/features/workspace/recent-files");
+  const { resetReviewProgress } = await import("../src/features/workspace/review-progress");
+  const { resetWorkspaceWrap, resetPreviewWidth } = await import("../src/features/workspace/prefs");
+  const { resetTurnWrites } = await import("../src/features/workspace/turn-writes");
+  resetRecentFiles();
+  resetReviewProgress();
+  resetWorkspaceWrap();
+  resetPreviewWidth();
+  resetTurnWrites();
+  // Column widths the reader dragged: the list beside the open file, the inspector beside the session.
+  const { resetWorkspaceListWidth } = await import("../src/features/workspace/prefs");
+  const { resetInspectorWidth } = await import("../src/app/layout/inspector-width");
+  resetWorkspaceListWidth();
+  resetInspectorWidth();
+  const { resetSplitChosen } = await import("../src/features/workspace/diff-layout");
+  const { resetDiffMemory } = await import("../src/features/workspace/diff");
+  resetSplitChosen();
+  resetDiffMemory();
 }

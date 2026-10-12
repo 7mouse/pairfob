@@ -99,12 +99,12 @@ function rowContaining(text: string): HTMLElement {
 async function addNote(row: HTMLElement, body: string): Promise<void> {
   act(() => row.click());
   await settle();
-  const dialog = document.querySelector("dialog.diff-note-modal");
-  if (!dialog) throw new Error("note editor dialog did not open");
+  const dialog = document.querySelector<HTMLFormElement>("form.diff-note-inline");
+  if (!dialog) throw new Error("the note form did not open under its line");
   const textarea = dialog.querySelector("textarea");
   if (!textarea) throw new Error("note editor has no textarea");
   textarea.value = body;
-  const form = dialog.querySelector("form");
+  const form = dialog;
   if (!form) throw new Error("note editor has no form");
   act(() => { form.dispatchEvent(new happy.Event("submit", { bubbles: true, cancelable: true })); });
   await settle();
@@ -213,7 +213,7 @@ describe("diff notes batch send", () => {
     await openDiff();
     act(() => rowContaining("false").click());
     await settle();
-    expect(document.querySelector("dialog.diff-note-modal")).toBeNull();
+    expect(document.querySelector<HTMLFormElement>("form.diff-note-inline")).toBeNull();
     expect(app.querySelector(".diff-comment-btn")).toBeNull();
     expect(app.querySelector(".workspace-diff-hint")).toBeNull();
     expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(0);
@@ -258,24 +258,37 @@ describe("diff notes batch send", () => {
     expect(app.querySelector(".workspace-diff-hint")).toBeNull();
   });
 
-  test("opens the editor with the line quote above the field", async () => {
+  test("opens the editor under the line it is about, named for that line", async () => {
     await boot(liveFixture(), { prompt_agent: true, hasAgent: true });
     await openDiff();
-    act(() => rowContaining("false").click());
+    const line = rowContaining("false");
+    act(() => line.click());
     await settle();
-    const dialog = document.querySelector("dialog.diff-note-modal");
-    expect(dialog?.getAttribute("aria-labelledby")).toBeTruthy();
-    expect(dialog?.querySelector(".modal-title")?.textContent).toContain("第 2 行");
-    const quote = dialog?.querySelector(".diff-note-quote");
-    const field = dialog?.querySelector(".diff-note-body-field");
-    expect(quote?.textContent).toContain("第 2 行（旧）");
-    expect(quote?.textContent).toContain("false");
-    expect(quote && field && Boolean(quote.compareDocumentPosition(field) & Node.DOCUMENT_POSITION_FOLLOWING)).toBeTrue();
-    act(() => { dialog?.querySelector("form")?.dispatchEvent(new happy.Event("submit", { bubbles: true, cancelable: true })); });
+    const form = document.querySelector<HTMLFormElement>("form.diff-note-inline");
+    // No dialog covers the diff: the line stays in view above its form, so nothing has to quote it.
+    expect(document.querySelector("dialog[open]")).toBeNull();
+    expect(form?.getAttribute("aria-label")).toContain("第 2 行");
+    expect(form?.previousElementSibling === rowContaining("false")).toBeTrue();
+    expect(form?.querySelector(".diff-note-quote")).toBeNull();
+    act(() => { form?.dispatchEvent(new happy.Event("submit", { bubbles: true, cancelable: true })); });
     await settle();
-    const textarea = document.querySelector<HTMLTextAreaElement>("dialog.diff-note-modal textarea");
+    const textarea = document.querySelector<HTMLTextAreaElement>("form.diff-note-inline textarea");
     expect(textarea?.getAttribute("aria-invalid")).toBe("true");
-    expect(document.querySelector("dialog.diff-note-modal .notice-error")?.textContent).toContain("先写一条批注");
+    expect(document.querySelector("form.diff-note-inline .notice-error")?.textContent).toContain("先写一条批注");
+  });
+
+  test("marks the lines that take a note with a pencil, and only those", async () => {
+    await boot(liveFixture(), { prompt_agent: true, hasAgent: true });
+    await openDiff();
+    const noteable = [...app.querySelectorAll(".workspace-diff-line.diff-noteable")];
+    expect(noteable.length).toBe(4);
+    for (const line of noteable) expect(line.querySelector(".diff-line-hint svg")).toBeTruthy();
+    // A hunk header takes no note and carries no pencil.
+    expect(app.querySelector(".workspace-diff-hunk")).toBeTruthy();
+    expect(app.querySelector(".workspace-diff-hunk .diff-line-hint")).toBeNull();
+    // The pencil is a sign, not a second control: the line and its number are the ways in.
+    expect(app.querySelector(".diff-line-hint")?.getAttribute("aria-hidden")).toBe("true");
+    expect(app.querySelectorAll(".diff-line-hint button")).toHaveLength(0);
   });
 
   test("keeps the diff scroller in place after saving a comment", async () => {

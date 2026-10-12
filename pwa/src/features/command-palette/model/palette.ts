@@ -48,10 +48,25 @@ export type PaletteAction = {
   disabled: boolean;
 };
 
-export type PaletteItem = PaletteSession | PaletteAction;
+/**
+ * A file of the open session's workspace that answers the query. The
+ * application finds these on the computer (`ports.files`); the palette only
+ * lists what it is handed, under the sessions.
+ */
+export type PaletteFile = {
+  type: "file";
+  key: string;
+  /** Relative to the workspace root. */
+  path: string;
+  name: string;
+  /** The folder it is in; empty at the root. */
+  folder: string;
+};
+
+export type PaletteItem = PaletteSession | PaletteAction | PaletteFile;
 
 export type PaletteSection = {
-  id: "waiting" | "recent" | "sessions" | "actions";
+  id: "waiting" | "recent" | "sessions" | "files" | "actions";
   title: string;
   items: PaletteItem[];
 };
@@ -168,9 +183,10 @@ function view(sections: PaletteSection[]): PaletteView {
  * opening the palette and pressing Enter goes to the next one; then the sessions
  * the reader opened last, then the actions. A query filters sessions and
  * actions; a workspace is found through its sessions, which match on its name
- * and path.
+ * and path. `files` are the open workspace's files the application found for
+ * this query; they are listed as given, between the sessions and the actions.
  */
-export function buildPalette(input: PaletteInput, rawQuery: string): PaletteView {
+export function buildPalette(input: PaletteInput, rawQuery: string, files: readonly PaletteFile[] = []): PaletteView {
   const entries = sessionEntries(input);
   const actions = paletteActions(input.view);
   const query = normalize(rawQuery);
@@ -204,12 +220,19 @@ export function buildPalette(input: PaletteInput, rawQuery: string): PaletteView
     .map((match) => match.action);
   return view([
     ...section("sessions", t("palette.sessions"), sessions),
+    ...section("files", t("palette.files"), [...files]),
     ...section("actions", t("palette.actions"), matchedActions),
   ]);
 }
 
 function runnable(item: PaletteItem): boolean {
-  return item.type === "session" || !item.disabled;
+  return item.type !== "action" || !item.disabled;
+}
+
+/** A found file as a palette row. */
+export function paletteFile(path: string): PaletteFile {
+  const cut = path.lastIndexOf("/");
+  return { type: "file", key: `file:${path}`, path, name: path.slice(cut + 1), folder: cut >= 0 ? path.slice(0, cut) : "" };
 }
 
 /** The item Enter acts on: the highlighted one while it is still listed and runnable, else the first that is. */

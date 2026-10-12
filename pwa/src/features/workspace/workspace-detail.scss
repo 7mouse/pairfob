@@ -1,5 +1,6 @@
-/* Workspace detail views: the info bar, file source with line numbers, the diff with its
-   one-column gutter, diff notes, the notes bar and receipt, the stepper and the note editor. */
+/* Workspace detail views: the info bar, file source with line numbers, the lines of a diff,
+   diff notes, the notes bar and receipt, and the note editor. What stands around the lines
+   (hunks, the two-column gutter, the two sides, the bar's tools) is in the diff partial. */
 
 .workspace-detail-view {
   display: flex;
@@ -104,7 +105,65 @@
 .workspace-additions { color: var(--ok); }
 .workspace-deletions { color: var(--error); }
 
+/* --- Find in the file: a row under the info bar ------------------------------------- */
+
+.workspace-find {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 46px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex: none;
+}
+/* The field's target is the whole height of the row; the field drawn in it stays a field's size. */
+.workspace-find-box { display: flex; align-items: center; align-self: stretch; flex: 1 1 auto; min-width: 0; }
+.workspace-find-field {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: #0e1218;
+  color: var(--ink);
+  /* 16px: a smaller field makes iOS zoom the page on focus. */
+  font: 400 16px/1 var(--font);
+}
+.workspace-find-field::-webkit-search-cancel-button { display: none; }
+.workspace-find-field:focus { border-color: var(--accent); outline: none; box-shadow: var(--focus-ring); }
+.workspace-find-count {
+  min-width: 3.2em;
+  padding: 0 4px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+  flex: none;
+}
+.workspace-find-count.is-none { color: var(--warn); }
+@media (hover: hover) and (pointer: fine) {
+  .workspace-find { min-height: 40px; }
+  .workspace-find-field { height: 28px; font-size: var(--text-secondary); }
+}
+
+/* What must be read before the text: the file or the patch was cut short. */
+.workspace-limit.is-lead { padding-bottom: 9px; border-top: 0; border-bottom: 1px solid var(--line); }
+
 /* --- Source ------------------------------------------------------------------------ */
+
+/* The code and what floats over it (a picked line's actions) share one positioned box,
+   so the bar never takes a line away from the file. */
+.workspace-code-stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
 
 .workspace-code {
   flex: 1;
@@ -114,12 +173,17 @@
   padding: 10px 0 calc(22px + env(safe-area-inset-bottom, 0px));
   overflow: auto;
   color: var(--term-ink);
+  /* One reading size with the terminal: its per-device size (--term-fs) is the
+     floor here too, so a reader who enlarged the terminal reads code as large. */
   font: 0.76rem/1.6 var(--mono);
+  font-size: max(0.76rem, var(--term-fs, 12px));
   tab-size: 2;
   white-space: pre;
   counter-reset: source-line;
   -webkit-overflow-scrolling: touch;
 }
+/* The code is a stop of the keyboard (the arrows pick its lines): its ring stays inside its box. */
+.workspace-code:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .workspace-highlight { display: block; width: max-content; min-width: 100%; }
 /* Numbers are counters, so copying the code never copies them. */
 .workspace-code-line { display: block; position: relative; padding: 0 18px 0 3.4rem; counter-increment: source-line; }
@@ -133,7 +197,16 @@
   user-select: none;
 }
 .workspace-code.is-wrap .workspace-highlight { width: auto; }
+/* The line whose actions are open, marked as a diff line with a note is. */
+.workspace-code-line.is-picked { background: rgba(110, 168, 254, 0.14); box-shadow: inset 3px 0 0 var(--accent); }
+@media (hover: hover) and (pointer: fine) {
+  .workspace-code-line:hover:not(.is-picked) { background: rgba(233, 237, 243, 0.035); }
+}
 .workspace-code.is-wrap .workspace-code-line { white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The lines a find matched, and the one the reader is on. */
+.workspace-code-line.is-found { background: rgba(230, 173, 48, 0.12); }
+.workspace-code-line.is-found-current { background: rgba(230, 173, 48, 0.3); box-shadow: inset 3px 0 0 var(--warn); }
+.workspace-code-line.is-found-current::before { color: var(--ink); }
 .syntax-comment { color: #98a3b3; font-style: italic; }
 .syntax-keyword { color: #c9a7ff; }
 .syntax-literal { color: #78dce8; }
@@ -152,8 +225,16 @@
   overflow-x: hidden;
   overflow-y: auto;
   font: 0.72rem/1.6 var(--mono);
+  /* A diff line carries a number and a sign beside its text: half a pixel under the terminal's size. */
+  font-size: max(0.72rem, calc(var(--term-fs, 12px) - 0.5px));
   -webkit-overflow-scrolling: touch;
 }
+/* Under a finger the page is read at arm's length and the lines wrap: a size up. */
+@media not all and (hover: hover) and (pointer: fine) {
+  .workspace-code { font-size: max(0.8125rem, calc(var(--term-fs, 12px) + 1px)); }
+  .workspace-diff { font-size: max(0.78rem, calc(var(--term-fs, 12px) + 0.5px)); }
+}
+
 .workspace-diff-spacer { flex: 1; }
 
 .workspace-diff-hint {
@@ -180,7 +261,7 @@
 /* number · sign · text; the text wraps so nothing scrolls sideways on a phone. */
 .workspace-diff-line {
   display: grid;
-  grid-template-columns: 2.7rem 0.95rem minmax(0, 1fr);
+  grid-template-columns: var(--diff-gutter, 2.7rem) 0.95rem minmax(0, 1fr) auto;
   width: 100%;
   min-height: 1.6em;
 }
@@ -209,17 +290,34 @@ button.diff-line-number {
 .diff-delete { background: rgba(255, 128, 128, 0.1); }
 .diff-delete .diff-line-number,
 .diff-delete .diff-line-sign { color: #ff9a9a; }
-.diff-hunk { margin-top: 6px; background: rgba(110, 168, 254, 0.1); color: #9fc3ff; }
-.diff-hunk .diff-line-text { font-size: 0.66rem; }
-.diff-meta { color: var(--muted); }
 
 .workspace-diff-line.diff-noteable { cursor: pointer; }
+/* The pencil that says a line takes a note. Under a finger it stands, faint, on
+   the lines that changed: the ones a review is about, so the diff is not edged
+   with a column of them. A mouse gets it on the line it is over. */
+.diff-line-hint {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 1.6em;
+  margin-right: 6px;
+  color: var(--accent);
+  opacity: 0;
+}
+/* The pencil ends the line, so the text gives up most of its own trailing room. */
+.diff-noteable .diff-line-text { padding-right: 4px; }
+.diff-noteable:is(.diff-add, .diff-delete) .diff-line-hint { opacity: 0.4; }
+.workspace-diff-line.has-note .diff-line-hint { opacity: 0.9; }
 .workspace-diff-line.diff-noteable:active { background: rgba(110, 168, 254, 0.2); }
 .workspace-diff-line.has-note { box-shadow: inset 3px 0 0 var(--accent); }
 /* A phone keeps :hover after the tap, so hover-only affordances would stay
    stuck on the last line the reader touched. */
 @media (hover: hover) and (pointer: fine) {
   .workspace-diff-line.diff-noteable:hover { background: rgba(110, 168, 254, 0.1); }
+  .diff-noteable:is(.diff-add, .diff-delete) .diff-line-hint { opacity: 0; }
+  .workspace-diff-line.diff-noteable:hover .diff-line-hint,
+  .workspace-diff-line.diff-noteable:focus-within .diff-line-hint,
+  .workspace-diff-line.has-note .diff-line-hint { opacity: 0.9; }
   .workspace-diff-line.diff-noteable:hover .diff-line-number { color: var(--accent); }
 }
 
@@ -228,7 +326,7 @@ button.diff-line-number {
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  margin: 4px 10px 8px calc(2.7rem + 0.95rem);
+  margin: 4px 10px 8px calc(var(--diff-gutter, 2.7rem) + 0.95rem);
   padding: 9px 10px 4px 12px;
   border: 1px solid rgba(110, 168, 254, 0.28);
   border-radius: var(--r-md);
@@ -245,7 +343,27 @@ button.diff-line-number {
 .diff-note-main { display: flex; align-items: flex-start; gap: 8px; min-width: 0; cursor: pointer; }
 .diff-note-mark { flex: none; margin-top: 2px; color: var(--accent); }
 .diff-note-body { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--text-secondary); line-height: 1.5; }
+/* A note left on a line that changed under it: the line as it was, in the warning's colour. */
+.diff-note-drift {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  margin: 2px 0 0 24px;
+  color: var(--warn);
+  font-size: var(--text-caption);
+  line-height: 1.4;
+}
+.diff-note-drift code { overflow-wrap: anywhere; color: var(--muted); font: 0.7rem/1.5 var(--mono); white-space: pre-wrap; }
 .diff-note-actions { display: flex; justify-content: flex-end; gap: 2px; }
+/* A note that was sent: a record of what the agent was told, quieter than one still to send. */
+.workspace-diff-note.is-sent { padding-bottom: 9px; border-color: var(--line-strong); background: none; }
+.workspace-diff-note.is-sent .diff-note-main { cursor: default; }
+.workspace-diff-note.is-sent .diff-note-mark { color: var(--muted); }
+.workspace-diff-note.is-sent .diff-note-body { color: var(--muted); }
+.diff-note-sent-state { margin: 0 0 0 24px; color: var(--muted); font-size: var(--text-caption); }
+.workspace-diff-note.is-working .diff-note-sent-state { color: var(--accent); }
+.workspace-diff-note.is-answered .diff-note-mark,
+.workspace-diff-note.is-answered .diff-note-sent-state { color: var(--ok); }
 .btn.diff-note-action {
   width: auto;
   min-width: 44px;
@@ -285,7 +403,7 @@ button.diff-line-number {
   .workspace-diff-note.is-draft .btn.diff-note-action { min-height: 44px; }
 }
 
-/* --- Footer: notes bar or receipt, then the stepper -------------------------------- */
+/* --- Footer: notes bar or receipt ---------------------------------------------------- */
 
 .workspace-diff-footer {
   flex: none;
@@ -294,13 +412,15 @@ button.diff-line-number {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Nothing to say: no bar, only the room the home indicator needs below the lines. */
+.workspace-diff-footer:empty { border-top: 0; background: none; }
+
 .workspace-notes-bar {
   display: flex;
   align-items: center;
   gap: 10px;
   min-height: 56px;
   padding: 8px 10px 8px 14px;
-  border-bottom: 1px solid var(--line);
   animation: notes-bar-in var(--dur-3) var(--ease);
 }
 @keyframes notes-bar-in {
@@ -311,6 +431,20 @@ button.diff-line-number {
 .workspace-notes-copy strong { font-size: var(--text-body); font-weight: 650; }
 .workspace-notes-copy small { overflow: hidden; color: var(--muted); font-size: 0.68rem; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-notes-copy small.workspace-notes-hint { color: var(--warn); }
+/* The same words as a button: notes wait on other files, and this leads to them. As tall as the Send beside it. */
+.workspace-notes-where { align-items: flex-start; justify-content: center; min-height: 40px; border-radius: var(--r-sm); text-align: left; }
+.workspace-notes-where small { max-width: 100%; }
+.workspace-notes-where small:not(.workspace-notes-hint) { color: var(--accent); }
+.workspace-notes-where small svg { margin-left: 2px; vertical-align: -2px; }
+.workspace-notes-where:active { background: var(--surface-2); }
+@media (hover: hover) and (pointer: fine) {
+  .workspace-notes-where:hover { background: var(--surface-2); }
+}
+/* 40px of words in the bar's 8px of padding: a finger's 44px reaches 2px into it, above and below. */
+@media not all and (hover: hover) and (pointer: fine) {
+  .workspace-notes-where { position: relative; }
+  .workspace-notes-where::after { content: ""; position: absolute; inset: -2px 0; }
+}
 .btn.workspace-notes-send { flex: none; width: auto; min-height: 40px; margin: 0; padding: 0 16px; font-size: var(--text-body); }
 .workspace-notes-send .spinner { width: 14px; height: 14px; }
 /* 40px of button in a bar with 8px of padding: a finger's 44px fits inside the
@@ -330,53 +464,49 @@ button.diff-line-number {
     background-clip: padding-box;
   }
 }
+.workspace-notes-all { margin-right: -2px; }
 .workspace-notes-bar.is-sent { background: rgba(70, 214, 140, 0.08); }
 .workspace-notes-ok { flex: none; color: var(--ok); }
 .workspace-notes-dismiss { flex: none; color: var(--muted); }
 
-.workspace-stepper {
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  align-items: center;
-  min-height: 54px;
-  padding: 0 4px;
-}
-.workspace-step {
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  min-height: 44px;
-  padding: 0 10px;
-  border-radius: var(--r-md);
-  color: var(--ink);
-  font-size: var(--text-body);
-}
-.workspace-step:disabled { opacity: 0.3; }
-.workspace-step:active:not(:disabled) { background: var(--surface); }
-.workspace-step-where { display: flex; flex-direction: column; align-items: center; gap: 1px; min-width: 0; }
-.workspace-step-where strong {
-  max-width: 100%;
-  overflow: hidden;
-  font: 600 var(--text-secondary) var(--mono);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.workspace-step-where span { color: var(--muted); font-size: 0.68rem; font-variant-numeric: tabular-nums; }
+/* --- A note written in place, under its line -------------------------------------------- */
 
-/* --- Note editor (a text-edit sheet) -------------------------------------------------- */
-
-.diff-note-quote {
-  margin: 12px 0 0;
-  padding: 8px 10px;
-  border: 1px solid var(--line);
+.diff-note-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  /* The note card's own place, so saving swaps one for the other without a jump. */
+  margin: 4px 10px 8px calc(var(--diff-gutter, 2.7rem) + 0.95rem);
+  padding: 8px;
+  border: 1px solid rgba(110, 168, 254, 0.45);
   border-radius: var(--r-md);
-  background: #0e1218;
-  color: var(--muted);
+  background: var(--surface-2);
+  font-family: var(--font);
 }
-.diff-note-quote-line { display: block; margin-bottom: 3px; color: var(--muted); font-size: 0.68rem; font-weight: 600; }
-.diff-note-quote-text { display: block; overflow-wrap: anywhere; font: 0.74rem/1.5 var(--mono); white-space: pre-wrap; color: var(--ink); }
-.diff-note-quote.side-new .diff-note-quote-text { color: #9df0c2; }
-.diff-note-quote.side-old .diff-note-quote-text { color: #ffb3b3; }
+.diff-note-inline .diff-note-body-field { min-height: 4.75rem; max-height: 14rem; margin-top: 0; }
+.diff-note-inline .notice { margin: 0; }
+.diff-note-inline-foot { display: flex; align-items: center; gap: 6px; }
+.diff-note-inline-foot .diff-note-count { margin-right: auto; }
+.diff-note-inline-foot .btn { flex: none; width: auto; margin: 0; }
+.diff-note-inline-foot .diff-note-remove { min-height: 44px; }
+.diff-note-inline-save:disabled { opacity: 0.45; }
+@media (hover: hover) and (pointer: fine) {
+  .diff-note-inline-foot .btn,
+  .diff-note-inline-foot .diff-note-remove { min-height: 30px; padding: 0 12px; border-radius: var(--r-sm); font-size: var(--text-secondary); }
+  .diff-note-inline-foot .btn-ghost:hover,
+  .diff-note-inline-foot .diff-note-remove:hover { background: var(--surface); }
+}
+
+/* An on-screen keyboard leaves the diff a few lines: while a note is being
+   typed under it, the review's footer steps aside, and on a screen as short as
+   a phone on its side the info bar does too. The form and its line keep what
+   is left (`note-inline` brings them back into view as the box changes). */
+html[data-kb="open"] .workspace-diff-view:has(.diff-note-inline:focus-within) .workspace-diff-footer { display: none; }
+@media (max-height: 520px) {
+  html[data-kb="open"] .workspace-diff-view:has(.diff-note-inline:focus-within) .workspace-detail-head { display: none; }
+  html[data-kb="open"] .workspace-diff-view .diff-note-inline .diff-note-body-field { min-height: 3.2rem; }
+}
+
 .diff-note-body-field {
   display: block;
   width: 100%;

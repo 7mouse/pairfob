@@ -10,6 +10,7 @@ import { CommandLine } from "../../features/dashboard/components/herd-empty";
 import { buildHerdViewModel, type HerdEmptyAction, type HerdEmptyView, type HerdViewModel } from "../../features/dashboard/model/herd-view";
 import { capabilitiesStore } from "../../features/operations/capabilities-store";
 import { openPaneId, sessionStore } from "../../features/session/session-store";
+import { paneFileSearch } from "../../features/workspace/file-search";
 import { preferencesStore } from "../../features/settings/preferences-store";
 import { t } from "../../lib/i18n";
 import { createDomainUpdates, useDomainUpdates, type DomainWatch } from "../../pages/domain-updates";
@@ -71,6 +72,7 @@ provideCommandPalette({
     else if (action === "computers") actions.openComputers();
     else actions.openSettings();
   },
+  files: paneFileSearch,
 });
 
 /**

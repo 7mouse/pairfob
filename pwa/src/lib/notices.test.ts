@@ -6,7 +6,7 @@ import { setLang } from "./i18n.ts";
 const liveSrc = await Bun.file(new URL("../features/connection/session-events.ts", import.meta.url)).text();
 const operationRunSrc = await Bun.file(new URL("../features/operations/run.ts", import.meta.url)).text();
 const operationOwnerSrc = await Bun.file(new URL("../features/operations/owner.ts", import.meta.url)).text();
-const operationSrc = await Bun.file(new URL("../features/operations/controller.ts", import.meta.url)).text();
+const operationSrc = await Bun.file(new URL("../features/operations/agent-prompt.ts", import.meta.url)).text();
 const noticesSrc = await Bun.file(new URL("../app/notices-store.ts", import.meta.url)).text();
 const noticeSrc = await Bun.file(new URL("../app/notice.tsx", import.meta.url)).text();
 const feedbackSrc = await Bun.file(new URL("../shared/ui/primitives/feedback.tsx", import.meta.url)).text();

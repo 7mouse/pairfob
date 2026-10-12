@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, test } from "bun:test";
 import type { DashboardAgentCard } from "../../../lib/dashboard";
 import { setLang, t } from "../../../lib/i18n";
 import { buildHerdViewModel, type HerdModelInput } from "../../dashboard/model/herd-view";
-import { activeItem, attentionSessions, buildPalette, paletteActions, stepActive, waitingSessions, type PaletteInput, type PaletteItem } from "./palette";
+import { activeItem, attentionSessions, buildPalette, paletteActions, paletteFile, stepActive, waitingSessions, type PaletteInput, type PaletteItem } from "./palette";
 
 function agent(id: string, status: DashboardAgentCard["status"] = "idle", extra: Partial<DashboardAgentCard> = {}): DashboardAgentCard {
   return {
@@ -198,5 +198,32 @@ describe("palette highlight", () => {
     const palette = buildPalette(input([agent("a"), agent("b")]), "");
     expect(activeItem(palette.items, "session:b")?.key).toBe("session:b");
     expect(activeItem(palette.items, "session:gone")?.key).toBe("session:a");
+  });
+});
+
+describe("files of the open workspace", () => {
+  test("a found file is a row with its name and the folder it is in", () => {
+    expect(paletteFile("src/features/app.ts")).toEqual({ type: "file", key: "file:src/features/app.ts", path: "src/features/app.ts", name: "app.ts", folder: "src/features" });
+    expect(paletteFile("README.md")).toMatchObject({ name: "README.md", folder: "" });
+  });
+
+  test("they are listed as handed in, between the sessions and the actions, and the arrows walk them", () => {
+    const files = [paletteFile("src/board.ts"), paletteFile("docs/board.md")];
+    const palette = buildPalette(input([agent("board-work"), agent("other")]), "board", files);
+    expect(palette.sections.map((section) => section.id)).toEqual(["sessions", "files", "actions"]);
+    expect(palette.sections[1].title).toBe(t("palette.files"));
+    expect(palette.items.map((item) => item.key)).toEqual(["session:board-work", "file:src/board.ts", "file:docs/board.md", "action:board"]);
+    expect(stepActive(palette.items, "session:board-work", 1)).toBe("file:src/board.ts");
+    expect(activeItem(palette.items, "file:docs/board.md")?.key).toBe("file:docs/board.md");
+  });
+
+  test("with nothing typed there is nothing to find: files are never listed", () => {
+    const palette = buildPalette(input([agent("a")]), "", [paletteFile("src/a.ts")]);
+    expect(palette.sections.some((section) => section.id === "files")).toBeFalse();
+  });
+
+  test("files alone are an answer when no session or action matches", () => {
+    const palette = buildPalette(input([agent("a")]), "zzz", [paletteFile("zzz.txt")]);
+    expect(palette.items.map((item) => item.key)).toEqual(["file:zzz.txt"]);
   });
 });

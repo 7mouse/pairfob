@@ -21,12 +21,12 @@ import { clearWorkspacePendingReveal, enterWorkspace, leaveWorkspace, workspaceM
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 
 /**
- * Where the keyboard is after a note's card or its dialog is answered. The
- * card of a half-written note leaves when it is saved, cancelled or opened into
- * the dialog, and a saved note's card leaves with the note: the control that
- * was pressed is gone, and the line the note belongs to takes focus. For a
- * mouse or the keyboard beside the list; a finger, and a phone, are left as
- * they were.
+ * Where the keyboard is after a note's card or its form is answered. The card
+ * of a half-written note leaves when it is saved, cancelled or opened into the
+ * form, the form leaves with its answer, and a saved note's card leaves with
+ * the note: the control that was pressed is gone, and the line the note
+ * belongs to takes focus. For a mouse or the keyboard beside the list; a
+ * finger, and a phone, are left as they were.
  */
 
 const seedRestorer = new WorkspaceSnapshotRestorer();
@@ -104,7 +104,8 @@ const focused = () => document.activeElement as HTMLElement | null;
 const line = () => one<HTMLButtonElement>(".workspace-diff-line.diff-add .diff-comment-btn");
 const draftCard = () => appRoot().querySelector<HTMLElement>(".workspace-diff-note.is-draft");
 const savedCard = () => appRoot().querySelector<HTMLElement>(".workspace-diff-note:not(.is-draft)");
-const sheet = () => document.querySelector<HTMLDialogElement>("dialog.diff-note-modal[open]");
+/** The note form open under its line. */
+const form = () => appRoot().querySelector<HTMLFormElement>("form.diff-note-inline");
 
 /** A press as the engine delivers one: the pointer, focus on the pressed button, the click. */
 async function press(target: HTMLElement, input: Input = "mouse"): Promise<void> {
@@ -117,19 +118,18 @@ async function press(target: HTMLElement, input: Input = "mouse"): Promise<void>
 }
 
 async function type(text: string): Promise<void> {
-  const field = (sheet() ?? appRoot()).querySelector<HTMLTextAreaElement>("textarea.diff-note-body-field")!;
+  const field = form()!.querySelector<HTMLTextAreaElement>("textarea.diff-note-body-field")!;
   await act(async () => {
     field.value = text;
     field.dispatchEvent(new window.Event("input", { bubbles: true }));
   });
 }
 
-/** Escape on the open sheet, once it is past the moment after opening in which it ignores a close request. */
-async function escapeSheet(): Promise<void> {
-  const dialog = sheet()!;
-  await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 420)); });
+/** Escape in the open form's field. */
+async function escapeForm(): Promise<void> {
+  const field = form()!.querySelector("textarea")!;
   await act(async () => {
-    dialog.querySelector("textarea")!.dispatchEvent(new happy.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }) as unknown as Event);
+    field.dispatchEvent(new happy.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }) as unknown as Event);
   });
   await settle();
 }
@@ -139,8 +139,7 @@ async function openDiffOnScreen(width: number, input: Input = "mouse"): Promise<
   await boot(width);
   await act(async () => { await enterWorkspace("p1"); });
   await settle();
-  // A phone opens on its files: the changes are the other tab there.
-  if (workspaceModel.tab !== "changes") await press([...appRoot().querySelectorAll<HTMLElement>(".workspace-tab")].find((tab) => tab.textContent?.includes("更改"))!, input);
+  expect(workspaceModel.tab).toBe("changes");
   await press(one('[data-change="worktree:app.ts"]'), input);
   expect(currentScreen()).toBe("workspace");
   expect(workspaceModel.view).toBe("diff");
@@ -150,8 +149,8 @@ async function openDiffOnScreen(width: number, input: Input = "mouse"): Promise<
 async function leaveHalfWritten(input: Input = "mouse"): Promise<void> {
   await press(line(), input);
   await type("half written");
-  await escapeSheet();
-  expect(sheet()).toBeNull();
+  await escapeForm();
+  expect(form()).toBeNull();
   expect(draftCard()?.querySelector(".diff-note-body")?.textContent).toBe("half written");
 }
 
@@ -182,30 +181,28 @@ afterEach(async () => {
   happy.happyDOM.setWindowSize({ width: 390, height: 844 });
 });
 
-describe("the dialog opened from a half-written note's card, with a mouse on the files screen", () => {
+describe("the form opened from a half-written note's card, with a mouse on the files screen", () => {
   for (const width of [800, 720]) {
     test(`Cancel drops the note and focus is on its line (${width}px)`, async () => {
       await openDiffOnScreen(width);
       await leaveHalfWritten();
       await press(draftCard()!.querySelector<HTMLElement>(".diff-note-resume")!);
-      expect(sheet()?.classList.contains("desk-form")).toBeTrue();
-      await press(sheet()!.querySelector<HTMLElement>(".desk-cancel")!);
-      expect(sheet()).toBeNull();
+      // The words are back in the form, under the same line, and no dialog covers the diff.
+      expect(form()?.querySelector("textarea")?.value).toBe("half written");
+      expect(document.querySelector("dialog[open]")).toBeNull();
+      await press(form()!.querySelector<HTMLElement>(".diff-note-inline-cancel")!);
+      expect(form()).toBeNull();
       expect(draftCard()).toBeNull();
       expectSameNode(focused(), line());
     });
   }
 
-  test("the corner control and Escape set it aside again, and focus is on its line with the card under it", async () => {
+  test("Escape sets it aside again, and focus is on its line with the card under it", async () => {
     await openDiffOnScreen(800);
     await leaveHalfWritten();
-    await press(draftCard()!.querySelector<HTMLElement>(".diff-note-resume")!);
-    await press(sheet()!.querySelector<HTMLElement>(".desk-close")!);
-    expect(draftCard()).not.toBeNull();
     expectSameNode(focused(), line());
-
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-resume")!);
-    await escapeSheet();
+    await escapeForm();
     expect(draftCard()).not.toBeNull();
     expectSameNode(focused(), line());
   });
@@ -214,8 +211,8 @@ describe("the dialog opened from a half-written note's card, with a mouse on the
     await openDiffOnScreen(800);
     await leaveHalfWritten();
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-resume")!);
-    await press(sheet()!.querySelector<HTMLElement>(".text-edit-save")!);
-    expect(sheet()).toBeNull();
+    await press(form()!.querySelector<HTMLElement>(".diff-note-inline-save")!);
+    expect(form()).toBeNull();
     expect(diffNotesFor("app.ts", "worktree").map((note) => note.body)).toEqual(["half written"]);
     expectSameNode(focused(), line());
   });
@@ -239,7 +236,7 @@ describe("a note's card answered in place, with a mouse on the files screen", ()
     expectSameNode(focused(), line());
   });
 
-  test("a saved note deleted from its card, or from its dialog, leaves focus on the line", async () => {
+  test("a saved note deleted from its card, or from its form, leaves focus on the line", async () => {
     await openDiffOnScreen(800);
     await leaveHalfWritten();
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-keep")!);
@@ -252,22 +249,24 @@ describe("a note's card answered in place, with a mouse on the files screen", ()
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-keep")!);
     expect(edit.isConnected).toBeFalse();
     await press(savedCard()!.querySelector<HTMLElement>(".diff-note-action")!);
-    await press(sheet()!.querySelector<HTMLElement>(".diff-note-remove")!);
-    expect(sheet()).toBeNull();
+    await press(form()!.querySelector<HTMLElement>(".diff-note-remove")!);
+    expect(form()).toBeNull();
     expect(savedCard()).toBeNull();
     expectSameNode(focused(), line());
   });
 
-  test("a control that outlives the dialog keeps the focus the dialog gives back to it", async () => {
+  test("an edit that is cancelled puts the saved note back under the line, and focus on the line", async () => {
     await openDiffOnScreen(800);
     await leaveHalfWritten();
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-keep")!);
-    // Edit is still under the line when its dialog is cancelled: it opened the dialog, and has focus again.
-    const edit = savedCard()!.querySelector<HTMLElement>(".diff-note-action")!;
-    await press(edit);
-    await press(sheet()!.querySelector<HTMLElement>(".desk-cancel")!);
-    expect(sheet()).toBeNull();
-    expectSameNode(focused(), edit);
+    // The form takes the card's place while the note is edited, so Edit itself is gone with it.
+    await press(savedCard()!.querySelector<HTMLElement>(".diff-note-action")!);
+    expect(form()?.querySelector("textarea")?.value).toBe("half written");
+    expect(savedCard()).toBeNull();
+    await press(form()!.querySelector<HTMLElement>(".diff-note-inline-cancel")!);
+    expect(form()).toBeNull();
+    expect(savedCard()?.querySelector(".diff-note-body")?.textContent).toBe("half written");
+    expectSameNode(focused(), line());
   });
 });
 
@@ -282,21 +281,22 @@ describe("the keyboard takes the same way back", () => {
       resume.click();
     });
     await settle();
-    await escapeSheet();
+    await escapeForm();
     expect(draftCard()).not.toBeNull();
     expectSameNode(focused(), line());
   });
 });
 
 describe("touch and the phone are unchanged: no line is focused for them", () => {
-  test("a finger at 800px answers the card and its sheet, and focus is left where it fell", async () => {
+  test("a finger at 800px answers the card and its form, and focus is left where it fell", async () => {
     await openDiffOnScreen(800, "touch");
+    // (The note is set aside with Escape, which is a key: what follows is the finger's.)
     await leaveHalfWritten("touch");
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-resume")!, "touch");
-    // A finger gets the sheet with its bar, not the desk form.
-    expect(sheet()?.classList.contains("desk-form")).toBeFalse();
-    await press(sheet()!.querySelector<HTMLElement>(".text-edit-action:not(.text-edit-save)")!, "touch");
-    expect(sheet()).toBeNull();
+    // A finger writes in the same form, under the line.
+    expect(form()?.querySelector("textarea")?.value).toBe("half written");
+    await press(form()!.querySelector<HTMLElement>(".diff-note-inline-cancel")!, "touch");
+    expect(form()).toBeNull();
     expectDifferentNode(focused(), line());
 
     await leaveHalfWritten("touch");
@@ -311,6 +311,7 @@ describe("touch and the phone are unchanged: no line is focused for them", () =>
   test("a mouse on the phone layout (390px) is left alone too", async () => {
     await openDiffOnScreen(390);
     await leaveHalfWritten();
+    expectDifferentNode(focused(), line());
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-keep")!);
     expect(savedCard()).not.toBeNull();
     expectDifferentNode(focused(), line());
@@ -328,11 +329,7 @@ describe("beside the session the card under a line answers the same way", () => 
     await press(one('aside.inspector [data-change="worktree:app.ts"]'));
     await press(line());
     await type("in the column");
-    const form = one<HTMLFormElement>("form.diff-note-inline");
-    await act(async () => {
-      form.querySelector("textarea")!.dispatchEvent(new happy.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }) as unknown as Event);
-    });
-    await settle();
+    await escapeForm();
     expect(draftCard()?.closest("aside.inspector")).not.toBeNull();
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-keep")!);
     expect(savedCard()?.querySelector(".diff-note-body")?.textContent).toBe("in the column");

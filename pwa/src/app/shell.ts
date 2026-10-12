@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect } from "react";
 import { appRoot } from "./dom-root";
 import type { LayoutDescriptor } from "./layout";
+import { applyInspectorWidth, clearInspectorWidth } from "./layout/inspector-width";
 import type { Immutable } from "../shared/model/domain-store";
 
 /** The composition the shell follows; published data, so it is read-only here. */
@@ -32,6 +33,8 @@ export function applyShell(layout: ShellLayout): void {
   document.body.classList.toggle("lock", layout.lockScroll);
   root.style.setProperty("--term-fs", `${layout.termFontPx}px`);
   root.style.setProperty("--term-lh", `${layout.termLineHeightPx}px`);
+  // The reader's width for the inspector column, in place before the session beside it measures.
+  applyInspectorWidth(root);
   root.setAttribute("aria-busy", layout.operationBusy ? "true" : "false");
 }
 
@@ -45,6 +48,7 @@ export function clearShell(): void {
   root.removeAttribute("aria-busy");
   root.style.removeProperty("--term-fs");
   root.style.removeProperty("--term-lh");
+  clearInspectorWidth(root);
   document.documentElement.classList.remove("lock");
   document.body.classList.remove("lock");
 }

@@ -1,5 +1,5 @@
-import { ROOMY_QUERY } from "../../app/viewport";
 import { overlayOrigin } from "../../shared/ui/overlay/origin";
+import { listBeside } from "./list-beside";
 import { getWorkspaceSnapshot } from "./store";
 
 /**
@@ -131,10 +131,9 @@ function openedRow(root: HTMLElement): HTMLElement | null {
 
 /** The opened detail's first control: its way back to the list, or its own bar where the list never left. */
 function detailEntry(root: HTMLElement): Array<HTMLElement | null> {
-  if (root.matches(".workspace-inspector")) return [root.querySelector<HTMLElement>(".inspector-switch-file")];
+  if (root.matches(".workspace-inspector")) return [root.querySelector<HTMLElement>(".inspector-back")];
   const back = root.querySelector<HTMLElement>(".workspace-chrome .back");
-  const sideBySide = typeof window.matchMedia === "function" && window.matchMedia(ROOMY_QUERY).matches;
-  if (!sideBySide) return [back];
+  if (!listBeside()) return [back];
   return [root.querySelector<HTMLElement>(".workspace-main .workspace-detail-head button:not(:disabled)"), back];
 }
 

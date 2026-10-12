@@ -8,15 +8,17 @@ import {
 } from "../../features/workspace";
 import { BranchSheet } from "../../features/workspace/branches";
 import { WorkspaceBrowser } from "../../features/workspace/browser";
-import { DiffDetail, openDiffKey } from "../../features/workspace/diff";
+import { DiffDetail } from "../../features/workspace/diff";
 import { useScreenEscape } from "../../features/workspace/escape";
 import { FileDetail } from "../../features/workspace/file-detail";
 import { useScreenFocus } from "../../features/workspace/focus-keeper";
 import { WorkspaceHeader } from "../../features/workspace/header";
-import { useSheetNote } from "../../features/workspace/note-sheet";
-import { DiffNoteEditor } from "../../features/workspace/notes";
+import { LIST_COLUMN_ID, ListDivider, listColumnStyle } from "../../features/workspace/list-divider";
+import { WorkspaceOverview } from "../../features/workspace/overview";
+import { useWorkspaceListWidth } from "../../features/workspace/prefs";
 import { useTabOrder } from "../../features/workspace/tab-order";
 import { WorkspaceTabStrip } from "../../features/workspace/tab-strip";
+import { useScreenKeys } from "../../features/workspace/workspace-keys";
 
 function WorkspaceTabs({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   const order = useTabOrder();
@@ -31,42 +33,37 @@ function WorkspaceNotice() {
   return <div className="workspace-app-notice"><AppNotice /></div>;
 }
 
-function EmptyDetail({ snapshot }: { snapshot: WorkspaceSnapshot }) {
-  return <section className="workspace-detail-empty">
-    <strong>{snapshot.descriptor?.name || t("workspace.title")}</strong>
-    <p>{snapshot.descriptor?.root || ""}</p>
-  </section>;
-}
-
 export function WorkspaceScreen() {
   const snapshot = useWorkspace();
-  const note = useSheetNote(openDiffKey(snapshot));
   const [branchOpen, setBranchOpen] = useState(false);
   const openBranches = useCallback(async () => {
     const branches = await ensureBranches();
     if (branches) setBranchOpen(true);
   }, []);
   const shell = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
+  const listWidth = useWorkspaceListWidth();
   useScreenFocus(shell);
   useScreenEscape();
+  useScreenKeys();
 
   return <>
     <div ref={shell} className={`workspace-shell${snapshot.view === "browser" ? "" : " detail"}`}>
       <WorkspaceHeader snapshot={snapshot} onBranches={() => void openBranches()} />
       <WorkspaceNotice />
-      <div className="workspace-body">
-        <aside className="workspace-nav">
+      <div ref={body} className="workspace-body" style={listColumnStyle(listWidth)}>
+        <aside id={LIST_COLUMN_ID} className="workspace-nav">
           <WorkspaceTabs snapshot={snapshot} />
           <WorkspaceBrowser snapshot={snapshot} />
         </aside>
+        <ListDivider body={body} />
         <main className="workspace-main">
           {snapshot.view === "file" ? <FileDetail snapshot={snapshot} />
-            : snapshot.view === "diff" ? <DiffDetail snapshot={snapshot} onEditNote={note.open} parked={note.parked} />
-            : <EmptyDetail snapshot={snapshot} />}
+            : snapshot.view === "diff" ? <DiffDetail snapshot={snapshot} />
+            : <WorkspaceOverview snapshot={snapshot} onBranches={() => void openBranches()} />}
         </main>
       </div>
     </div>
-    {note.editing && <DiffNoteEditor target={note.editing.target} startWith={note.editing.startWith} onDraft={note.draft} onClose={note.close} onSetAside={note.setAside} />}
     {branchOpen && snapshot.branches && <BranchSheet branches={snapshot.branches} onClose={() => setBranchOpen(false)} />}
   </>;
 }

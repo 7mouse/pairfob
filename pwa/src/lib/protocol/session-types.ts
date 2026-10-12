@@ -1,4 +1,5 @@
 import type { WorkspaceReference } from "./workspace-reference";
+import type { WorkspaceSearchPage } from "../workspace";
 import type { RecoveryClock } from "./recovery-diagnostics";
 import type { AgentInspection } from "../agent-inspect";
 import type { AgentQuota } from "../agent-quota";
@@ -127,6 +128,10 @@ export type LiveSession = {
   workspaceRename: (paneId: string, root: string, path: string, newName: string, size: number, modifiedMS: number, revision: string) => Promise<unknown>;
   workspaceDelete: (paneId: string, root: string, path: string, size: number, modifiedMS: number, revision: string) => Promise<unknown>;
   workspaceResolve?: (paneId: string, root: string, path: string) => Promise<WorkspaceReference>;
+  /** Files of the pane's workspace by name; only callable when capabilities.search_files is true. */
+  workspaceSearch?: (paneId: string, root: string, query: string, limit?: number) => Promise<WorkspaceSearchPage>;
+  /** Files the agent's edit tools wrote since the last prompt; null without capabilities.trace_writes. */
+  agentTurnWrites?: (paneId: string) => Promise<string[] | null>;
   workspaceOpen: (paneId: string) => Promise<WorkspaceDescriptor>;
   workspaceList: (paneId: string, path?: string, cursor?: string, limit?: number, root?: string) => Promise<WorkspaceDirectoryPage>;
   workspaceRead: (paneId: string, path: string, root?: string) => Promise<WorkspaceFile>;

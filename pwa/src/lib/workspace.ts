@@ -47,12 +47,22 @@ export type WorkspaceFile = {
   revision: string;
 };
 
+/** The size of one layer of a change; a binary change has no lines to count. */
+export type GitLineCount = { additions: number; deletions: number; binary?: boolean };
+
 export type GitChange = {
   path: string;
   original_path: string | null;
   index: string;
   worktree: string;
+  /** Per-layer line counts, from a daemon that gathers them (git_change_stats). */
+  stat?: { staged?: GitLineCount; worktree?: GitLineCount };
+  /** When the file last changed on the computer, epoch ms (git_change_stats). */
+  modified_ms?: number;
 };
+
+export type WorkspaceSearchItem = { path: string; name: string };
+export type WorkspaceSearchPage = { query: string; items: WorkspaceSearchItem[]; truncated: boolean };
 
 export type GitStatus = {
   branch: string | null;
@@ -217,21 +227,78 @@ export function parseWorkspaceFile(value: unknown): WorkspaceFile {
   };
 }
 
-function parseChange(value: unknown): GitChange {
+function parseLineCount(value: unknown): GitLineCount {
+  const count = record(value, "GitStatus stat layer");
+  const binary = "binary" in count;
+  exact(count, binary ? ["additions", "deletions", "binary"] : ["additions", "deletions"], "GitStatus stat layer");
+  return {
+    additions: integer(count.additions, "GitStatus.stat.additions"),
+    deletions: integer(count.deletions, "GitStatus.stat.deletions"),
+    ...(binary ? { binary: bool(count.binary, "GitStatus.stat.binary") } : {}),
+  };
+}
+
+/** `stats` is whether the status was asked for with stats:true; only then may a change carry them. */
+function parseChange(value: unknown, stats: boolean): GitChange {
   const item = record(value, "GitStatus change");
-  exact(item, ["path", "original_path", "index", "worktree"], "GitStatus change");
+  const extras = stats ? ["stat", "modified_ms"].filter((key) => key in item) : [];
+  exact(item, ["path", "original_path", "index", "worktree", ...extras], "GitStatus change");
   const index = safeText(item.index, "GitStatus.index", 1, false);
   const worktree = safeText(item.worktree, "GitStatus.worktree", 1, false);
   if (!/^[ MTADRCU?!]$/u.test(index) || !/^[ MTADRCU?!]$/u.test(worktree)) invalid("GitStatus change code");
-  return {
+  const change: GitChange = {
     path: relative(item.path, "GitStatus.path"),
     original_path: item.original_path === null ? null : relative(item.original_path, "GitStatus.original_path"),
     index,
     worktree,
   };
+  if (extras.includes("stat")) {
+    const stat = record(item.stat, "GitStatus stat");
+    const layers = ["staged", "worktree"].filter((key) => key in stat);
+    if (!layers.length) invalid("GitStatus stat");
+    exact(stat, layers, "GitStatus stat");
+    change.stat = {
+      ...(layers.includes("staged") ? { staged: parseLineCount(stat.staged) } : {}),
+      ...(layers.includes("worktree") ? { worktree: parseLineCount(stat.worktree) } : {}),
+    };
+  }
+  if (extras.includes("modified_ms")) change.modified_ms = integer(item.modified_ms, "GitStatus.modified_ms");
+  return change;
 }
 
-export function parseGitStatus(value: unknown): GitStatus {
+/** A search query is at most this many characters, counted as the daemon and the schema count them: by code point. */
+export const WORKSPACE_SEARCH_QUERY_MAX = 128;
+
+/**
+ * `sent` is the query this reply answers. The daemon echoes it, and a reply
+ * that echoes another is not this search's answer.
+ */
+export function parseWorkspaceSearch(value: unknown, sent?: string): WorkspaceSearchPage {
+  const result = record(value, "WorkspaceSearch");
+  exact(result, ["query", "items", "truncated"], "WorkspaceSearch");
+  if (!Array.isArray(result.items) || result.items.length > 50) invalid("WorkspaceSearch.items");
+  // UTF-16 units bound the code points from above: an astral character is two of them.
+  const query = text(result.query, "WorkspaceSearch.query", WORKSPACE_SEARCH_QUERY_MAX * 2);
+  if (Array.from(query).length > WORKSPACE_SEARCH_QUERY_MAX || (sent !== undefined && query !== sent)) invalid("WorkspaceSearch.query");
+  const seen = new Set<string>();
+  return {
+    query,
+    items: result.items.map((value) => {
+      const item = record(value, "WorkspaceSearch item");
+      exact(item, ["path", "name"], "WorkspaceSearch item");
+      const path = relative(item.path, "WorkspaceSearch.path");
+      const name = safeText(item.name, "WorkspaceSearch.name", 4096, false);
+      if (name !== path.slice(path.lastIndexOf("/") + 1)) invalid("WorkspaceSearch.name");
+      // One file, one item: a path named twice would be two rows with one key.
+      if (seen.has(path)) invalid("WorkspaceSearch.path");
+      seen.add(path);
+      return { path, name };
+    }),
+    truncated: bool(result.truncated, "WorkspaceSearch.truncated"),
+  };
+}
+
+export function parseGitStatus(value: unknown, stats = false): GitStatus {
   const result = record(value, "GitStatus");
   exact(result, ["branch", "head", "upstream", "ahead", "behind", "changes", "truncated", "revision"], "GitStatus");
   if (!Array.isArray(result.changes) || result.changes.length > 1200) invalid("GitStatus.changes");
@@ -241,7 +308,7 @@ export function parseGitStatus(value: unknown): GitStatus {
     upstream: nullableText(result.upstream, "GitStatus.upstream", 512),
     ahead: integer(result.ahead, "GitStatus.ahead"),
     behind: integer(result.behind, "GitStatus.behind"),
-    changes: result.changes.map(parseChange),
+    changes: result.changes.map((change) => parseChange(change, stats)),
     truncated: bool(result.truncated, "GitStatus.truncated"),
     revision: revision(result.revision, "GitStatus.revision"),
   };
@@ -306,24 +373,72 @@ export function gitChangeKind(change: GitChange, layer: GitLayer): GitChangeKind
   return "modified";
 }
 
-export type DiffLine = { kind: "meta" | "hunk" | "add" | "delete" | "context"; text: string; oldLine: number | null; newLine: number | null };
+export type DiffLine = {
+  kind: "meta" | "hunk" | "add" | "delete" | "context";
+  text: string;
+  oldLine: number | null;
+  newLine: number | null;
+  /** The file ends at this line with no line break after it ("\\ No newline at end of file"). */
+  noEol?: true;
+};
 
+/** `@@ -a,b +c,d @@ name`: the range's start and count on each side, then what Git names after it. */
+export const HUNK_HEADER = /^@@ -(\d+)(?:,(\d+))? \+(\d+)(?:,(\d+))? @@(?: ?([\s\S]*))?$/u;
+/** A conflict's header: one old range per side of the merge, `@@@ -a,b -c,d +e,f @@@`. */
+const COMBINED_HEADER = /^(@@@+) ((?:-\d+(?:,\d+)? )+)\+(\d+(?:,\d+)?) \1(?: ?([\s\S]*))?$/u;
+
+/**
+ * A patch as lines with their numbers. Inside a hunk a line is what its first
+ * column says, whatever its text: a removed `-- comment` reads `--- comment`
+ * and is a removal, not a file header. A file in conflict comes as a combined
+ * diff with a column per side of the merge; it is read against the first side
+ * (ours), its header kept in the two-way form, so everything after reads one
+ * shape. A line in neither that side nor the result (theirs alone, dropped)
+ * has no number on the old side.
+ */
 export function parseDiffLines(patch: string): DiffLine[] {
   let oldLine = 0;
   let newLine = 0;
+  // Columns of marks before each line's text; 0 outside a hunk.
+  let columns = 0;
+  let last: DiffLine | null = null;
   if (!patch) return [];
   const lines = patch.endsWith("\n") ? patch.slice(0, -1).split("\n") : patch.split("\n");
-  return lines.map((line) => {
-    const hunk = line.match(/^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/u);
-    if (hunk) {
-      oldLine = Number(hunk[1]);
-      newLine = Number(hunk[2]);
-      return { kind: "hunk", text: line, oldLine: null, newLine: null };
+  const meta = (text: string): DiffLine => ({ kind: "meta", text, oldLine: null, newLine: null });
+  return lines.map((line): DiffLine => {
+    if (line.startsWith("@@")) {
+      const hunk = HUNK_HEADER.exec(line);
+      const combined = hunk ? null : COMBINED_HEADER.exec(line);
+      if (!hunk && !combined) return meta(line);
+      const text = hunk ? line : `@@ ${combined![2].split(" ")[0]} +${combined![3]} @@${combined![4] ? ` ${combined![4]}` : ""}`;
+      const range = HUNK_HEADER.exec(text)!;
+      oldLine = Number(range[1]);
+      newLine = Number(range[3]);
+      columns = hunk ? 1 : combined![1].length - 1;
+      last = null;
+      return { kind: "hunk", text, oldLine: null, newLine: null };
     }
-    if (line.startsWith("+") && !line.startsWith("+++")) return { kind: "add", text: line.slice(1), oldLine: null, newLine: newLine++ };
-    if (line.startsWith("-") && !line.startsWith("---")) return { kind: "delete", text: line.slice(1), oldLine: oldLine++, newLine: null };
-    if (line.startsWith(" ")) return { kind: "context", text: line.slice(1), oldLine: oldLine++, newLine: newLine++ };
-    return { kind: "meta", text: line, oldLine: null, newLine: null };
+    if (line.startsWith("diff --")) columns = 0;
+    if (!columns) return meta(line);
+    if (line.startsWith("\\")) {
+      if (last) last.noEol = true;
+      return meta(line);
+    }
+    // Git may leave a blank unchanged line without its space (diff.suppressBlankEmpty).
+    const marks = line ? line.slice(0, columns) : " ".repeat(columns);
+    if (/[^ +-]/u.test(marks)) return meta(line);
+    const text = line.slice(columns);
+    const ours = marks[0];
+    if (marks.includes("+")) {
+      // Added against some side; the first side has it already when its column is blank.
+      if (ours === " ") oldLine++;
+      last = { kind: "add", text, oldLine: null, newLine: newLine++ };
+    } else if (marks.includes("-")) {
+      last = { kind: "delete", text, oldLine: ours === "-" ? oldLine++ : null, newLine: null };
+    } else {
+      last = { kind: "context", text, oldLine: oldLine++, newLine: newLine++ };
+    }
+    return last;
   });
 }
 

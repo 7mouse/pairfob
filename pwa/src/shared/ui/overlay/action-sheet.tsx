@@ -28,6 +28,13 @@ export type ActionSheetOptions = {
   /** The trigger, when it is not the control the opening gesture landed on. */
   anchor?: Element | null;
   /**
+   * The content marks its own list of commands (`role="menu"`, where
+   * `useMenuItemRole` says the surface is a menu), because it leads with
+   * something that is not a command, such as a field that filters them. The
+   * surface's body then takes no role.
+   */
+  menuInside?: boolean;
+  /**
    * Where focus goes on close when the trigger cannot take it back: the list a
    * row's menu was opened in, for a row that left it meanwhile. Asked only for
    * a mouse or the keyboard; a finger left no keyboard position to give back.
@@ -65,8 +72,9 @@ function signature(control: Element): string {
   return `${control.tagName}|${control.className}|${control.getAttribute("aria-label") ?? control.textContent ?? ""}`;
 }
 
-export function SheetFrame<T>({ modal, title, children, className = "", subtitle, expandable = false, popover = null }: {
+export function SheetFrame<T>({ modal, title, children, className = "", subtitle, expandable = false, popover = null, menuInside = false }: {
   modal: ModalController<T>; title: string; children: ReactNode; className?: string; subtitle?: string; expandable?: boolean;
+  menuInside?: boolean;
   /**
    * Anchored presentation, decided when the sheet opens. Whether it stays
    * anchored follows the window (`usePopoverPresentation`).
@@ -150,7 +158,7 @@ export function SheetFrame<T>({ modal, title, children, className = "", subtitle
             <SheetContent title={top?.title ?? title} subtitle={top ? undefined : subtitle} titleId={modal.titleId}
               onDismiss={modal.dismiss} onBack={top ? nav.pop : undefined} backLabel={top ? pages.at(-2)?.title ?? title : undefined} bodyRef={body}
               expand={expandable && !anchor ? { expanded, toggle: () => setExpanded(value => !value) } : undefined}
-              bodyRole={kind === "menu" ? "menu" : undefined} desk={deskForm && anchor?.kind !== "menu"}>
+              bodyRole={kind === "menu" && !menuInside ? "menu" : undefined} desk={deskForm && anchor?.kind !== "menu"}>
               {page}
             </SheetContent>
           </PopoverKindContext>
@@ -166,7 +174,7 @@ export function showActionSheet(title: string, content: (modal: ActionSheetContr
   for (const stale of document.querySelectorAll<HTMLDialogElement>("dialog.sheet[open]:not([data-react-action-sheet])")) stale.close();
   const popover = popoverTarget(options.popover, options.anchor);
   const modal = presentModal<SheetAction>(controller => <SheetFrame modal={controller} title={title} subtitle={options.subtitle}
-    expandable={options.expandable} className={options.className} popover={popover}>
+    expandable={options.expandable} className={options.className} popover={popover} menuInside={options.menuInside}>
     {content(controller)}
   </SheetFrame>, { replaceKey: "action-sheet",
     // A clicked button does not take focus in every engine; the anchor is where focus belongs afterwards.

@@ -54,6 +54,8 @@ export const KEYBOARD_ZONES = ZONE_SELECTORS.join(", ");
 
 /** Top-layer surfaces that borrow the keyboard for as long as they are open. */
 const OVERLAYS = "dialog, [popover], [role='dialog'], [role='menu'], [role='listbox']";
+/** `ColumnDivider`, the line between two columns that sets one's width. */
+const COLUMN_LINE = ".column-divider";
 
 let heldZone: Element | null = null;
 /** Which column was held, so the hold outlives the node when the column is rebuilt. */
@@ -98,6 +100,9 @@ export function bindKeyboardZones(root: Document): () => void {
     // A dialog, menu or panel is a visit, not a move: the column that opened it
     // still holds the keyboard when it closes and focus falls back to <body>.
     if (target.closest(OVERLAYS)) return;
+    // The line that sizes a column lies between two of them. Moving it is not
+    // choosing either: the column that held the keyboard holds it afterwards.
+    if (target.closest(COLUMN_LINE)) return;
     moves += 1;
     heldZone = target.closest(KEYBOARD_ZONES);
     heldSelector = heldZone ? ZONE_SELECTORS.find(selector => heldZone?.matches(selector)) ?? "" : "";

@@ -65,6 +65,34 @@
   white-space: nowrap;
 }
 
+/* How far the review is, in the room the tabs and the actions leave. What does not fit goes
+   whole, never cut mid-count ("2/14 seen" of "12/14 seen"): the one line shown fills from its
+   end, the count first and the lines before it, and whatever finds no room there wraps under
+   it, out of sight. */
+.inspector-summary {
+  display: flex;
+  flex: 1 1 0;
+  flex-flow: row-reverse wrap;
+  align-items: baseline;
+  align-content: flex-start;
+  column-gap: 8px;
+  min-width: 0;
+  height: 1.5em;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+.inspector-summary > * { flex: none; }
+/* Nothing, at the end of the line: beside it even the count alone can wrap away. */
+.inspector-summary::before { content: ""; order: 0; width: 0; margin-left: -8px; }
+.inspector-summary .workspace-subline-reviewed { order: 1; }
+.inspector-summary .workspace-subline-totals { display: inline-flex; gap: 6px; order: 2; }
+.inspector-summary .workspace-subline-reviewed.is-done { color: var(--ok); }
+.inspector-summary + .inspector-actions { margin-left: 0; }
+
 .inspector-actions {
   display: flex;
   align-items: center;
@@ -74,7 +102,7 @@
 }
 .inspector-actions .icon-btn { color: var(--muted); }
 
-/* --- List: the repository on one line, then the tab's list ------------------------ */
+/* --- List: the tab's list, right under the head ------------------------------------ */
 
 .inspector-list {
   display: flex;
@@ -85,28 +113,12 @@
   overflow: hidden;
 }
 
-/* Which directory this session's files are; opens branches where the daemon lists them. */
-.workspace-inspector .workspace-repo-title {
-  flex: none;
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 44px;
-  padding: 0 12px;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-}
-.workspace-inspector .workspace-repo-title .workspace-name { flex: 0 1 auto; max-width: 45%; font-size: var(--text-secondary); }
-.workspace-inspector .workspace-repo-title > .workspace-subline,
-.workspace-inspector .workspace-subline-row { flex: 1 1 0; min-width: 0; }
-.workspace-inspector .workspace-subline-row .workspace-subline { flex: 0 1 auto; }
-
 /* --- Detail: the list collapses into a one-line switcher --------------------------- */
 
 .workspace-inspector .workspace-detail-view { background: var(--term-bg); }
 
-.inspector-switch { gap: 8px; padding: 4px var(--inspector-gutter) 4px 6px; }
+.inspector-switch { gap: 6px; padding: 4px var(--inspector-gutter) 4px 4px; }
+.inspector-back { color: var(--ink); }
 /* The gutter comes out of the layer names' own padding, so the file's name
    keeps the room it had at the column's narrowest. */
 .workspace-inspector .workspace-layer-switch button { padding: 0 8px; }
@@ -125,57 +137,74 @@
   text-align: left;
   transition: background var(--dur-1) var(--ease);
 }
+/* The counts are the first thing the line gives up, and they go whole (they stand on the
+   list's row too). Their box takes the shortfall before the file's name is cut, its shrink
+   far outweighing the name's; counts that no longer fit beside the nothing at its start
+   wrap under it, out of sight. So it is the room that decides, not the language's words. */
+.inspector-stats {
+  display: flex;
+  flex: 0 9999 auto;
+  flex-wrap: wrap;
+  align-content: flex-start;
+  min-width: 0;
+  height: 1.5em;
+  overflow: hidden;
+  line-height: 1.5;
+}
+.inspector-stats::before { content: ""; width: 0; }
+.inspector-stats-pair { display: inline-flex; align-items: baseline; gap: 6px; flex: none; white-space: nowrap; }
+
 .inspector-switch-file:active { background: var(--surface-2); }
 .inspector-switch-file > svg { flex: none; color: var(--muted); }
 .inspector-switch-file .workspace-detail-name { flex: 0 1 auto; }
 
+/* The repository's menu, anchored at its button: its name and root lead it. As a sheet it has a title bar that says both. */
+.workspace-repo-id { display: none; }
+.workspace-repo-menu.popover .workspace-repo-id {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  padding: 8px 12px 10px;
+  border-bottom: 1px solid var(--line);
+}
+.workspace-repo-id strong { font-size: var(--text-secondary); font-weight: 650; }
+.workspace-repo-id span { overflow-wrap: anywhere; color: var(--muted); font: var(--text-caption) var(--mono); }
+
+/* The switcher: changed files as a menu, each as its row of the list is. */
+.workspace-switch-row { gap: 10px; }
+.workspace-switch-row.is-reviewed .workspace-review-dot { border-color: var(--ok); background: var(--ok); }
+.workspace-switch-row[aria-current="true"] { background: var(--surface-2); }
+.workspace-switch-name { font-family: var(--mono); font-size: var(--text-secondary); }
+.workspace-switch-head { margin: 10px 14px 4px; color: var(--muted); font-size: var(--text-caption); }
+.workspace-switch-none { margin: 0; padding: 18px 14px; color: var(--muted); font-size: var(--text-secondary); text-align: center; }
+.workspace-switch-filter {
+  display: block;
+  width: calc(100% - 16px);
+  height: 36px;
+  margin: 0 8px 8px;
+  padding: 0 10px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: #0e1218;
+  color: var(--ink);
+  font: 400 16px/1 var(--font);
+}
+.workspace-switch-filter:focus { border-color: var(--accent); outline: none; box-shadow: var(--focus-ring); }
+.workspace-switch-filter::-webkit-search-cancel-button { display: none; }
+
 /* The page shows ⋯ here from 900px of viewport; the column always does. */
 .workspace-inspector .workspace-detail-more-inline { display: inline-flex; color: var(--muted); }
 
-/* Previous · position · next, without the labels the page's footer has room for. */
-.workspace-inspector .workspace-stepper {
-  display: flex;
-  align-items: center;
-  min-height: 0;
-  padding: 0;
-}
-.workspace-inspector .workspace-step { justify-content: center; min-width: 44px; padding: 0; }
-.workspace-inspector .workspace-step span,
-.workspace-inspector .workspace-step-where strong { display: none; }
-.workspace-inspector .workspace-step-where span { font-size: var(--text-caption); white-space: nowrap; }
-
 /* --- Footer: notes only ----------------------------------------------------------------- */
 
-/* Nothing to say: no bar, only the room the home indicator needs below the lines. */
-.workspace-inspector .workspace-diff-footer:empty { border-top: 0; background: none; }
 .workspace-inspector .workspace-diff-footer .workspace-diff-hint { padding: 12px 14px; }
 /* Pending notes or their receipt say more than the invitation to write one. */
 .workspace-inspector .workspace-notes-bar + .workspace-diff-hint { display: none; }
-.workspace-inspector .workspace-notes-bar { padding-right: var(--inspector-gutter); border-bottom: 0; }
+.workspace-inspector .workspace-notes-bar { padding-right: var(--inspector-gutter); }
 /* The page widens Send from 900px of viewport; here it keeps its own width. */
 .workspace-inspector .btn.workspace-notes-send { min-width: 0; }
 
-/* --- A note written in place, under its line -------------------------------------------- */
-
-.workspace-inspector .diff-note-inline {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  /* The note card's own place, so saving swaps one for the other without a jump. */
-  margin: 4px 10px 8px calc(2.7rem + 0.95rem);
-  padding: 8px;
-  border: 1px solid rgba(110, 168, 254, 0.45);
-  border-radius: var(--r-md);
-  background: var(--surface-2);
-  font-family: var(--font);
-}
-.workspace-inspector .diff-note-inline .diff-note-body-field { min-height: 4.75rem; max-height: 14rem; margin-top: 0; }
-.workspace-inspector .diff-note-inline .notice { margin: 0; }
-.diff-note-inline-foot { display: flex; align-items: center; gap: 6px; }
-.diff-note-inline-foot .diff-note-count { margin-right: auto; }
-.diff-note-inline-foot .btn { flex: none; margin: 0; }
-.diff-note-inline-foot .diff-note-remove { min-height: 44px; }
-.diff-note-inline-save:disabled { opacity: 0.45; }
 /* The line the editor hands the keyboard back to: its ring stays inside the gutter. */
 .workspace-inspector .diff-comment-btn:focus-visible { outline-offset: -2px; }
 
@@ -194,15 +223,9 @@
   }
   .inspector-actions .icon-btn:hover:not(:disabled),
   .workspace-inspector .workspace-detail-more-inline:hover { background: var(--surface); color: var(--ink); }
-  .workspace-inspector .workspace-repo-title { min-height: 36px; }
   .inspector-switch-file { min-height: 30px; }
   .inspector-switch-file:hover { background: var(--surface-2); }
-  .workspace-inspector .workspace-step { min-width: 28px; min-height: 28px; border-radius: var(--r-sm); }
-  .workspace-inspector .workspace-step:hover:not(:disabled) { background: var(--surface-2); }
-  .diff-note-inline-foot .btn,
-  .diff-note-inline-foot .diff-note-remove { min-height: 30px; padding: 0 12px; border-radius: var(--r-sm); font-size: var(--text-secondary); }
-  .diff-note-inline-foot .btn-ghost:hover,
-  .diff-note-inline-foot .diff-note-remove:hover { background: var(--surface); }
+  .workspace-inspector .workspace-step { width: 28px; min-width: 28px; height: 28px; min-height: 28px; }
 }
 
 /* --- A finger needs the whole target ------------------------------------------------------
@@ -218,14 +241,25 @@
   .workspace-inspector .workspace-up { width: 44px; height: 44px; }
   .workspace-inspector .workspace-crumb { min-width: 44px; min-height: 44px; }
   .workspace-inspector .workspace-chip { min-height: 44px; }
+  /* The switcher is a sheet under a finger, out of the column's own box. */
+  .workspace-switch-filter { height: 44px; }
 }
 
 /* --- The column at its narrowest ----------------------------------------------------------- */
 
+/* From hunk to hunk, and the file itself, where the switcher line has the room; the file is in ⋯ either way. */
+@container inspector (max-width: 599.98px) {
+  .inspector-switch .workspace-hunk-nav,
+  .inspector-switch .workspace-open-file { display: none; }
+}
+
+@container inspector (max-width: 519.98px) {
+  .inspector-summary .workspace-subline-totals { display: none; }
+}
+
 @container inspector (max-width: 479.98px) {
+  /* The numbers say it; the bar would crowd the file's name. */
+  .workspace-change-bar { display: none; }
   /* The name is what the reader switches by; size and age wait in the list. */
   .inspector-switch .workspace-row-meta { display: none; }
-  /* Two layers plus the stepper leave no room for the counts. */
-  .inspector-switch:has(.workspace-layer-switch) .workspace-additions,
-  .inspector-switch:has(.workspace-layer-switch) .workspace-deletions { display: none; }
 }

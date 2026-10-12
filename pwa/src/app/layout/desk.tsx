@@ -10,6 +10,7 @@ import { SettingsContent } from "../../pages/settings/settings-page";
 import { WorkspaceInspector } from "../../pages/workspace/inspector";
 import { AppNotice } from "../notice";
 import { DeskEmpty } from "./desk-empty";
+import { InspectorDivider } from "./inspector-divider";
 import type { DeskPage } from "../layout";
 import { guardListReturn } from "./list-return";
 
@@ -29,7 +30,7 @@ function DeskReturn({ onReturn }: { onReturn: () => void }) {
 }
 
 /**
- * Desktop shell.
+ * The shell of the columns side by side (a window from 720px).
  *
  * The desk layout is application composition: the subscribed herd rail beside a
  * main column. Which page fills the main column is the prepared layout's
@@ -66,6 +67,7 @@ export function DeskShell({ deskPage, children, onReturn, inspector = false }: {
           <DeskEmpty />
         </>}
     </section>
-    {inspector ? <WorkspaceInspector /> : null}
+    {/* The line that sets the column's width lies on the seam, outside both columns' clipping. */}
+    {inspector ? <><InspectorDivider /><WorkspaceInspector /></> : null}
   </>;
 }

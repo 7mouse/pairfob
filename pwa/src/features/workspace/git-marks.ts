@@ -47,10 +47,72 @@ export function changeSections(changes: ReadonlyArray<Change>): Record<ChangeSec
   return sections;
 }
 
-/** The order the diff stepper walks: conflicts, then staged, then worktree. */
-export function reviewOrder(changes: ReadonlyArray<Change>): ChangeStep[] {
+/**
+ * One row of the change list: a diff, and for a file changed in both layers its
+ * staged diff as a tag on the same row.
+ */
+export type ChangeRowItem = { step: ChangeStep; staged?: ChangeStep };
+
+export type ListedChanges = {
+  /**
+   * The groups in display order, each with the rows it draws; a group without
+   * rows is left out. `files` is how many files the whole group holds, drawn
+   * or not: what its title says, a row with a staged tag being one.
+   */
+  groups: Array<{ section: ChangeSection; rows: ChangeRowItem[]; files: number }>;
+  /** Every diff the rows hold, top to bottom: what the stepper walks. */
+  order: ChangeStep[];
+  /** Rows past `limit`, which the list offers to draw next. */
+  hidden: number;
+};
+
+const SECTION_ORDER: readonly ChangeSection[] = ["conflict", "staged", "worktree"];
+
+/**
+ * The diffs a row holds, in the order they stand on it and the keyboard reaches
+ * them: the row's own, then its staged tag.
+ */
+export function rowSteps(row: ChangeRowItem): ChangeStep[] {
+  return row.staged ? [row.step, row.staged] : [row.step];
+}
+
+/**
+ * The change list as it is drawn, and the order that goes with it. Both come
+ * from here so that they cannot disagree: conflicts, the files that are only
+ * staged, then the working tree's. A file changed in both layers is one row,
+ * under the working tree, where the file is as it stands; its staged diff is a
+ * tag on that row and not a second row among the staged files.
+ *
+ * `limit` caps the rows drawn, counted down the list across the groups, and
+ * the order returned is of those rows. Without it this is the whole list: the
+ * stepper walks all of it, and the list is drawn on as far as the diff it
+ * opens (`loadGitDiff`).
+ */
+export function listedChanges(changes: ReadonlyArray<Change>, limit = Number.POSITIVE_INFINITY): ListedChanges {
   const sections = changeSections(changes);
-  return [...sections.conflict, ...sections.staged, ...sections.worktree];
+  const worktree = new Set(sections.worktree.map((step) => step.path));
+  const tags = new Map(sections.staged.filter((step) => worktree.has(step.path)).map((step) => [step.path, step]));
+  const rows: Record<ChangeSection, ChangeRowItem[]> = {
+    conflict: sections.conflict.map((step) => ({ step })),
+    staged: sections.staged.filter((step) => !tags.has(step.path)).map((step) => ({ step })),
+    worktree: sections.worktree.map((step) => ({ step, staged: tags.get(step.path) })),
+  };
+  let room = Math.max(0, limit);
+  let hidden = 0;
+  const groups: ListedChanges["groups"] = [];
+  for (const section of SECTION_ORDER) {
+    const all = rows[section];
+    const drawn = all.slice(0, room);
+    room -= drawn.length;
+    hidden += all.length - drawn.length;
+    if (drawn.length) groups.push({ section, rows: drawn, files: all.length });
+  }
+  return { groups, order: groups.flatMap((group) => group.rows.flatMap(rowSteps)), hidden };
+}
+
+/** The order the diff stepper walks: every listed diff, from the top of the list to its end. */
+export function reviewOrder(changes: ReadonlyArray<Change>): ChangeStep[] {
+  return listedChanges(changes).order;
 }
 
 /** Layers a path can be diffed in; a conflict only offers the worktree. */

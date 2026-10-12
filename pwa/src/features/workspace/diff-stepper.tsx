@@ -3,28 +3,34 @@ import { t } from "../../lib/i18n";
 import { Button } from "../../shared/ui/primitives";
 import { stepWorkspaceDiff, workspaceDiffStep } from "./actions";
 import type { WorkspaceSnapshot } from "./model";
+import { useKeyHint } from "./workspace-keys";
 
 /**
  * Previous / next changed file, in the change list's order (conflicts, staged,
- * worktree). The ends disable rather than wrap.
+ * worktree): `‹ 3 / 4 ›`. The ends disable rather than wrap. It stands at the
+ * head of the diff in every arrangement (the page's header, the info bar
+ * beside the list, the column's switcher line), so the foot of the diff is
+ * left to the notes.
  */
 export function DiffStepper({ snapshot }: { snapshot: WorkspaceSnapshot }) {
+  const prevKey = useKeyHint("prevFile");
+  const nextKey = useKeyHint("nextFile");
   if (!snapshot.status) return null;
   const step = workspaceDiffStep();
   if (step.total < 1) return null;
-  const name = snapshot.detailPath.split("/").pop() || snapshot.detailPath;
   return <nav className="workspace-stepper" aria-label={t("workspace.changes")}>
-    <Button className="workspace-step" aria-label={t("workspace.prevChangeLabel")} disabled={!step.prev || snapshot.loading}
-      onClick={() => stepWorkspaceDiff(-1)}>
-      <ChevronLeft size={18} aria-hidden="true" /><span>{t("workspace.prevChange")}</span>
+    <Button className="icon-btn workspace-step" aria-label={t("workspace.prevChangeLabel")} title={prevKey.title(t("workspace.prevChangeLabel"))}
+      aria-keyshortcuts={prevKey.keys}
+      disabled={!step.prev || snapshot.loading} onClick={() => stepWorkspaceDiff(-1)}>
+      <ChevronLeft size={18} aria-hidden="true" />
     </Button>
-    <div className="workspace-step-where" aria-live="polite">
-      <strong>{name}</strong>
-      {step.index >= 0 && <span>{t("workspace.stepPosition", { index: step.index + 1, total: step.total })}</span>}
-    </div>
-    <Button className="workspace-step" aria-label={t("workspace.nextChangeLabel")} disabled={!step.next || snapshot.loading}
-      onClick={() => stepWorkspaceDiff(1)}>
-      <span>{t("workspace.nextChange")}</span><ChevronRight size={18} aria-hidden="true" />
+    {step.index >= 0 && <span className="workspace-step-where" aria-live="polite">
+      {t("workspace.stepPosition", { index: step.index + 1, total: step.total })}
+    </span>}
+    <Button className="icon-btn workspace-step" aria-label={t("workspace.nextChangeLabel")} title={nextKey.title(t("workspace.nextChangeLabel"))}
+      aria-keyshortcuts={nextKey.keys}
+      disabled={!step.next || snapshot.loading} onClick={() => stepWorkspaceDiff(1)}>
+      <ChevronRight size={18} aria-hidden="true" />
     </Button>
   </nav>;
 }

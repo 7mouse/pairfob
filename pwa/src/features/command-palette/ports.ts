@@ -16,6 +16,18 @@ export type CommandPalettePorts = {
   openSession(paneId: string): void;
   /** The rail's own entry for that destination. */
   runAction(action: PaletteActionId): void;
+  /**
+   * The files of the workspace the reader is in, by name: present only while a
+   * session is open and its computer can search (asked once, when the palette
+   * opens). `search` resolves with paths relative to that workspace's root,
+   * best first; `open` shows one as a file link in the session would.
+   */
+  files?(): PaletteFiles | null;
+};
+
+export type PaletteFiles = {
+  search(query: string): Promise<string[]>;
+  open(path: string): void;
 };
 
 let ports: CommandPalettePorts | null = null;

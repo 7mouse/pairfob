@@ -1,4 +1,4 @@
-/* --- Desktop (>= 900px) ------------------------------------------------------------ */
+/* --- Columns side by side (`#app.desk`: a window from 720px) ------------------------- */
 
 /*
   Pin to the visual viewport the same way #app.session does. height/min-height:
@@ -9,7 +9,14 @@
   /* Column widths. The list narrows a little so the session and the inspector
      have room; the inspector takes the larger share once the list gives way. */
   --rail-w: clamp(17.5rem, 21vw, 20rem);
-  --inspector-w: clamp(27.5rem, 36vw, 45rem);
+  /* The inspector is 440–720px. The reader may set its width by dragging the
+     line on its edge (--inspector-chosen, written by the shell); until they do
+     it is 36vw. Whatever was chosen in a wider window, the session keeps
+     --session-min: its width in a 900px window, the narrowest the layout gives
+     it. `inspector-width.ts` holds the same numbers for the drag. */
+  --session-min: 28.6875rem;
+  --inspector-max: max(27.5rem, min(45rem, 100vw - var(--rail-w) - var(--session-min)));
+  --inspector-w: clamp(27.5rem, var(--inspector-chosen, 36vw), var(--inspector-max));
   position: fixed;
   top: var(--vv-top, 0px);
   right: 0;
@@ -39,9 +46,12 @@
    gives way and the session header leads back to it. */
 #app.desk.inspector { grid-template-columns: var(--rail-w) minmax(0, 1fr) var(--inspector-w); }
 #app.desk.inspector.rail-hidden {
-  --inspector-w: clamp(27.5rem, 49vw, 36.5rem);
+  --inspector-max: max(27.5rem, min(45rem, 100vw - var(--session-min)));
+  --inspector-w: clamp(27.5rem, var(--inspector-chosen, min(49vw, 36.5rem)), var(--inspector-max));
   grid-template-columns: minmax(0, 1fr) var(--inspector-w);
 }
+/* The line that sets the column's width, on the seam between it and the session. */
+#app.desk > .inspector-divider { right: var(--inspector-w); transform: translateX(50%); }
 #app.desk.rail-hidden .rail { display: none; }
 /* The narrowest tier's board is the other page the list gives way to: it takes
    the whole row, and its own header leads back. */

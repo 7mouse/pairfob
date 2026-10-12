@@ -182,3 +182,12 @@ describe("the files screen's remaining small controls under a finger", () => {
     expect(coarse(detail)).toContain(".workspace-chip::after");
   });
 });
+
+describe("the column's file switcher under a finger", () => {
+  test("its filter is a whole target in the sheet, and the smaller field a mouse gets elsewhere", () => {
+    expect(px(rule(inspector, ".workspace-switch-filter"), "height")).toBeLessThan(TARGET);
+    expect(coarse(inspector)).toMatch(new RegExp(`\\.workspace-switch-filter \\{ height: ${TARGET}px; \\}`));
+    // 16px of text: a field under that makes an iPhone zoom the page when it takes focus.
+    expect(rule(inspector, ".workspace-switch-filter")).toMatch(/font:\s*400 16px/);
+  });
+});

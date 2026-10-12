@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { Maximize, Scan, ZoomIn, ZoomOut } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type FocusEvent, type KeyboardEvent, type PointerEvent as ReactPointerEvent, type RefObject } from "react";
 import { t } from "../../lib/i18n";
 import { imageExceedsPixelBudget } from "../../lib/protocol/workspace-media";
 import { Button } from "../../shared/ui/primitives";
@@ -7,8 +8,82 @@ import { loadWorkspaceMedia, markMediaCodecFailure, markMediaPixelFailure, media
 import { formatMediaBytes } from "./media-model";
 import type { WorkspaceMediaView } from "./media-model";
 
+/** Zoom is counted from the picture fitted to its stage: 1 is the fit, and never less. */
 const MIN_ZOOM = 1;
 const MAX_ZOOM = 8;
+/** Two presses this close in time and place are one double press. */
+const DOUBLE_PRESS_MS = 320;
+const DOUBLE_PRESS_PX = 32;
+/** A press that travelled further, or lasted longer, was a drag or a hold. */
+const PRESS_SLOP_PX = 10;
+const PRESS_MS = 350;
+
+/** How large the fitted picture is drawn against its own pixels; 0 until it can be measured. */
+function fitScale(node: HTMLImageElement | null): number {
+  if (!node || !node.naturalWidth || !node.naturalHeight) return 0;
+  // The box may be wider or taller than the picture it contains: the tighter side is the scale.
+  const scale = Math.min(node.offsetWidth / node.naturalWidth, node.offsetHeight / node.naturalHeight);
+  return Number.isFinite(scale) && scale > 0 ? scale : 0;
+}
+
+/** The zoom at which one pixel of the picture is one pixel of the page; the fit itself for a picture that small. */
+export function actualSizeZoom(fit: number): number {
+  return fit > 0 ? Math.max(MIN_ZOOM, 1 / fit) : MIN_ZOOM;
+}
+
+/** What the readout says: the picture's real scale, or that it is fitted while that cannot be known. */
+export function zoomReadout(zoom: number, fit: number): string {
+  if (fit > 0) return `${Math.round(zoom * fit * 100)}%`;
+  return zoom === MIN_ZOOM ? t("workspace.media.fit") : `×${zoom.toFixed(1)}`;
+}
+
+/**
+ * A toolbar is one Tab stop: Left and Right, Home and End move along its
+ * controls, and the one the reader was last on is where Tab comes back to. A
+ * control that goes out of use under the reader (zoom out, at the fit) hands
+ * the keyboard to its neighbour, not to the page.
+ */
+function useToolbarStops(bar: RefObject<HTMLElement | null>): {
+  onFocus(event: FocusEvent<HTMLElement>): void;
+  onKeyDown(event: KeyboardEvent<HTMLElement>): void;
+} {
+  const stop = useRef<HTMLElement | null>(null);
+  const usable = (): HTMLButtonElement[] => [...(bar.current?.querySelectorAll<HTMLButtonElement>("button:not(:disabled)") ?? [])];
+  useLayoutEffect(() => {
+    const all = usable();
+    const held = document.activeElement instanceof HTMLButtonElement && bar.current?.contains(document.activeElement) ? document.activeElement : null;
+    const kept = stop.current && all.includes(stop.current as HTMLButtonElement) ? stop.current : all[0] ?? null;
+    for (const control of bar.current?.querySelectorAll<HTMLButtonElement>("button") ?? []) control.tabIndex = control === kept ? 0 : -1;
+    stop.current = kept;
+    if (held?.disabled) kept?.focus();
+  });
+  return {
+    onFocus(event) {
+      if (!(event.target instanceof HTMLButtonElement) || event.target === stop.current) return;
+      if (stop.current) stop.current.tabIndex = -1;
+      event.target.tabIndex = 0;
+      stop.current = event.target;
+    },
+    onKeyDown(event) {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const all = usable();
+      const at = all.indexOf(event.target as HTMLButtonElement);
+      const to = event.key === "ArrowRight" ? Math.min(at + 1, all.length - 1)
+        : event.key === "ArrowLeft" ? Math.max(at - 1, 0)
+        : event.key === "Home" ? 0
+        : event.key === "End" ? all.length - 1
+        : -1;
+      if (at < 0 || to < 0) return;
+      event.preventDefault();
+      all[to]?.focus();
+    },
+  };
+}
+
+/** A page that can show one of its elements full screen. An iPhone cannot; the control is not offered there. */
+function fullscreenOffered(): boolean {
+  return typeof document !== "undefined" && Boolean(document.fullscreenEnabled);
+}
 
 function formatSize(size: number): string {
   return formatMediaBytes(size);
@@ -66,10 +141,16 @@ function ImagePlayer({ url, identity, alt }: { url: string; identity: string; al
   const image = useRef<HTMLImageElement | null>(null);
   const ownedImage = useRef<HTMLImageElement | null>(null);
   const stage = useRef<HTMLDivElement>(null);
+  const toolbar = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(1);
+  const [fit, setFitScale] = useState(0);
+  const fitNow = useRef(0);
   const pan = useRef({ x: 0, y: 0, zoom: 1 });
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const lastDist = useRef(0);
+  /** The press under way, while it can still be a tap; and the tap before it, while a second can still follow. */
+  const press = useRef<{ id: number; x: number; y: number; at: number } | null>(null);
+  const lastTap = useRef<{ x: number; y: number; at: number } | null>(null);
 
   // Owned cleanup: this mount owns the element. Detach (pause + clear src/load)
   // must run before the loader revokes the URL (registered lease) and on unmount.
@@ -87,8 +168,24 @@ function ImagePlayer({ url, identity, alt }: { url: string; identity: string; al
     };
   }, [url]);
 
+  /**
+   * A zoomed picture stays over its stage: it pans as far as its own edge, and
+   * not at all along a side it does not overflow. Left alone until the picture
+   * can be measured.
+   */
+  const hold = () => {
+    const node = image.current;
+    const host = stage.current;
+    if (!node || !host || !node.offsetWidth || !node.offsetHeight) return;
+    const reach = (drawn: number, room: number) => Math.max(0, (drawn - room) / 2);
+    const x = reach(node.offsetWidth * pan.current.zoom, host.clientWidth);
+    const y = reach(node.offsetHeight * pan.current.zoom, host.clientHeight);
+    pan.current.x = Math.min(x, Math.max(-x, pan.current.x));
+    pan.current.y = Math.min(y, Math.max(-y, pan.current.y));
+  };
   const apply = (nextZoom = pan.current.zoom) => {
     pan.current.zoom = nextZoom;
+    hold();
     image.current?.style.setProperty("transform", `translate(${pan.current.x}px, ${pan.current.y}px) scale(${nextZoom})`);
   };
   const setFit = () => {
@@ -96,13 +193,48 @@ function ImagePlayer({ url, identity, alt }: { url: string; identity: string; al
     setZoom(1);
     apply(1);
   };
+  /** 100% is always within reach, however far past the usual limit a large picture puts it. */
+  const maxZoom = () => Math.max(MAX_ZOOM, actualSizeZoom(fitNow.current));
   const zoomBy = (factor: number) => {
-    const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pan.current.zoom * factor));
+    const next = Math.min(maxZoom(), Math.max(MIN_ZOOM, pan.current.zoom * factor));
     pan.current.zoom = next;
     if (next === 1) pan.current = { x: 0, y: 0, zoom: 1 };
     setZoom(next);
     apply(next);
   };
+  /** One pixel for one pixel, about the stage's centre or the point the reader pressed. */
+  const setActual = (at?: { x: number; y: number }) => {
+    const next = actualSizeZoom(fitNow.current);
+    const box = at ? stage.current?.getBoundingClientRect() : null;
+    // The fitted picture is centred on the stage: what was under the press stays under it.
+    const from = box && at ? { x: at.x - (box.left + box.width / 2), y: at.y - (box.top + box.height / 2) } : { x: 0, y: 0 };
+    pan.current = next === 1 ? { x: 0, y: 0, zoom: 1 } : { x: from.x * (1 - next), y: from.y * (1 - next), zoom: next };
+    setZoom(next);
+    apply(next);
+  };
+  /** A double press: from the fit to the picture's own size where it was pressed, and from anywhere else back to the fit. */
+  const toggleAt = (x: number, y: number) => {
+    if (pan.current.zoom === 1) setActual({ x, y });
+    else setFit();
+  };
+
+  // The fitted size follows the stage: the readout and 100% are measured against it.
+  useEffect(() => {
+    const measure = () => {
+      const next = fitScale(image.current);
+      fitNow.current = next;
+      setFitScale(next);
+    };
+    measure();
+    const node = image.current;
+    node?.addEventListener("load", measure);
+    const sized = typeof ResizeObserver === "undefined" || !stage.current ? null : new ResizeObserver(measure);
+    if (stage.current) sized?.observe(stage.current);
+    return () => {
+      node?.removeEventListener("load", measure);
+      sized?.disconnect();
+    };
+  }, [url]);
 
   useEffect(() => {
     const host = stage.current;
@@ -114,8 +246,12 @@ function ImagePlayer({ url, identity, alt }: { url: string; identity: string; al
 
   const onPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
     event.stopPropagation();
-    event.currentTarget.setPointerCapture(event.pointerId);
+    try { event.currentTarget.setPointerCapture(event.pointerId); } catch { /* a pointer that is already gone, or a DOM without capture */ }
     pointers.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    // Only a lone press of the main button can be a tap; a second finger makes it a pinch.
+    press.current = pointers.current.size === 1 && event.button === 0
+      ? { id: event.pointerId, x: event.clientX, y: event.clientY, at: event.timeStamp } : null;
+    if (!press.current) lastTap.current = null;
   };
   const onPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
     const prev = pointers.current.get(event.pointerId);
@@ -140,22 +276,49 @@ function ImagePlayer({ url, identity, alt }: { url: string; identity: string; al
   const onPointerEnd = (event: ReactPointerEvent<HTMLDivElement>) => {
     pointers.current.delete(event.pointerId);
     if (pointers.current.size < 2) lastDist.current = 0;
+    const down = press.current;
+    press.current = null;
+    if (!down || down.id !== event.pointerId || event.type !== "pointerup") return;
+    const tapped = event.timeStamp - down.at <= PRESS_MS
+      && Math.hypot(event.clientX - down.x, event.clientY - down.y) <= PRESS_SLOP_PX;
+    if (!tapped) {
+      lastTap.current = null;
+      return;
+    }
+    const before = lastTap.current;
+    const doubled = before !== null && event.timeStamp - before.at <= DOUBLE_PRESS_MS
+      && Math.hypot(event.clientX - before.x, event.clientY - before.y) <= DOUBLE_PRESS_PX;
+    // A mouse and a finger double-press alike, so both are read here and not from `dblclick`, which a finger rarely sends.
+    lastTap.current = doubled ? null : { x: event.clientX, y: event.clientY, at: event.timeStamp };
+    if (doubled) toggleAt(event.clientX, event.clientY);
   };
 
+  const actualZoom = actualSizeZoom(fit);
+  const tools = useToolbarStops(toolbar);
   return <div className="workspace-media-player is-image">
-    <div className="workspace-media-toolbar">
-      <Button className="btn btn-small" onClick={setFit}>{t("workspace.media.fit")}</Button>
-      <Button className="btn btn-small" onClick={() => zoomBy(1 / 1.25)}>{t("workspace.media.zoomOut")}</Button>
-      <Button className="btn btn-small" onClick={() => zoomBy(1.25)}>{t("workspace.media.zoomIn")}</Button>
-      <Button className="btn btn-small" onClick={setFit}>{t("workspace.media.zoomReset")}</Button>
-      <Button className="btn btn-small" onClick={() => {
-        if (document.fullscreenElement) void document.exitFullscreen?.();
-        else void stage.current?.requestFullscreen?.();
-      }}>{t("workspace.media.fullscreen")}</Button>
+    <div ref={toolbar} className="workspace-media-toolbar" role="toolbar" aria-label={t("workspace.media.zoomTools")}
+      onFocus={tools.onFocus} onKeyDown={tools.onKeyDown}>
+      <Button className="icon-btn" aria-label={t("workspace.media.zoomOut")} title={t("workspace.media.zoomOut")}
+        disabled={zoom <= MIN_ZOOM} onClick={() => zoomBy(1 / 1.25)}><ZoomOut size={18} aria-hidden="true" /></Button>
+      <output className="workspace-media-scale">{zoomReadout(zoom, fit)}</output>
+      <Button className="icon-btn" aria-label={t("workspace.media.zoomIn")} title={t("workspace.media.zoomIn")}
+        disabled={zoom >= Math.max(MAX_ZOOM, actualZoom)} onClick={() => zoomBy(1.25)}><ZoomIn size={18} aria-hidden="true" /></Button>
+      <span className="workspace-media-toolbar-rule" aria-hidden="true" />
+      <Button className="icon-btn" aria-label={t("workspace.media.fit")} title={t("workspace.media.fit")}
+        aria-pressed={zoom === MIN_ZOOM} onClick={setFit}><Scan size={18} aria-hidden="true" /></Button>
+      <Button className="icon-btn workspace-media-actual" aria-label={t("workspace.media.actualSize")} title={t("workspace.media.actualSize")}
+        aria-pressed={fit > 0 && zoom === actualZoom} onClick={() => setActual()}>1:1</Button>
+      {fullscreenOffered() && <Button className="icon-btn workspace-media-fullscreen" aria-label={t("workspace.media.fullscreen")}
+        title={t("workspace.media.fullscreen")} onClick={() => {
+          if (document.fullscreenElement) void document.exitFullscreen?.();
+          else void stage.current?.requestFullscreen?.();
+        }}><Maximize size={18} aria-hidden="true" /></Button>}
     </div>
     <div
       ref={stage}
       className="workspace-media-stage workspace-media-viewer"
+      data-zoomed={zoom > MIN_ZOOM ? "" : undefined}
+      data-enlarges={zoom === MIN_ZOOM && actualZoom > MIN_ZOOM ? "" : undefined}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}

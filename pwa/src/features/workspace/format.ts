@@ -11,6 +11,19 @@ export function formatBytes(size: number): string {
   return `${(size / 1024 / 1024).toFixed(1)} MiB`;
 }
 
+/**
+ * How long ago a file changed, for a list row: "just now", minutes, hours and
+ * days, then the date. The absolute date stays for the detail's info bar.
+ */
+export function formatModifiedAge(value: number, now = Date.now()): string {
+  const seconds = Math.max(0, Math.floor((now - value) / 1000));
+  if (seconds < 60) return t("device.justNow");
+  if (seconds < 3_600) return t("device.minutesAgo", { n: Math.floor(seconds / 60) });
+  if (seconds < 86_400) return t("device.hoursAgo", { n: Math.floor(seconds / 3_600) });
+  if (seconds < 604_800) return t("device.daysAgo", { n: Math.floor(seconds / 86_400) });
+  return formatModified(value);
+}
+
 export function formatModified(value: number): string {
   const activeLocale = locale();
   if (!modifiedDateFormatter || modifiedDateLocale !== activeLocale) {

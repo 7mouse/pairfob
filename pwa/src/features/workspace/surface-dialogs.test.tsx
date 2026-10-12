@@ -245,7 +245,9 @@ describe("the column parked by a narrow window takes what was opened from its li
 
   test("the branch sheet", async () => {
     await openColumnOnFiles();
-    await press(find("aside.inspector .workspace-branch"));
+    await press(find("aside.inspector .inspector-repo"));
+    await press(menuRow(t("workspace.overviewBranches")));
+    await settle();
     expect(branches()).not.toBeNull();
     await resize(800);
     expect(openDialogs()).toHaveLength(0);

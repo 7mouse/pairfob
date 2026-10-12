@@ -1,84 +1,25 @@
-import { ArrowUp, Ellipsis, Folder } from "lucide-react";
-import { Fragment, useLayoutEffect, useRef } from "react";
-import { useCapabilities } from "../operations/hooks";
-import { liveSession } from "../computers/catalog-store";
+import { ArrowUp, Folder, Search } from "lucide-react";
+import { Fragment } from "react";
 import { t } from "../../lib/i18n";
-import { workspaceBreadcrumbs, type WorkspaceEntry } from "../../lib/workspace";
+import { workspaceBreadcrumbs } from "../../lib/workspace";
 import { showActionSheet } from "../../shared/ui/overlay/action-sheet";
 import { MenuGroup, MenuRow } from "../../shared/ui/overlay/menu-controls";
-import { Button, Chevron } from "../../shared/ui/primitives";
-import { loadDirectory, loadWorkspaceFile } from "./actions";
+import { Button } from "../../shared/ui/primitives";
+import { loadDirectory } from "./actions";
 import { guardBackPress } from "./back-press";
-import { bindWorkspaceFileActions, openWorkspaceFileMenu, workspaceMutationTarget } from "./file-actions";
-import { FileIcon } from "./file-icon";
-import { formatBytes, formatModified } from "./format";
-import { DirMark, GitMark } from "./git-mark";
-import { foldBreadcrumbs, gitMarks, type GitMarks } from "./git-marks";
+import { useFileFilter } from "./file-filter";
+import { FileRow } from "./file-row";
+import { fileSearchOffered, searchable } from "./file-search";
+import { RecentFiles, RepoResults, TurnFiles } from "./file-sections";
+import { foldBreadcrumbs, gitMarks } from "./git-marks";
 import type { WorkspaceSnapshot } from "./model";
-
-import { workspacePaneCwd } from "./store";
+import { useRecentFiles } from "./recent-files";
+import { useListBeside } from "./list-beside";
 import { ownFilesDialog } from "./surface-dialogs";
+import { useTurnWrites } from "./turn-writes";
+import { useKeyHint } from "./workspace-keys";
 
-function FileRow({ entry, snapshot, marks }: { entry: WorkspaceEntry; snapshot: WorkspaceSnapshot; marks: GitMarks }) {
-  const open = useRef<HTMLButtonElement>(null);
-  const session = liveSession();
-  const paneId = snapshot.paneId;
-  const root = snapshot.descriptor?.root;
-  const directory = snapshot.directory;
-  const cwd = workspacePaneCwd(paneId);
-  // Subscribed snapshot: capability and busy changes rebind the row's menu.
-  const capabilities = useCapabilities();
-  const busy = capabilities.operationBusy;
-  const canRename = capabilities.operationCapabilities.rename_file;
-  const canDelete = capabilities.operationCapabilities.delete_file;
-  const isFile = entry.kind === "file";
-  useLayoutEffect(() => {
-    const el = open.current;
-    if (!el) return;
-    return bindWorkspaceFileActions(el, entry);
-  }, [entry, session, paneId, root, directory, cwd, canRename, canDelete]);
-  const onOpen = () => {
-    if (entry.kind === "directory") void loadDirectory(entry.path);
-    else if (isFile) void loadWorkspaceFile(entry.path);
-  };
-  const mark = isFile ? marks.files.get(entry.path) : undefined;
-  const changedBelow = entry.kind === "directory" ? marks.dirs.get(entry.path) ?? 0 : 0;
-  const pending = busy && workspaceMutationTarget() === entry.path;
-  const classes = ["workspace-row", `workspace-${entry.kind}`, entry.hidden && "is-hidden",
-    snapshot.detailPath === entry.path && "active", pending && "is-busy"].filter(Boolean).join(" ");
-  return <div className={classes} role="listitem">
-    <Button
-      ref={open}
-      className="workspace-row-main"
-      data-trigger-of={entry.path}
-      disabled={entry.kind !== "directory" && !isFile}
-      aria-busy={pending || undefined}
-      onClick={onOpen}
-    >
-      <span className="workspace-entry-icon" aria-hidden="true">
-        <FileIcon kind={entry.kind} name={entry.name} />
-      </span>
-      <span className="workspace-row-body">
-        <span className="workspace-row-name">{entry.name}</span>
-        {isFile && <span className="workspace-row-meta">{`${formatBytes(entry.size)} · ${formatModified(entry.modified_ms)}`}</span>}
-      </span>
-      {pending && <span className="spinner workspace-row-spinner" aria-hidden="true" />}
-      {mark && <GitMark kind={mark} />}
-      {changedBelow > 0 && <DirMark count={changedBelow} truncated={marks.truncated} />}
-      {entry.kind === "directory" && <Chevron />}
-    </Button>
-    {isFile && <Button
-      className="workspace-row-more"
-      aria-label={t("workspace.fileActions", { name: entry.name })}
-      aria-haspopup="dialog"
-      data-trigger-of={entry.path}
-      disabled={busy}
-      onClick={() => openWorkspaceFileMenu(entry)}
-    ><Ellipsis size={18} aria-hidden="true" /></Button>}
-  </div>;
-}
-
-function openPathSheet(snapshot: WorkspaceSnapshot, rootLabel: string): void {
+export function openPathSheet(snapshot: WorkspaceSnapshot, rootLabel: string): void {
   const crumbs = workspaceBreadcrumbs(snapshot.directory);
   ownFilesDialog(() => showActionSheet(t("workspace.jumpTo"), modal => <MenuGroup>
     {crumbs.map((crumb, depth) => {
@@ -93,13 +34,15 @@ function openPathSheet(snapshot: WorkspaceSnapshot, rootLabel: string): void {
   </MenuGroup>, { className: "workspace-path-sheet", popover: "menu" }));
 }
 
+/** Beside the list, inside a folder, the trail stays: up · root / … / parent / current. One screen at a time the header carries it. */
 function Breadcrumbs({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   const rootLabel = snapshot.descriptor?.name || t("workspace.root");
   const crumbs = workspaceBreadcrumbs(snapshot.directory);
   const shown = foldBreadcrumbs(crumbs);
   const parent = crumbs.length > 1 ? crumbs[crumbs.length - 2].path : null;
+  const upKey = useKeyHint("parentFolder");
   return <nav className="workspace-breadcrumbs" aria-label={t("workspace.files")}>
-    <Button className="workspace-up" aria-label={t("workspace.upDir")} title={t("workspace.upDir")}
+    <Button className="workspace-up" aria-label={t("workspace.upDir")} title={upKey.title(t("workspace.upDir"))} aria-keyshortcuts={upKey.keys}
       disabled={parent === null} onClick={(event) => {
         if (parent === null) return;
         // Up stays under the pointer: a doubled press would climb two folders.
@@ -128,17 +71,61 @@ function Breadcrumbs({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   </nav>;
 }
 
+/**
+ * Narrow the listing to the names that contain what is typed. It is the
+ * directory's own filter: another directory starts empty, and it is kept while
+ * the list is away for a file opened beside the session (`file-filter`). It
+ * never takes focus by itself, so no keyboard rises over the list.
+ */
+function FilterField({ snapshot, query, onChange }: { snapshot: WorkspaceSnapshot; query: string; onChange: (next: string) => void }) {
+  const folder = snapshot.directory ? snapshot.directory.split("/").pop() ?? "" : "";
+  const label = folder ? t("workspace.filterIn", { name: folder }) : t("workspace.filter");
+  return <label className="workspace-filter">
+    <Search size={16} aria-hidden="true" />
+    <input className="workspace-filter-input" type="search" value={query} placeholder={label} aria-label={label}
+      autoComplete="off" autoCorrect="off" autoCapitalize="off" spellCheck={false} enterKeyHint="search"
+      onChange={(event) => onChange(event.currentTarget.value)}
+      onKeyDown={(event) => { if (event.key === "Escape" && query) { event.preventDefault(); event.stopPropagation(); onChange(""); } }} />
+  </label>;
+}
+
+export function matchesFilter(name: string, query: string): boolean {
+  const needle = query.trim().toLowerCase();
+  return !needle || name.toLowerCase().includes(needle);
+}
+
 export function FileList({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   const reveal = snapshot.revealNav;
   const marks = gitMarks(snapshot.status);
+  const together = useListBeside();
+  const [query, setQuery] = useFileFilter(`${snapshot.paneId}\n${snapshot.descriptor?.root ?? ""}\n${snapshot.directory}`);
   // Directories first, each group in the daemon's order.
-  const entries = [...snapshot.entries].sort((a, b) => Number(b.kind === "directory") - Number(a.kind === "directory"));
+  const entries = [...snapshot.entries]
+    .filter((entry) => matchesFilter(entry.name, query))
+    .sort((a, b) => Number(b.kind === "directory") - Number(a.kind === "directory"));
+  const filtering = query.trim() !== "";
+  // The whole workspace is being asked as well: its section says what it found, or that it found nothing.
+  const searching = filtering && searchable(query) && fileSearchOffered();
+  // The filter narrows the pages that were loaded; a directory with more of them has names it has not seen.
+  const partial = filtering && snapshot.nextCursor !== null;
+  // Sections stand over the root's own rows: the rows get the repository's name as theirs.
+  const root = snapshot.descriptor?.root ?? "";
+  const turn = useTurnWrites(snapshot.paneId, snapshot.descriptor?.root).some((path) => marks.files.get(path) !== "deleted");
+  const recents = useRecentFiles(root).entries.some((entry) => entry.path.includes("/"));
+  const above = !filtering && !snapshot.directory && (turn || recents);
   return <section className={`workspace-panel${reveal ? " workspace-reveal" : ""}`}>
-    <Breadcrumbs snapshot={snapshot} />
+    {/* At the root there is nowhere to climb to, and the title above already names the repository. */}
+    {together && snapshot.directory !== "" && <Breadcrumbs snapshot={snapshot} />}
+    <FilterField snapshot={snapshot} query={query} onChange={setQuery} />
     <div className="workspace-list" role="list">
+      {!filtering && !snapshot.directory && <TurnFiles snapshot={snapshot} marks={marks} />}
+      {!filtering && !snapshot.directory && <RecentFiles snapshot={snapshot} marks={marks} />}
+      {above && <h3 className="workspace-section is-static"><span className="workspace-section-name">{snapshot.descriptor?.name || t("workspace.root")}</span></h3>}
       {entries.map((entry) => <FileRow key={entry.path} entry={entry} snapshot={snapshot} marks={marks} />)}
-      {!snapshot.loading && !snapshot.error && !snapshot.entries.length &&
-        <p className="workspace-empty">{t("workspace.empty")}</p>}
+      {filtering && <RepoResults snapshot={snapshot} marks={marks} query={query} listed={new Set(entries.map((entry) => entry.path))} />}
+      {!snapshot.loading && !snapshot.error && !entries.length && !searching && !partial &&
+        <p className="workspace-empty">{t(filtering ? "workspace.noMatch" : "workspace.empty")}</p>}
+      {partial && <p className="workspace-search-note workspace-filter-partial" role="status">{t("workspace.filterPartial")}</p>}
     </div>
     {snapshot.nextCursor && (
       <Button className="workspace-more" disabled={snapshot.loadingMore} onClick={() => loadDirectory(snapshot.directory, true)}>
@@ -148,4 +135,3 @@ export function FileList({ snapshot }: { snapshot: WorkspaceSnapshot }) {
     {snapshot.directoryTruncated && <p className="workspace-limit">{t("workspace.directoryTruncated")}</p>}
   </section>;
 }
-

@@ -8,13 +8,14 @@ import { appRoot } from "../../app/dom-root";
 import { disposeNoticeLifecycle } from "../../app/notices-store";
 import { currentScreen, setScreen } from "../../app/navigation-store";
 import { clearAllDiffNotes, diffNoteScope, diffNotesFor, upsertDiffNote } from "../../lib/diff-notes";
-import { setLang } from "../../lib/i18n";
+import { setLang, t } from "../../lib/i18n";
 import { NO_OPERATION_CAPABILITIES } from "../../lib/operations";
 import { ProtocolError } from "../../lib/protocol/errors";
 import { attachLiveSession } from "../computers/catalog-store";
 import { setPhase } from "../connection/connection-store";
 import { replaceAgentsFromSnapshot } from "../dashboard/catalog-store";
 import { applyCapabilities, setOperationBusy } from "../operations/capabilities-store";
+import { bindOverlayOrigin } from "../../shared/ui/overlay/origin";
 import { composeDraft, setComposeDraft } from "../session/compose-store";
 import { currentViewIncarnation } from "../session/drafts/compose-drafts";
 import { isAgentChat, isFullTerminal, openPaneId, selectPane, setAgentChat, setFullTerminal } from "../session/session-store";
@@ -205,10 +206,10 @@ describe("the inspector beside the desk session", () => {
     await click(".workspace-change:last-child");
     expect(workspaceModel.view).toBe("diff");
     expect(column()?.querySelector(".workspace-change")).toBeNull();
-    const back = inColumn(".inspector-switch-file");
-    expect(back.textContent).toBe("workspace-picker.tsxM");
-    expect(back.getAttribute("title")).toBe("lib/very/long/path/to/workspace-picker.tsx");
-    expect(inColumn(".inspector-switch .workspace-layer-label").textContent).toBe("工作区");
+    const chip = inColumn(".inspector-switch-file");
+    expect(chip.textContent).toBe("workspace-picker.tsxM");
+    expect(chip.getAttribute("title")).toBe("lib/very/long/path/to/workspace-picker.tsx");
+    expect(inColumn(".inspector-switch .workspace-layer-label").textContent).toBe("未暂存");
     expect(inColumn(".inspector-switch .workspace-additions").textContent).toBe("+1");
     expect(inColumn(".workspace-step-where").textContent).toContain("2 / 2");
     // The page's footer stepper moved into the switcher; the footer is for notes.
@@ -217,7 +218,19 @@ describe("the inspector beside the desk session", () => {
 
     await click(".workspace-step[aria-label='上一个改动文件']");
     expect(workspaceModel.detailPath).toBe("app.ts");
+    // The name opens the list as a menu: every change, the open one marked, and the list itself last.
     await click(".inspector-switch-file");
+    const menu = document.querySelector<HTMLDialogElement>("dialog.workspace-switcher[open]")!;
+    const choices = [...menu.querySelectorAll<HTMLButtonElement>(".workspace-switch-row")];
+    expect(choices.map((choice) => choice.dataset.switch)).toEqual(["worktree:app.ts", "worktree:lib/very/long/path/to/workspace-picker.tsx"]);
+    expect(choices.map((choice) => choice.getAttribute("aria-current"))).toEqual(["true", null]);
+    expect(menu.querySelector(".workspace-switch-filter")).toBeNull();
+    await act(async () => { choices[1].click(); });
+    await settle();
+    await settle();
+    expect(document.querySelector("dialog.workspace-switcher[open]")).toBeNull();
+    expect(workspaceModel.detailPath).toBe("lib/very/long/path/to/workspace-picker.tsx");
+    await click(".inspector-back");
     expect(workspaceModel.view).toBe("browser");
     expect(column()?.querySelectorAll(".workspace-change")).toHaveLength(2);
 
@@ -264,7 +277,7 @@ describe("the inspector beside the desk session", () => {
     expect(workspaceModel.paneId).toBe("p2");
     expect(workspaceModel.descriptor?.root).toBe("/work/p2");
     expect(workspaceModel.view).toBe("browser");
-    expect(inColumn(".workspace-repo-title").textContent).toContain("repo-p2");
+    expect(inColumn(".inspector-repo").getAttribute("aria-label")).toContain("repo-p2");
     expect(diffNotesFor("app.ts", "worktree")).toHaveLength(0);
 
     await change(() => selectPane("p1"));
@@ -418,15 +431,77 @@ describe("the inspector beside the desk session", () => {
     expect(column()?.querySelectorAll(".workspace-file")).toHaveLength(1);
   });
 
-  test("the repository line opens branches", async () => {
+  test("the repository is a menu on the head: its name and root, and the way into branches", async () => {
     await boot();
     await open();
-    const repo = inColumn<HTMLButtonElement>("button.workspace-repo-title");
-    expect(repo.textContent).toContain("repo-p1");
-    expect(repo.textContent).toContain("/work/p1");
+    // No row of its own: the list starts right under the head.
+    expect(column()?.querySelector(".workspace-repo-title")).toBeNull();
+    const repo = inColumn<HTMLButtonElement>(".inspector-repo");
+    expect(repo.getAttribute("aria-label")).toContain("repo-p1");
     await act(async () => { repo.click(); });
     await settle();
+    const menu = document.querySelector<HTMLDialogElement>("dialog.workspace-repo-menu[open]");
+    expect(menu?.textContent).toContain("repo-p1");
+    expect(menu?.textContent).toContain("/work/p1");
+    const branches = [...menu!.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent?.includes("分支与 Worktree"));
+    expect(branches?.textContent).toContain("main");
+    await act(async () => { branches!.click(); });
+    await settle();
+    await settle();
     expect(document.querySelector("dialog.workspace-branch-sheet")?.textContent).toContain("main");
+  });
+
+  test("the repository's menu is its commands: what names the repository above them is not one", async () => {
+    await boot();
+    await open();
+    const repo = inColumn<HTMLButtonElement>(".inspector-repo");
+    const release = bindOverlayOrigin(document);
+    await act(async () => {
+      repo.dispatchEvent(new happy.PointerEvent("pointerdown", {
+        bubbles: true, pointerId: 1, isPrimary: true, button: 0, pointerType: "mouse", clientX: 1300, clientY: 20,
+      }) as unknown as Event);
+      repo.click();
+    });
+    release();
+    await settle();
+    const menu = document.querySelector<HTMLDialogElement>("dialog.workspace-repo-menu[open]")!;
+    expect(menu.getAttribute("data-popover")).toBe("menu");
+    expect(menu.querySelector(".sheet-body")!.hasAttribute("role")).toBeFalse();
+    const commands = menu.querySelector<HTMLElement>("[role='menu']")!;
+    expect(commands.getAttribute("aria-label")).toBe("repo-p1");
+    expect(commands.contains(menu.querySelector(".workspace-repo-id"))).toBeFalse();
+    expect([...menu.querySelectorAll("[role='menuitem']")].every((item) => commands.contains(item))).toBeTrue();
+  });
+
+  test("a repository without a name is still called something", async () => {
+    const live = liveFixture();
+    await boot({ ...live, workspaceOpen: async (pane: string) => ({ ...(await live.workspaceOpen(pane)), name: "" }) });
+    await open();
+    const label = inColumn(".inspector-repo").getAttribute("aria-label")!;
+    expect(label).toBe(t("inspector.repo", { name: t("workspace.title") }));
+    expect(label).not.toContain("仓库 ：");
+  });
+
+  test("the branch sheet belongs to the session it was opened for: another session's column, and the way back, come without it", async () => {
+    const live = liveFixture();
+    // Two panes in one repository: nothing but the pane changes under the sheet.
+    await boot({ ...live, workspaceOpen: async () => ({ ...(await live.workspaceOpen("p1")) }) });
+    await open();
+    await act(async () => { inColumn<HTMLButtonElement>(".inspector-repo").click(); });
+    await settle();
+    const branches = [...document.querySelectorAll<HTMLButtonElement>("dialog.workspace-repo-menu[open] button")]
+      .find((button) => button.textContent?.includes("分支与 Worktree"));
+    await act(async () => { branches!.click(); });
+    await settle();
+    await settle();
+    expect(document.querySelector("dialog.workspace-branch-sheet[open]")).not.toBeNull();
+
+    await change(() => selectPane("p2"));
+    expect(document.querySelector("dialog.workspace-branch-sheet[open]")).toBeNull();
+    await change(() => selectPane("p1"));
+    await settle();
+    expect(workspaceModel.paneId).toBe("p1");
+    expect(document.querySelector("dialog.workspace-branch-sheet[open]")).toBeNull();
   });
 
   test("refresh reloads in place", async () => {
@@ -490,7 +565,7 @@ describe("the inspector beside the desk session", () => {
     await act(async () => { inColumn(".workspace-diff-line.diff-add").click(); });
     await settle();
     // Written in place: the editor is a form under the line, not a dialog over the page.
-    expect(document.querySelector("dialog.diff-note-modal")).toBeNull();
+    expect(document.querySelector("dialog[open]")).toBeNull();
     const textarea = inColumn<HTMLTextAreaElement>(".workspace-diff form.diff-note-inline textarea");
     await act(async () => {
       textarea.value = "why true";

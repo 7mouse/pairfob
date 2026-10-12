@@ -1,4 +1,4 @@
-import { Copy, FileDiff, FileText, LogOut, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Circle, CircleCheck, Copy, FileDiff, FileText, LogOut, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { t } from "../../lib/i18n";
 import type { GitChangeKind } from "../../lib/workspace";
 import { showActionSheet, type SheetAction } from "../../shared/ui/overlay/action-sheet";
@@ -18,6 +18,8 @@ export type FileMenuSpec = {
   viewChanges?: SheetAction;
   openFile?: SheetAction;
   copyPath: SheetAction;
+  /** A diff's own mark: seen as it stands, or unseen again. */
+  review?: { seen: boolean; toggle: SheetAction };
   rename?: SheetAction;
   remove?: SheetAction;
   refresh?: SheetAction;
@@ -36,6 +38,9 @@ export function openFileMenu(spec: FileMenuSpec): void {
         label={t("workspace.viewChanges")} detail={spec.mark ? changeKindLabel(spec.mark) : undefined} />}
       {spec.openFile && <MenuRow modal={modal} action={spec.openFile} icon={<FileText size={ICON} />} label={t("workspace.openFile")} />}
       <MenuRow modal={modal} action={spec.copyPath} icon={<Copy size={ICON} />} label={t("workspace.copyPath")} />
+      {spec.review && <MenuRow modal={modal} action={spec.review.toggle}
+        icon={spec.review.seen ? <Circle size={ICON} /> : <CircleCheck size={ICON} />}
+        label={t(spec.review.seen ? "workspace.markUnreviewed" : "workspace.markReviewed")} />}
     </MenuGroup>
     {(spec.rename || spec.remove) && <MenuGroup>
       {spec.rename && <MenuRow modal={modal} action={spec.rename} icon={<Pencil size={ICON} />} label={t("fileActions.rename")} />}

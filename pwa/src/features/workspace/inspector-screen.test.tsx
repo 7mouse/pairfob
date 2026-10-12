@@ -179,11 +179,11 @@ describe("the tab a first look opens on", () => {
     expect(selectedTab()).toBe("更改");
   });
 
-  test("a phone still opens on its files, upright or on its side", async () => {
+  test("a phone opens on the changes as well, upright or on its side", async () => {
     await boot(390, 844);
     await change(() => enterWorkspace("p1"));
-    expect(workspaceModel.tab).toBe("files");
-    expect(selectedTab()).toBe("文件");
+    expect(workspaceModel.tab).toBe("changes");
+    expect(selectedTab()).toBe("更改");
     await change(() => leaveWorkspace());
 
     // The largest phones are as wide as a desktop page on their side, and are still phones.
@@ -192,7 +192,17 @@ describe("the tab a first look opens on", () => {
     await change(() => selectPane("p2"));
     await change(() => enterWorkspace("p2"));
     expect(workspaceModel.paneId).toBe("p2");
-    expect(workspaceModel.tab).toBe("files");
+    expect(workspaceModel.tab).toBe("changes");
+  });
+
+  test("a link to a file opens the pane on its files at any width", async () => {
+    for (const width of [390, 820]) {
+      await boot(width, 844);
+      await change(() => enterWorkspace("p1", undefined, false, "files"));
+      expect(workspaceModel.tab).toBe("files");
+      expect(selectedTab()).toBe("文件");
+      unmountTestApp();
+    }
   });
 
   test("the tab the reader chose goes with the pane from the screen to the inspector and back", async () => {
@@ -246,8 +256,8 @@ describe("back on the workspace screen", () => {
     for (const width of [390, 820]) {
       await boot(width, 844);
       await change(() => enterWorkspace("p1"));
-      // Changes stand last on the phone and first beside the list (`tab-order`).
-      await press(`.workspace-tabs [role='tab']:${width < 720 ? "last" : "first"}-child`);
+      // Changes stand first at every width, and are what the files button opens on (`tab-order`).
+      expect(find(".workspace-tabs [role='tab']:first-child").getAttribute("aria-selected")).toBe("true");
       await press(".workspace-shell .workspace-change");
       expect(workspaceModel.view).toBe("diff");
 
@@ -266,7 +276,8 @@ describe("back on the workspace screen", () => {
 describe("a send is confirmed once", () => {
   async function writeNote(surface: string): Promise<void> {
     await press(`${surface} .workspace-diff-line.diff-add`);
-    const field = find<HTMLTextAreaElement>(surface === "aside.inspector" ? "form.diff-note-inline textarea" : "dialog.diff-note-modal textarea");
+    // The same form under the line, in the column and on the screen.
+    const field = find<HTMLTextAreaElement>(`${surface} form.diff-note-inline textarea`);
     await act(async () => {
       field.value = "why true";
       field.dispatchEvent(new window.Event("input", { bubbles: true }));
@@ -290,7 +301,6 @@ describe("a send is confirmed once", () => {
   test("on the screen the banner stays with the receipt, as on the phone", async () => {
     await boot(390, 844);
     await change(() => enterWorkspace("p1"));
-    await press(".workspace-tabs [role='tab']:last-child");
     await press(".workspace-shell .workspace-change");
     await writeNote(".workspace-shell");
     await press(".workspace-shell .workspace-notes-send");

@@ -17,5 +17,6 @@ export { SetAction, SetGroup, SetItem, SetNavItem, SetSwitch, SetTag } from "./d
 export { CommandLine } from "./command-line";
 export { SegmentedControl, SegmentedOption } from "./segmented-control";
 export { SelectionRow } from "./selection-row";
+export { COLUMN_KEY_STEP_PX, ColumnDivider, remPx, type ColumnBox } from "./column-divider";
 export { AgentAvatar, type AvatarStatus } from "./agent-avatar";
 export { agentIcon, type AgentIconSpec } from "./agent-icons";

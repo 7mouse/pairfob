@@ -17,8 +17,10 @@ import {
   parsePromptAgentResult,
   parseResizePaneResult,
   parseRuntimeOperationsConfig,
+  advertisesChangeStats,
   advertisesTraceLabels,
   advertisesTraceMarkers,
+  advertisesTraceWrites,
   parseSplitPaneResult,
   parseSwapPaneResult,
   parseWorktrees,
@@ -110,6 +112,32 @@ describe("runtime operation config", () => {
     expect(advertisesTraceMarkers(null)).toBeFalse();
     expect(advertisesTraceLabels({ capabilities: { trace_labels: true } })).toBeTrue();
     expect(advertisesTraceLabels({ capabilities: { trace_markers: true } })).toBeFalse();
+  });
+
+  test("the review capabilities are optional: a daemon that predates them offers none, and only a boolean is an answer", () => {
+    for (const key of ["git_change_stats", "search_files", "trace_writes"] as const) {
+      const older: Record<string, unknown> = { ...NO_OPERATION_CAPABILITIES };
+      delete older[key];
+      expect(parseRuntimeOperationsConfig(config(older)).capabilities[key]).toBeFalse();
+      expect(parseRuntimeOperationsConfig(config({ ...older, [key]: true })).capabilities[key]).toBeTrue();
+      expect(parseRuntimeOperationsConfig(config({ ...older, [key]: false })).capabilities[key]).toBeFalse();
+      for (const invalid of ["true", 1, null]) {
+        expect(() => parseRuntimeOperationsConfig(config({ ...older, [key]: invalid }))).toThrow();
+      }
+    }
+    // All three absent at once, as on any daemon before them.
+    const { git_change_stats, search_files, trace_writes, ...before } = NO_OPERATION_CAPABILITIES;
+    expect(parseRuntimeOperationsConfig(config(before)).capabilities).toEqual(NO_OPERATION_CAPABILITIES);
+    // What the session asks the daemon for follows the raw answer, and only a literal true.
+    expect(advertisesChangeStats({ capabilities: { git_change_stats: true } })).toBeTrue();
+    expect(advertisesChangeStats({ capabilities: { git_change_stats: "true" } })).toBeFalse();
+    expect(advertisesChangeStats({ capabilities: { search_files: true } })).toBeFalse();
+    expect(advertisesChangeStats({ capabilities: {} })).toBeFalse();
+    expect(advertisesChangeStats(null)).toBeFalse();
+    expect(advertisesTraceWrites({ capabilities: { trace_writes: true } })).toBeTrue();
+    expect(advertisesTraceWrites({ capabilities: { trace_writes: 1 } })).toBeFalse();
+    expect(advertisesTraceWrites({ capabilities: { trace_labels: true } })).toBeFalse();
+    expect(advertisesTraceWrites(undefined)).toBeFalse();
   });
 
   test("list_sessions is optional, accepts only booleans and remains available offline", () => {

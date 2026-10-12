@@ -232,7 +232,7 @@ describe("the inspector by keyboard", () => {
     await focusOn(row("lib.ts"));
     await key("Enter");
     expect(workspaceModel.view).toBe("diff");
-    expectSameNode(focused(), one(".inspector-switch-file"));
+    expectSameNode(focused(), one(".inspector-back"));
 
     expect((await key("Escape")).defaultPrevented).toBeTrue();
     expect(workspaceModel.view).toBe("browser");
@@ -282,9 +282,35 @@ describe("the inspector by keyboard", () => {
     expectSameNode(focused(), lines().at(-1));
     await key("ArrowDown");
     expectSameNode(focused(), lines().at(-1));
+    // The hunk's head stands before its lines, on the same path: Home reaches it, and it is still one stop.
     await key("Home");
+    const head = one<HTMLButtonElement>(".workspace-inspector .workspace-hunk-toggle");
+    expectSameNode(focused(), head);
+    expect([head, ...lines()].filter((stop) => stop.tabIndex === 0)).toHaveLength(1);
+    await key("ArrowDown");
     expectSameNode(focused(), lines()[0]);
-    expect(lines().filter((line) => line.tabIndex === 0)).toHaveLength(1);
+  });
+
+  test("a hunk folds at its head, and the keyboard stays on the head", async () => {
+    await boot(1440);
+    await openColumnByKey();
+    await focusOn(row("app.ts"));
+    await key("Enter");
+    const head = () => one<HTMLButtonElement>(".workspace-inspector .workspace-hunk-toggle");
+    const lines = () => appRoot().querySelectorAll(".workspace-inspector .workspace-diff-line");
+    const shown = lines().length;
+    expect(shown).toBeGreaterThan(2);
+    expect(head().getAttribute("aria-expanded")).toBe("true");
+    await focusOn(head());
+    await act(async () => { head().click(); });
+    expect(head().getAttribute("aria-expanded")).toBe("false");
+    expect(lines()).toHaveLength(0);
+    // Folded, the head says how much it holds; it is the diff's one stop now.
+    expect(head().textContent).toContain(`${shown} 行`);
+    expectSameNode(focused(), head());
+    expect(head().tabIndex).toBe(0);
+    await act(async () => { head().click(); });
+    expect(lines()).toHaveLength(shown);
   });
 
   test("a control that disables itself for its own read gets the keyboard back when the read lands", async () => {
@@ -370,16 +396,27 @@ describe("the files screen by keyboard", () => {
     expectSameNode(focused(), filesButton());
   });
 
-  test("Esc is the top layer's while a sheet is open, and leaves a mouse's focus alone on the way out", async () => {
+  test("Esc is the note's while one is being written, then the top layer's, and leaves a mouse's focus alone on the way out", async () => {
     await boot(800);
     await act(async () => { await enterWorkspace("p1"); });
     await settle();
     await click(row("app.ts"));
     await click(one(".workspace-shell .diff-add"));
-    const sheet = document.querySelector<HTMLDialogElement>("dialog.diff-note-modal")!;
+    // The note is written under its line: the form takes the key, and the diff under it stays open.
+    const field = one<HTMLTextAreaElement>(".workspace-shell form.diff-note-inline textarea");
+    const inForm = new happy.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }) as unknown as Event;
+    await act(async () => { field.dispatchEvent(inForm); });
+    await settle();
+    expect(inForm.defaultPrevented).toBeTrue();
+    expect(document.querySelector("form.diff-note-inline")).toBeNull();
+    expect(workspaceModel.view).toBe("diff");
+    expect(currentScreen()).toBe("workspace");
+
+    await click(one(".workspace-shell .workspace-detail-more"));
+    const sheet = document.querySelector<HTMLDialogElement>("dialog.workspace-file-menu")!;
     expect(sheet.open).toBeTrue();
     const event = new happy.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }) as unknown as Event;
-    await act(async () => { sheet.querySelector("textarea")!.dispatchEvent(event); });
+    await act(async () => { sheet.dispatchEvent(event); });
     // The sheet answers its own Escape (`dialog-lifecycle`); the screen under it closes nothing.
     expect(workspaceModel.view).toBe("diff");
     expect(currentScreen()).toBe("workspace");

@@ -11,6 +11,7 @@ import { FIXED_NOW, record } from "./environment";
 import type { FixtureTerminalFrame } from "./types";
 import * as data from "./data";
 import type { SnapshotWire } from "../src/lib/dashboard";
+import type { GitStatus } from "../src/lib/workspace";
 
 export type FixtureSession = {
   live: LiveSession;
@@ -42,6 +43,8 @@ export type SessionSource = {
   terminalScreen?: (cols: number, rows: number) => string;
   /** The Herdr sessions the computer lists; a computer that lists none has no switch. */
   herdSessions?: HerdSessionSummary[];
+  /** The working tree's changes, where a scene needs other than the usual three. */
+  status?: () => GitStatus;
 };
 
 /** Every request is local and logged. Holds/errors allow deliberate async interaction probes. */
@@ -152,6 +155,11 @@ export function createSession(source: SessionSource = {}): FixtureSession {
       const kind = ['', 'public', 'src', 'proto', 'workers'].includes(path) ? 'directory' as const : 'file' as const;
       return { root, path, kind };
     }),
+    workspaceSearch: (paneId: string, root: string, query: string, limit?: number) => request("workspaceSearch", [paneId, root, query], () => {
+      if (root !== data.ROOT) throw new ProtocolError('conflict');
+      return data.searchFiles(query, limit);
+    }),
+    agentTurnWrites: (paneId: string) => request("agentTurnWrites", [paneId], data.turnWrites),
     workspaceOpen: (paneId: string) => request("workspaceOpen", [paneId], data.descriptor),
     workspaceList: (paneId: string, path = "", cursor?: string, _limit?: number, root?: string) => request("workspaceList", [paneId, path, cursor, ...(root === undefined ? [] : [root])], () => {
       if (root !== undefined && root !== data.ROOT) throw new ProtocolError('conflict');
@@ -171,7 +179,7 @@ export function createSession(source: SessionSource = {}): FixtureSession {
       return preview.read(handle, offset, length) ?? data.mediaChunk(handle, offset, length);
     }),
     workspaceMediaClose: (handle: string) => request("workspaceMediaClose", [handle], () => { preview.close(handle); return { handle, closed: true as const }; }),
-    gitStatus: (paneId: string) => request("gitStatus", [paneId], data.status),
+    gitStatus: (paneId: string) => request("gitStatus", [paneId], source.status ?? data.status),
     gitDiff: (paneId: string, path: string, layer: "staged" | "worktree") => request("gitDiff", [paneId, path, layer], () => data.diff(path, layer)),
     gitBranches: (paneId: string) => request("gitBranches", [paneId], () => ({ items: [
       { name: "main", kind: "local", current: true, head: "1234567890abcdef", upstream: "origin/main" },

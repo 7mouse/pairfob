@@ -1,0 +1,134 @@
+/* The detail pane with nothing open: the desk's empty main column, said for a repository.
+   A heading and its line, the places worth going to as large entries, one main action and
+   one way to search; key hints only for a keyboard (`overview.tsx`). The sizes are
+   `desk-empty`'s own, so the two empty panes read as one. */
+
+.workspace-overview {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: min(100%, 31.75rem);
+  min-height: 0;
+  margin: auto;
+  padding: 24px;
+}
+
+.workspace-overview-title {
+  align-self: stretch;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-title);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-align: start;
+}
+.workspace-overview-root {
+  align-self: stretch;
+  margin: 4px 0 14px;
+  overflow: hidden;
+  color: var(--muted);
+  font: var(--text-caption) var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-overview-list {
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+}
+.workspace-overview-list > li { flex: none; }
+
+.workspace-overview-entry {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 64px;
+  padding: 10px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-md);
+  background: var(--surface);
+  color: var(--muted);
+  text-align: start;
+  transition: background var(--dur-1) var(--ease);
+}
+.workspace-overview-entry.is-static { border-style: dashed; background: none; }
+button.workspace-overview-entry:active { background: var(--surface-2); }
+.workspace-overview-entry > svg { flex: none; }
+.workspace-overview-icon {
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+  color: var(--ink);
+  flex: none;
+}
+.workspace-overview-copy { flex: 1 1 auto; min-width: 0; }
+.workspace-overview-name {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  font-size: var(--text-subhead);
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-overview-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 2px;
+  overflow: hidden;
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.workspace-overview-meta > * { flex: none; }
+.workspace-overview-path { flex: 0 1 auto; min-width: 0; overflow: hidden; font-family: var(--mono); text-overflow: ellipsis; }
+.workspace-overview-notes { color: var(--accent); }
+
+.workspace-overview-actions {
+  align-self: stretch;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+}
+.workspace-overview-actions .btn { width: auto; margin: 0; gap: 6px; }
+.workspace-overview-search { border-color: var(--line-strong); background: transparent; color: var(--muted); }
+.workspace-overview kbd {
+  padding: 2px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 5px;
+  font: 500 var(--text-caption) var(--mono);
+}
+.workspace-overview-search kbd { margin-left: 2px; }
+
+/* The palette's own foot: which keys move, open and leave. */
+.workspace-overview-keys {
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  margin: 22px 0 0;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  color: var(--muted);
+  font-size: var(--text-caption);
+}
+.workspace-overview-keys span { display: inline-flex; align-items: center; gap: 5px; }
+
+@media (hover: hover) and (pointer: fine) {
+  button.workspace-overview-entry:hover { background: var(--surface-2); }
+  .workspace-overview-actions .btn { min-height: 36px; }
+  .workspace-overview-search:hover { color: var(--ink); }
+}

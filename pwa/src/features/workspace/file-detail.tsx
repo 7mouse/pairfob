@@ -1,7 +1,7 @@
 import { HTMLPreview, isHTMLFile } from "./html-preview";
 import { FileSource } from "./file-source";
 import { PreviewSwitch, usePreviewControls, type PreviewControls } from "./preview-controls";
-import { Ellipsis, RotateCw, WrapText } from "lucide-react";
+import { Ellipsis, FileDiff, RotateCw, Search, WrapText } from "lucide-react";
 import { useMemo } from "react";
 import { highlightSource, type SyntaxToken } from "../../lib/syntax-highlight";
 import { t } from "../../lib/i18n";
@@ -10,7 +10,9 @@ import { Button } from "../../shared/ui/primitives";
 import { loadWorkspaceFile, refreshWorkspace } from "./actions";
 import { openDetailMenu } from "./detail-menu";
 import { viewWorkspaceChanges } from "./file-actions";
+import { FileFindBar, foundLines, useFileFind, type FileFind } from "./file-find";
 import { FileIcon } from "./file-icon";
+import { useNoteLines } from "./file-line-actions";
 import { formatBytes, formatModified } from "./format";
 import { GitMark } from "./git-mark";
 import { gitMarks } from "./git-marks";
@@ -18,6 +20,7 @@ import { WorkspaceMedia } from "./media";
 import type { WorkspaceSnapshot } from "./model";
 import { FilePending, ReservedStat } from "./pending";
 import { setWorkspaceWrap, useWorkspaceWrap } from "./prefs";
+import { useKeyHint } from "./workspace-keys";
 
 /**
  * Tokens regrouped per source line. Every line keeps its own "\n", so the
@@ -62,6 +65,8 @@ export type FileView = {
   mark: GitChangeKind | undefined;
   viewChanges: (() => void) | undefined;
   meta: string | null;
+  /** Find in the file's text; offered for source that is shown as source. */
+  find: FileFind;
 };
 
 export function useFileView(snapshot: WorkspaceSnapshot): FileView {
@@ -72,11 +77,15 @@ export function useFileView(snapshot: WorkspaceSnapshot): FileView {
   const text = file?.kind === "text" ? file : null;
   const lines = useMemo(() => text ? sourceLines(text.path, text.content) : [], [text]);
   const mark = gitMarks(snapshot.status).files.get(path);
+  const find = useFileFind(path, text ? text.content : null);
   const meta = file
     ? [formatBytes(file.size), formatModified(file.modified_ms), text && `${t("workspace.lines", { count: lines.length })}${file.truncated ? "+" : ""}`]
       .filter(Boolean).join(" · ")
     : null;
-  return { file, path, preview: file && isHTMLFile(path) ? preview : null, text: text !== null, lines, wrap, mark, viewChanges: mark ? viewWorkspaceChanges(path) : undefined, meta };
+  return {
+    file, path, preview: file && isHTMLFile(path) ? preview : null, text: text !== null, lines, wrap, mark,
+    viewChanges: mark ? viewWorkspaceChanges(path) : undefined, meta, find,
+  };
 }
 
 /** HTML selects its view here; other files show size, age and line count. */
@@ -86,19 +95,33 @@ export function FileMeta({ snapshot, view }: { snapshot: WorkspaceSnapshot; view
   return snapshot.loading ? <ReservedStat className="workspace-row-meta" text={null} /> : null;
 }
 
-/** File actions stay in one info bar; wrapping only applies to source. */
+/** The file is on screen as its text: a page's source counts, its rendering does not. */
+function sourceShown(view: FileView): boolean {
+  return view.text && (!view.preview || view.preview.mode === "source");
+}
+
+/**
+ * The info bar's actions, one row of icons whatever the file: find, wrap, the
+ * file's changes (its Git mark on the icon), and for a page its reload; then ⋯.
+ * Find and wrap are for source shown as source.
+ */
 export function FileActions({ view }: { view: FileView }) {
+  const source = sourceShown(view);
+  const wrapKey = useKeyHint("wrap");
   return <span className="workspace-detail-actions">
-    {view.viewChanges && view.mark && <Button className="workspace-chip is-change" onClick={view.viewChanges}>
-      <GitMark kind={view.mark} />{t("workspace.viewChanges")}
+    {source && <Button className="icon-btn workspace-tool workspace-find-toggle" aria-label={t("workspace.findInFile")}
+      title={t("workspace.findInFile")} aria-pressed={view.find.open} onClick={view.find.toggle}>
+      <Search size={16} aria-hidden="true" />
     </Button>}
-    {view.text && (!view.preview || view.preview.mode === "source") && <Button
-      className={view.preview ? "icon-btn workspace-preview-action" : "workspace-chip"}
-      aria-label={t("workspace.wrap")} title={t("workspace.wrap")}
-      aria-pressed={view.wrap} onClick={() => setWorkspaceWrap(!view.wrap)}>
-      <WrapText size={view.preview ? 16 : 14} aria-hidden="true" />{!view.preview && t("workspace.wrap")}
+    {source && <Button className="icon-btn workspace-tool workspace-preview-action" aria-label={t("workspace.wrap")} title={wrapKey.title(t("workspace.wrap"))}
+      aria-keyshortcuts={wrapKey.keys} aria-pressed={view.wrap} onClick={() => setWorkspaceWrap(!view.wrap)}>
+      <WrapText size={16} aria-hidden="true" />
     </Button>}
-    {view.preview && <Button className="icon-btn workspace-preview-action" aria-label={t("preview.reload")}
+    {view.viewChanges && view.mark && <Button className="icon-btn workspace-tool workspace-view-changes" aria-label={t("workspace.viewChanges")}
+      title={t("workspace.viewChanges")} onClick={view.viewChanges}>
+      <FileDiff size={16} aria-hidden="true" /><GitMark kind={view.mark} />
+    </Button>}
+    {view.preview && <Button className="icon-btn workspace-tool workspace-preview-action" aria-label={t("preview.reload")}
       title={t("preview.reload")} onClick={view.preview.refresh}><RotateCw size={16} aria-hidden="true" /></Button>}
     <DetailMoreButton />
   </span>;
@@ -107,11 +130,15 @@ export function FileActions({ view }: { view: FileView }) {
 /** Everything below the info bar: the source, the media surface, or the state that stands in for them. */
 export function FileBody({ snapshot, view }: { snapshot: WorkspaceSnapshot; view: FileView }) {
   const { file, wrap } = view;
+  const notes = useNoteLines(snapshot, view.path);
   const retry = () => {
     if (snapshot.view === "file" && snapshot.detailPath) void loadWorkspaceFile(snapshot.detailPath);
     else void refreshWorkspace();
   };
   return <>
+    {!snapshot.error && sourceShown(view) && <FileFindBar find={view.find} />}
+    {/* Said before the text, where it is read before the file is taken for whole. */}
+    {file?.truncated && !snapshot.error && !isHTMLFile(file.path) && <p className="workspace-limit is-lead" role="note">{t("workspace.previewTruncated")}</p>}
     {snapshot.error ? (
       <div className="workspace-feedback workspace-error workspace-feedback-pane" role="alert">
         <p>{snapshot.error}</p>
@@ -120,19 +147,19 @@ export function FileBody({ snapshot, view }: { snapshot: WorkspaceSnapshot; view
     ) : !file ? (
       snapshot.loading && snapshot.pendingReveal ? <FilePending /> : null
     ) : view.preview ? (
-      <HTMLPreview key={view.preview.key} snapshot={snapshot} wrap={wrap} controls={view.preview} />
+      <HTMLPreview key={view.preview.key} snapshot={snapshot} wrap={wrap} controls={view.preview} found={foundLines(view.find)} />
     ) : file.kind === "binary" ? (
       <WorkspaceMedia media={snapshot.media} />
     ) : (
       <>
-        <FileSource path={file.path} content={file.content} wrap={wrap} line={snapshot.sourceLine} reveal={snapshot.revealFile} />
+        <FileSource path={file.path} content={file.content} wrap={wrap} line={snapshot.sourceLine} reveal={snapshot.revealFile} notes={notes}
+          found={foundLines(view.find)} />
         {/* SVG text keeps its safe source and also offers a full-download
             entry through the owned media surface (SvgHint -> loadWorkspaceMedia
             fetches the whole file); never injected inline. */}
         {snapshot.media.role === "svg" ? <WorkspaceMedia media={snapshot.media} /> : null}
       </>
     )}
-    {file?.truncated && !isHTMLFile(file.path) && <p className="workspace-limit">{t("workspace.previewTruncated")}</p>}
   </>;
 }
 

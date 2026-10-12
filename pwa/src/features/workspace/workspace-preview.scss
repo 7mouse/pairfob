@@ -12,6 +12,13 @@
   overflow: hidden;
 }
 .workspace-html-frame { width: 100%; flex: 1; min-height: 0; border: 0; background: white; }
+/* The page tried at a phone's or a tablet's width: centred on the media stage's dark, edged so a dark page still shows its box. */
+.workspace-html.is-sized { align-items: center; background: #07090d; }
+.workspace-html.is-sized .workspace-html-frame { max-width: 100%; box-shadow: 0 0 0 1px var(--line-strong); }
+.workspace-html.is-sized > :not(.workspace-html-frame) { align-self: stretch; }
+/* 375 · 768 · auto, in the info bar's own segmented control. */
+.workspace-layer-switch.workspace-preview-width { grid-template-columns: repeat(3, auto); }
+.workspace-preview-width button { min-width: 44px; font-variant-numeric: tabular-nums; }
 .workspace-html .workspace-code { flex: 1; }
 .workspace-code-line.is-target { background: rgba(230, 173, 48, .2); }
 

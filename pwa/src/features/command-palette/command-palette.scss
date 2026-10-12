@@ -195,6 +195,8 @@ dialog.modal.command-palette > form {
   font-size: var(--text-body);
   text-align: center;
 }
+/* Under rows that are there: a line about the files, not the whole answer. */
+.palette-none.is-note { padding: 8px 16px 10px; border-top: 1px solid var(--line); font-size: var(--text-caption); }
 
 /* Key hints are for a keyboard; a finger has the rows and the backdrop. */
 .palette-enter,
@@ -224,3 +226,7 @@ dialog.modal.command-palette > form {
 
   .palette-foot span { display: inline-flex; align-items: center; gap: 5px; }
 }
+
+/* A file of the open workspace: its name as the list of files writes it, its folder underneath. */
+.palette-file-name { font-family: var(--mono); font-size: var(--text-secondary); font-weight: 500; }
+.palette-file-folder { font-family: var(--mono); }

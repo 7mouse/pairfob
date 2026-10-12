@@ -4,5 +4,5 @@
  * composition hands the herd in through `provideCommandPalette`.
  */
 export { openCommandPalette } from "./open";
-export { provideCommandPalette, type CommandPalettePorts } from "./ports";
+export { provideCommandPalette, type CommandPalettePorts, type PaletteFiles } from "./ports";
 export { attentionSessions, type PaletteActionId, type PaletteInput, type PaletteSession } from "./model/palette";

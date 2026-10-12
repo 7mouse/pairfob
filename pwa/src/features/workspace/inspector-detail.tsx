@@ -1,37 +1,42 @@
-import { ChevronDown } from "lucide-react";
-import type { KeyboardEvent } from "react";
+import { ChevronDown, ChevronLeft } from "lucide-react";
 import { t } from "../../lib/i18n";
 import type { GitChangeKind } from "../../lib/workspace";
 import { Button } from "../../shared/ui/primitives";
 import { closeWorkspaceDetail } from "./actions";
 import { guardBackPress } from "./back-press";
-import { DiffBody, DiffStats, LayerSwitch, useDiffView } from "./diff";
+import { DiffBody, DiffHint, DiffStats, DiffTools, LayerSwitch, useDiffView } from "./diff";
 import { DiffStepper } from "./diff-stepper";
-import { plainEscape } from "./escape";
 import { DetailMoreButton, FileActions, FileBody, FileMeta, useFileView } from "./file-detail";
+import { openFileSwitcher } from "./file-switcher";
 import { GitMark } from "./git-mark";
 import type { WorkspaceSnapshot } from "./model";
-import { useInlineNote } from "./note-inline";
+import { setOpenNoteAside, useInlineNote } from "./note-inline";
 import { DiffNotesBar } from "./notes";
 
 /**
  * The inspector's one column has no room for the list beside an open file, so
- * the list collapses into this: the open item's name, which leads back to it.
- * The full path stays one hover or one ⋯ away. The list comes up under the
- * pointer with the repository title where the chip was, so a doubled press is
- * guarded as on any way back.
+ * the list collapses into this line: a way back to it, then the open item's
+ * name, which opens the list as a menu to switch by (`file-switcher`). The
+ * full path stays one hover or one ⋯ away. Back brings the list up under the
+ * pointer, so a doubled press is guarded as on any way back.
  */
 function ListSwitch({ path, mark }: { path: string; mark?: GitChangeKind }) {
   const name = path.split("/").pop() || path;
-  return <Button className="inspector-switch-file" aria-label={t("inspector.backToList", { name })} title={path}
-    onClick={(event) => {
-      guardBackPress(event);
-      closeWorkspaceDetail();
-    }}>
-    <ChevronDown size={14} aria-hidden="true" />
-    <span className="workspace-detail-name">{name}</span>
-    {mark && <GitMark kind={mark} />}
-  </Button>;
+  return <>
+    <Button className="icon-btn workspace-tool inspector-back" aria-label={t("inspector.backToList", { name })} title={t("workspace.switchList")}
+      onClick={(event) => {
+        guardBackPress(event);
+        closeWorkspaceDetail();
+      }}>
+      <ChevronLeft size={18} aria-hidden="true" />
+    </Button>
+    <Button className="inspector-switch-file" aria-label={t("inspector.switchFile", { name })} title={path} aria-haspopup="dialog"
+      onClick={(event) => openFileSwitcher(event.currentTarget)}>
+      <span className="workspace-detail-name">{name}</span>
+      {mark && <GitMark kind={mark} />}
+      <ChevronDown size={14} aria-hidden="true" />
+    </Button>
+  </>;
 }
 
 /** A source file in the inspector: the switcher line, then the same body the page shows. */
@@ -58,21 +63,16 @@ export function InspectorDiff({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   const view = useDiffView(snapshot);
   const { diff, layers } = view;
   const note = useInlineNote(view.diffKey);
-  // The form takes its own Escape. Pressed anywhere else in the diff while a
-  // note is open, the note is still what is on top: it is set aside first.
-  const setOpenNoteAside = (event: KeyboardEvent<HTMLElement>) => {
-    if (!note.note || !plainEscape(event.nativeEvent) || !event.currentTarget.contains(event.target as Node)) return;
-    event.preventDefault();
-    event.stopPropagation();
-    note.setAside();
-  };
-  return <section className="workspace-detail-view workspace-diff-view" aria-label={t("workspace.diff")} onKeyDown={setOpenNoteAside}>
+  return <section className="workspace-detail-view workspace-diff-view" aria-label={t("workspace.diff")}
+    onKeyDown={(event) => setOpenNoteAside(note, event)}>
     <div className="workspace-detail-head inspector-switch">
       <ListSwitch path={view.path} mark={view.kind} />
       {layers.length > 1 ? <LayerSwitch snapshot={snapshot} layers={layers} />
         : <span className="workspace-layer-label">{t(snapshot.diffLayer === "staged" ? "workspace.staged" : "workspace.worktree")}</span>}
-      <DiffStats snapshot={snapshot} />
+      {/* What gives way first where the line is short, and whole (`.inspector-stats`). */}
+      <span className="inspector-stats"><span className="inspector-stats-pair"><DiffStats snapshot={snapshot} /></span></span>
       <span className="workspace-detail-actions">
+        <DiffTools snapshot={snapshot} view={view} />
         <DiffStepper snapshot={snapshot} />
         <DetailMoreButton />
       </span>
@@ -80,7 +80,7 @@ export function InspectorDiff({ snapshot }: { snapshot: WorkspaceSnapshot }) {
     <DiffBody snapshot={snapshot} view={view} onEditNote={note.open} hint={false} inline={note} parked={note.parked} />
     <div className="workspace-diff-footer">
       {diff && !diff.binary && <DiffNotesBar key={view.diffKey} path={diff.path} layer={snapshot.diffLayer} paneId={snapshot.paneId} beside />}
-      {view.invitesNotes && <p className="workspace-diff-hint">{t("diffNotes.tapHint")}</p>}
+      {view.invitesNotes && <DiffHint />}
     </div>
   </section>;
 }

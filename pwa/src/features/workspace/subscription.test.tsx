@@ -126,7 +126,7 @@ async function boot(live: LiveSession = liveFixture()): Promise<void> {
   await act(async () => {
     mountTestApp();
     commitTest();
-    await enterWorkspace("p1");
+    await enterWorkspace("p1", undefined, false, "files");
   });
 }
 
@@ -254,6 +254,13 @@ describe("workspace screen behavior (actual App)", () => {
     if (!found) throw new Error(`missing button ${label}: ${root2.innerHTML.slice(0, 400)}`);
     return found as HTMLButtonElement;
   }
+  /** A change group's own title: the layer switch of an open diff carries the same word. */
+  function groupNamed(label: string): HTMLButtonElement {
+    const found = root2.querySelector<HTMLButtonElement>(`button.workspace-change-group-title[aria-label="${label}"]`);
+    if (!found) throw new Error(`missing change group ${label}`);
+    return found;
+  }
+
   const settle = () => act(async () => { await new Promise<void>(done => window.setTimeout(done, 0)); });
   const waitForPending = () => act(async () => { await new Promise<void>(done => window.setTimeout(done, WORKSPACE_PENDING_DELAY_MS + 20)); });
 
@@ -276,7 +283,7 @@ describe("workspace screen behavior (actual App)", () => {
     expect(root2.querySelector('.workspace-row [data-file-icon="folder"]')).toBeTruthy();
     await act(() => { buttonNamed("src").click(); });
     await settle();
-    expect(root2.querySelector(".workspace-breadcrumbs")?.textContent).toContain("src");
+    expect(root2.querySelector(".workspace-folder-title")?.textContent).toContain("src");
     expect(root2.querySelector('.workspace-row [data-file-icon="ts"]')).toBeTruthy();
     await act(() => { buttonNamed("app.ts").click(); });
     await settle();
@@ -302,7 +309,7 @@ describe("workspace screen behavior (actual App)", () => {
     act(() => {
       mountTestApp();
       commitTest();
-      opening = enterWorkspace("p1");
+      opening = enterWorkspace("p1", undefined, false, "files");
     });
     await waitForPending();
     const pending = root2.querySelector(".workspace-list-pending");
@@ -347,17 +354,21 @@ describe("workspace screen behavior (actual App)", () => {
     await boot(live);
     await act(() => { buttonNamed("更改").click(); });
     await settle();
-    expect(root2.querySelectorAll(".workspace-change-group-title").length).toBe(2);
-    expect(root2.querySelectorAll(".workspace-change")).toHaveLength(2);
-    expect(root2.querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
-    await act(() => { buttonNamed("已暂存的更改").click(); });
+    // One file changed in both layers is one row, under the working tree; its staged diff is a tag on the row.
+    expect(root2.querySelectorAll(".workspace-change-group-title")).toHaveLength(1);
     expect(root2.querySelectorAll(".workspace-change")).toHaveLength(1);
-    expect(buttonNamed("已暂存的更改").getAttribute("aria-expanded")).toBe("false");
-    await act(() => { buttonNamed("已暂存的更改").click(); });
-    await act(() => { buttonNamed("src/app.ts · 已暂存 · 修改").click(); });
+    expect(root2.querySelectorAll(".workspace-change-layer")).toHaveLength(1);
+    expect(root2.querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
+    await act(() => { groupNamed("未暂存").click(); });
+    expect(root2.querySelectorAll(".workspace-change")).toHaveLength(0);
+    expect(root2.querySelectorAll(".workspace-change-layer")).toHaveLength(0);
+    expect(groupNamed("未暂存").getAttribute("aria-expanded")).toBe("false");
+    await act(() => { groupNamed("未暂存").click(); });
+    await act(() => { buttonNamed("src/app.ts · 已暂存 · 修改 · 未看").click(); });
     await settle();
     expect(root2.querySelector(".workspace-layer-switch [aria-pressed='true']")?.textContent).toBe("已暂存");
-    expect(root2.querySelectorAll(".workspace-diff-line")).toHaveLength(3);
+    expect(root2.querySelectorAll(".workspace-diff-hunk")).toHaveLength(1);
+    expect(root2.querySelectorAll(".workspace-diff-line")).toHaveLength(2);
     // The base live diff patch is "-old\n+new".
     expect(root2.querySelector(".diff-add")?.textContent).toContain("new");
   });

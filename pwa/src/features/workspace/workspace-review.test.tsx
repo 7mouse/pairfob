@@ -94,7 +94,7 @@ async function boot(live = liveFixture()) {
     attachLiveSession(live as never);
     mountTestApp();
     commitTest();
-    await enterWorkspace("p1");
+    await enterWorkspace("p1", undefined, false, "files");
   });
 }
 
@@ -192,7 +192,7 @@ describe("independent React workspace review", () => {
     live.gitBranches = () => held.promise;
     await boot(live);
     await act(async () => { appRoot().querySelector<HTMLButtonElement>(".workspace-branch")!.click(); });
-    await act(async () => { selectPane("p2"); await enterWorkspace("p2"); });
+    await act(async () => { selectPane("p2"); await enterWorkspace("p2", undefined, false, "files"); });
     await act(async () => { held.resolve({ items: [], truncated: false, revision }); await held.promise; });
     await settle();
     expect(workspaceModel.paneId).toBe("p2");
@@ -230,7 +230,7 @@ describe("independent React workspace review", () => {
       .find(button => button.textContent?.replace(/…$/, "") === t("fileActions.delete"))!;
     await act(async () => { choose().click(); });
     await settle();
-    await act(async () => { selectPane("p2"); await enterWorkspace("p2"); });
+    await act(async () => { selectPane("p2"); await enterWorkspace("p2", undefined, false, "files"); });
     await act(async () => { choose().click(); });
     await settle();
     expect(calls).toHaveLength(0);
@@ -267,13 +267,13 @@ describe("independent React workspace review", () => {
     await act(async () => { applyCapabilities({ ...NO_OPERATION_CAPABILITIES, prompt_agent: true }, []); });
     await act(async () => { await loadGitDiff("app.ts", "worktree"); });
     await act(async () => { appRoot().querySelector<HTMLButtonElement>(".diff-comment-btn")!.click(); });
-    const field = document.querySelector<HTMLTextAreaElement>(".diff-note-modal textarea")!;
+    const field = document.querySelector<HTMLTextAreaElement>("form.diff-note-inline textarea")!;
     field.value = "保留输入中的批注";
     field.setSelectionRange(2, 5);
     field.focus();
     await act(async () => { commitTest(); });
-    expect(document.querySelectorAll(".diff-note-modal")).toHaveLength(1);
-    expectSameNode(document.querySelector(".diff-note-modal textarea"), field);
+    expect(document.querySelectorAll("form.diff-note-inline")).toHaveLength(1);
+    expectSameNode(document.querySelector("form.diff-note-inline textarea"), field);
     expect(field.value).toBe("保留输入中的批注");
     expectSameNode(document.activeElement, field);
     expect([field.selectionStart, field.selectionEnd]).toEqual([2, 5]);

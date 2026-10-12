@@ -1,0 +1,75 @@
+/* --- The line between two columns, which the reader can move -------------------------
+   `ColumnDivider` (primitives/column-divider). It lies over the 1px rule the
+   columns already draw between them and adds nothing to it at rest: the rule
+   lights up under the pointer, with focus and while it is being moved. The
+   owner places it on the seam (`left` or `right`); it centres itself there.
+
+   The line itself is a 12px strip, under a mouse and under a finger alike: it
+   runs the whole height of two columns, over a gutter on one side and the ends
+   of rows on the other, so it takes no more of either than a seam can. A finger
+   presses the knob instead: 4px by 22px drawn, 44px by 44px to press, and always
+   there, since a finger has no hover to find the line by. A precise
+   pointer finds the line by its highlight and sees the knob with it.
+
+   While the reader drags, only the line and the knob move (--column-divider-shift);
+   the columns take the new width when they let go.
+   ------------------------------------------------------------------------------ */
+
+.column-divider {
+  --column-divider-hit: 12px;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  width: var(--column-divider-hit);
+  transform: translateX(-50%);
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  outline: none;
+}
+
+.column-divider-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: transparent;
+  transform: translateX(calc(-50% + var(--column-divider-shift, 0px)));
+  transition: background var(--dur-1) var(--ease);
+}
+
+.column-divider-knob {
+  position: relative;
+  width: 4px;
+  height: 22px;
+  border-radius: 3px;
+  background: #5d6878;
+  box-shadow: 0 0 0 3px var(--bg);
+  transform: translateX(var(--column-divider-shift, 0px));
+  transition: background var(--dur-1) var(--ease), opacity var(--dur-1) var(--ease);
+}
+
+.column-divider:focus-visible .column-divider-line,
+.column-divider.is-active .column-divider-line,
+.column-divider:focus-visible .column-divider-knob,
+.column-divider.is-active .column-divider-knob { background: var(--accent); }
+
+/* The handle under a finger: the knob's own 44px, reaching past the strip on both sides. */
+@media not all and (hover: hover) and (pointer: fine) {
+  .column-divider-knob::after { content: ""; position: absolute; inset: -11px -20px; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .column-divider-knob { opacity: 0; }
+  .column-divider:hover .column-divider-line,
+  .column-divider:hover .column-divider-knob { background: var(--accent); }
+  .column-divider:hover .column-divider-knob,
+  .column-divider:focus-visible .column-divider-knob,
+  .column-divider.is-active .column-divider-knob { opacity: 1; }
+}

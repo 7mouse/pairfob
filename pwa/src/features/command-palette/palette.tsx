@@ -1,11 +1,11 @@
-import { LayoutDashboard, Monitor, Plus, Search, Settings, X, type LucideIcon } from "lucide-react";
+import { File, LayoutDashboard, Monitor, Plus, Search, Settings, X, type LucideIcon } from "lucide-react";
 import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent } from "react";
 import { t } from "../../lib/i18n";
 import { dialogClass } from "../../shared/ui/overlay/desk-form";
 import { useDialogLifecycle } from "../../shared/ui/overlay/dialog-lifecycle";
 import type { ModalController } from "../../shared/ui/overlay/modal";
 import { AgentAvatar } from "../../shared/ui/primitives";
-import { activeItem, buildPalette, stepActive, type PaletteActionId, type PaletteItem, type PaletteSession } from "./model/palette";
+import { activeItem, buildPalette, paletteFile, stepActive, type PaletteActionId, type PaletteFile, type PaletteItem, type PaletteSession } from "./model/palette";
 import type { CommandPalettePorts } from "./ports";
 
 /** What the palette settles with: the jump to make once it has closed. */
@@ -17,6 +17,16 @@ const ACTION_ICONS: Record<PaletteActionId, LucideIcon> = {
   computers: Monitor,
   settings: Settings,
 };
+
+/** A file query shorter than this would match half a repository. */
+const FILE_QUERY_MIN = 2;
+/** Typing settles for this long before the computer is asked. */
+const FILE_SEARCH_DELAY_MS = 180;
+/** Enough to pick from; a longer list is a sign to type one more letter. */
+const FILE_RESULT_LIMIT = 12;
+
+/** What the computer answered for one query: its first files, whether there were more, or that it could not say. */
+type FileAnswer = { query: string; files: PaletteFile[]; more: boolean; failed: boolean };
 
 /** Enter that commits an input-method candidate is text entry, not a choice. */
 function composing(event: KeyboardEvent<HTMLInputElement>): boolean {
@@ -62,11 +72,50 @@ export function CommandPalette({ modal, ports }: { modal: ModalController<Palett
   const [query, setQuery] = useState("");
   const [activeKey, setActiveKey] = useState<string | null>(null);
   useEffect(() => ports.subscribe(() => setInput(ports.read())), [ports]);
+  // The open session's workspace, asked once: the palette does not start searching a workspace the reader moves to under it.
+  const [files] = useState(() => ports.files?.() ?? null);
+  const [found, setFound] = useState<FileAnswer>({ query: "", files: [], more: false, failed: false });
+  const wanted = query.trim();
+  // The row Enter would take now. An answer that lands must not move it: see `land`.
+  const highlighted = useRef<string | null>(null);
+  useEffect(() => {
+    if (!files || wanted.length < FILE_QUERY_MIN) return;
+    let alive = true;
+    const land = (answer: FileAnswer) => {
+      if (!alive) return;
+      // Files are listed above the actions. The highlight the reader sees stays on its row when they
+      // arrive, so an Enter already on its way takes what it was aimed at.
+      setActiveKey((key) => key ?? highlighted.current);
+      setFound(answer);
+    };
+    const timer = window.setTimeout(() => {
+      files.search(wanted).then(
+        (paths) => land({ query: wanted, files: paths.slice(0, FILE_RESULT_LIMIT).map(paletteFile), more: paths.length > FILE_RESULT_LIMIT, failed: false }),
+        () => land({ query: wanted, files: [], more: false, failed: true }),
+      );
+    }, FILE_SEARCH_DELAY_MS);
+    return () => {
+      alive = false;
+      window.clearTimeout(timer);
+    };
+  }, [files, wanted]);
+  // Results for another query are not this one's: the section waits for its own answer.
+  const asked = Boolean(files) && wanted.length >= FILE_QUERY_MIN;
+  const answer = asked && found.query === wanted ? found : null;
+  const fileHits = answer?.files ?? [];
   const deskForm = useDialogLifecycle({ dialog: modal.dialog, onDismiss: modal.dismiss, onClose: modal.finish, cancelGuardMs: 0,
     focus: () => field.current?.focus() });
 
-  const palette = buildPalette(input, query);
+  const palette = buildPalette(input, query, fileHits);
   const active = activeItem(palette.items, activeKey);
+  highlighted.current = active?.key ?? null;
+  // One line under the list for what the rows cannot say: the files are still being asked for, could
+  // not be, are more than the rows shown, or nothing matches at all.
+  const note = asked && !answer ? t("palette.searchingFiles")
+    : answer?.failed ? t("palette.filesFailed")
+    : answer?.more ? t("palette.filesMore", { count: FILE_RESULT_LIMIT })
+    : palette.items.length ? null
+    : t(files ? "palette.noneFiles" : "palette.none");
   const optionId = (key: string) => `${baseId}-${key}`;
   const activeId = active ? optionId(active.key) : undefined;
   const leads = active !== null && palette.items[0]?.key === active.key;
@@ -79,6 +128,7 @@ export function CommandPalette({ modal, ports }: { modal: ModalController<Palett
 
   const run = (item: PaletteItem) => {
     if (item.type === "session") modal.close(() => ports.openSession(item.paneId));
+    else if (item.type === "file") modal.close(() => files?.open(item.path));
     else if (!item.disabled) modal.close(() => ports.runAction(item.action));
   };
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
@@ -114,7 +164,13 @@ export function CommandPalette({ modal, ports }: { modal: ModalController<Palett
         onMouseDown={(event) => event.preventDefault()}
         onPointerMove={() => { if (!disabled && !selected) setActiveKey(item.key); }}
         onClick={() => run(item)}>
-        {item.type === "session" ? <SessionCopy session={item} /> : <>
+        {item.type === "session" ? <SessionCopy session={item} /> : item.type === "file" ? <>
+          <span className="palette-icon"><File size={18} aria-hidden="true" /></span>
+          <span className="palette-copy">
+            <span className="palette-name palette-file-name">{item.name}</span>
+            {item.folder ? <span className="palette-meta palette-file-folder">{item.folder}</span> : null}
+          </span>
+        </> : <>
           {Icon ? <span className="palette-icon"><Icon size={18} aria-hidden="true" /></span> : null}
           <span className="palette-copy"><span className="palette-label">{item.label}</span></span>
         </>}
@@ -131,7 +187,7 @@ export function CommandPalette({ modal, ports }: { modal: ModalController<Palett
           <Search size={18} aria-hidden="true" />
           <input ref={field} className="palette-input" type="text" role="combobox" aria-expanded="true"
             aria-controls={listId} aria-autocomplete="list" aria-activedescendant={activeId}
-            aria-label={t("palette.title")} placeholder={t("palette.placeholder")}
+            aria-label={t("palette.title")} placeholder={t(files ? "palette.placeholderFiles" : "palette.placeholder")}
             autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false} enterKeyHint="go"
             value={query} onKeyDown={onKeyDown}
             onChange={(event) => { setQuery(event.currentTarget.value); setActiveKey(null); }} />
@@ -151,7 +207,7 @@ export function CommandPalette({ modal, ports }: { modal: ModalController<Palett
             );
           })}
         </div>
-        {palette.items.length ? null : <p className="palette-none" role="status">{t("palette.none")}</p>}
+        {note ? <p className={`palette-none${palette.items.length ? " is-note" : ""}`} role="status">{note}</p> : null}
         <div className="palette-foot" aria-hidden="true">
           <span><kbd>↑</kbd><kbd>↓</kbd>{t("palette.hintMove")}</span>
           <span><kbd>↵</kbd>{t("palette.hintOpen")}</span>

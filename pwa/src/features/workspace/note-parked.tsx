@@ -10,10 +10,9 @@ import { bumpWorkspaceNotes } from "./store";
 /**
  * A half-written note waiting under its line.
  *
- * Both presentations of a diff show it the same way: the workspace screen for
- * any note that is not in its sheet (`note-sheet`), the inspector for one the
- * reader left with Escape (`note-inline`). It is not saved and not lost: the
- * card says so, and offers the three answers an editor would.
+ * The inspector and the workspace screen show it the same way: a note the
+ * reader left with Escape (`note-inline`) is not saved and not lost. The card
+ * says so, and offers the three answers an editor would.
  */
 export type ParkedNote = {
   note: OpenNote;

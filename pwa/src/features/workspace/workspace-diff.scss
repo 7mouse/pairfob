@@ -1,0 +1,194 @@
+/* The structure of a diff around its lines: the info bar's tools and stepper, hunk heads and
+   the unchanged stretches between hunks, the changed words inside a line, the two-column
+   gutter, and the two sides next to each other. The lines themselves and their notes are in
+   the detail partial. */
+
+/* --- Info bar tools ---------------------------------------------------------------- */
+
+/* An icon of the info bar: a whole target under a finger, the bar's own 32px under a mouse. */
+.workspace-tool,
+.workspace-step { color: var(--muted); flex: none; }
+.workspace-tool[aria-pressed="true"] { background: var(--surface-2); color: var(--accent); }
+.workspace-tool:disabled,
+.workspace-step:disabled { opacity: 0.3; }
+
+/* The file's changes: the diff icon, with the file's own Git mark at its corner. */
+.workspace-view-changes { position: relative; }
+.workspace-view-changes .workspace-git-mark {
+  position: absolute;
+  right: calc(50% - 15px);
+  bottom: calc(50% - 14px);
+  min-width: 13px;
+  height: 13px;
+  padding: 0 2px;
+  border-radius: 4px;
+  font-size: 0.56rem;
+  line-height: 13px;
+}
+
+.workspace-hunk-nav,
+.workspace-stepper { display: inline-flex; align-items: center; flex: none; }
+.workspace-hunk-where,
+.workspace-step-where {
+  min-width: 2.2em;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  white-space: nowrap;
+}
+.workspace-step-where { color: var(--ink); }
+
+/* The bar is as wide as its pane, whatever the window: what gives way first is decided by its own width. */
+.workspace-detail-head { container-type: inline-size; }
+@container (max-width: 430px) {
+  /* Up and down say it; "1/2" comes back where there is room. */
+  .workspace-hunk-where { display: none; }
+  .workspace-detail-actions { gap: 2px; }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .workspace-tool,
+  .workspace-step,
+  .workspace-detail-head .workspace-detail-more-inline {
+    width: 32px;
+    min-width: 32px;
+    height: 32px;
+    min-height: 32px;
+    border-radius: var(--r-sm);
+  }
+  .workspace-tool:hover:not(:disabled),
+  .workspace-step:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+}
+
+/* --- Hunks --------------------------------------------------------------------------- */
+
+/* A line the keyboard goes to, or a note's form brought into view, stops below the head that
+   is stuck to the top, not under it. */
+.workspace-diff { --diff-gutter: 2.7rem; --hunk-head: 30px; scroll-padding-top: var(--hunk-head); }
+
+/* The head stays at the top of the diff while its hunk is read, over the lines that pass under it. */
+.workspace-diff-hunk {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  background: color-mix(in srgb, var(--accent) 11%, var(--term-bg));
+}
+.workspace-hunk-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+  min-height: var(--hunk-head);
+  padding: 0 12px 0 8px;
+  color: #9fc3ff;
+  font: var(--text-caption) var(--font);
+  text-align: left;
+}
+.workspace-hunk-toggle .group-chev { flex: none; transition: transform var(--dur-2) var(--ease); }
+.workspace-hunk-toggle[aria-expanded="true"] .group-chev { transform: rotate(90deg); }
+.workspace-hunk-title { flex: none; font-weight: 620; font-variant-numeric: tabular-nums; }
+.workspace-hunk-context {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font: 0.68rem var(--mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-hunk-count,
+.workspace-hunk-notes { flex: none; margin-left: auto; color: var(--muted); font-variant-numeric: tabular-nums; }
+.workspace-hunk-context + .workspace-hunk-count { margin-left: 0; }
+.workspace-hunk-notes { display: inline-flex; align-items: center; gap: 3px; margin-left: 0; color: var(--accent); }
+.workspace-hunk-toggle:active { background: rgba(110, 168, 254, 0.12); }
+.workspace-diff-group.is-folded .workspace-diff-hunk { position: static; }
+
+/* What the patch leaves out before a hunk: a quiet line, and the way to read it in the file. */
+.workspace-diff-gap { display: flex; }
+.workspace-diff-group:not(:first-child) > .workspace-diff-gap { margin-top: 6px; }
+.workspace-gap-open {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 28px;
+  padding: 0 12px 0 calc(var(--diff-gutter) + 0.95rem + 2px);
+  color: #647083;
+  font: var(--text-caption) var(--font);
+  text-align: left;
+}
+.workspace-gap-act { color: var(--accent); }
+button.workspace-gap-open:active { background: var(--surface); }
+
+.workspace-diff-more { width: 100%; }
+
+@media (hover: hover) and (pointer: fine) {
+  .workspace-hunk-toggle:hover { background: rgba(110, 168, 254, 0.08); color: #c4dbff; }
+  button.workspace-gap-open:hover { background: rgba(233, 237, 243, 0.035); color: var(--muted); }
+  .workspace-gap-act { opacity: 0; }
+  button.workspace-gap-open:hover .workspace-gap-act,
+  button.workspace-gap-open:focus-visible .workspace-gap-act { opacity: 1; }
+}
+/* Under a finger a head is pressed 44px high: 36px drawn, and 4px into the lines on either side. */
+@media not all and (hover: hover) and (pointer: fine) {
+  .workspace-diff { --hunk-head: 36px; }
+  .workspace-hunk-toggle,
+  button.workspace-gap-open { position: relative; min-height: 36px; }
+  .workspace-hunk-toggle::after,
+  button.workspace-gap-open::after { content: ""; position: absolute; inset: -4px 0; }
+}
+.workspace-hunk-toggle:focus-visible,
+button.workspace-gap-open:focus-visible { outline-offset: -2px; }
+
+/* An on-screen keyboard leaves the diff a few lines: the head scrolls with them. */
+html[data-kb="open"] .workspace-diff-hunk { position: static; }
+html[data-kb="open"] .workspace-diff { scroll-padding-top: 0; }
+
+/* --- The words that changed inside a replaced line ------------------------------------ */
+
+.diff-word { border-radius: 2px; background: none; color: inherit; }
+
+/* Said after the last line of a file that ends without a line break; not part of its text. */
+.diff-noeol {
+  margin-left: 10px;
+  color: #647083;
+  font: italic var(--text-caption) var(--font);
+  white-space: nowrap;
+  user-select: none;
+}
+.diff-add .diff-word { background: rgba(70, 214, 140, 0.3); }
+.diff-delete .diff-word { background: rgba(255, 128, 128, 0.32); }
+
+/* --- Old and new numbers in two columns ---------------------------------------------- */
+
+/* The line's own text is its one number (the new line, or the old one of a removal); an
+   unchanged line's old number is drawn from `data-old`, so nothing a note is pinned by or
+   a copy takes ever doubles. */
+@mixin two-numbers {
+  .workspace-diff:not(.is-split) { --diff-gutter: 5.2rem; }
+  .workspace-diff:not(.is-split) .diff-line-number {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    column-gap: 8px;
+  }
+  .workspace-diff:not(.is-split) .diff-line-number::before { content: attr(data-old); color: #647083; }
+  /* A removal has no new number: its own stands in the old column. */
+  .workspace-diff:not(.is-split) .diff-delete .diff-line-number::before { content: none; }
+}
+@media (min-width: 720px) {
+  .workspace-shell { @include two-numbers; }
+}
+@container inspector (min-width: 600px) {
+  @include two-numbers;
+}
+
+/* --- Two sides next to each other ------------------------------------------------------- */
+
+.diff-split-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.diff-split-cell { width: auto; min-width: 0; }
+.diff-split-cell + .diff-split-cell { border-left: 1px solid var(--line); }
+/* The side with nothing to show: neither added nor removed, and not a line to press. */
+.diff-split-cell.is-blank { background: rgba(233, 237, 243, 0.025); }

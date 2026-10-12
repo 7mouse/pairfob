@@ -76,6 +76,71 @@
   .workspace-crumbs { overflow: clip visible; }
 }
 
+/* --- Filter: the directory's own, under the tabs ---------------------------------- */
+
+.workspace-filter {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 36px;
+  margin: 2px 12px 4px;
+  padding: 0 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--muted);
+  flex: none;
+}
+.workspace-filter:focus-within { box-shadow: var(--focus-ring); }
+.workspace-filter svg { flex: none; }
+
+.workspace-filter-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 36px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--text-secondary);
+  outline: none;
+}
+/* The field's box is the label around it, and that is what shows focus. */
+.workspace-filter-input:focus,
+.workspace-filter-input:focus-visible { outline: none; box-shadow: none; }
+.workspace-filter-input::placeholder { color: var(--muted); }
+.workspace-filter-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+/* 36px of ink; a finger presses the field 44px high, into the margins around it. */
+@media not all and (hover: hover) and (pointer: fine) {
+  .workspace-filter { position: relative; }
+  .workspace-filter::after { content: ""; position: absolute; inset: -4px 0; }
+  /* iOS zooms the page into a field whose text is under 16px. */
+  .workspace-filter-input { font-size: 16px; }
+}
+
+/* --- Section labels: named as the home list names its groups ---------------------- */
+
+.workspace-section {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-height: 34px;
+  margin: 0;
+  padding: 6px 8px 2px;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-align: left;
+}
+.workspace-section-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.workspace-section-chev { flex: none; transition: transform var(--dur-2) var(--ease); }
+.workspace-section[aria-expanded="false"] .workspace-section-chev { transform: rotate(-90deg); }
+@media not all and (hover: hover) and (pointer: fine) {
+  button.workspace-section { position: relative; }
+  button.workspace-section::after { content: ""; position: absolute; inset: min(0px, calc(50% - 22px)) 0; }
+}
+
 /* --- Rows: an open button and, for files, a ⋯ button beside it ------------------ */
 
 .workspace-list {
@@ -83,29 +148,34 @@
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 5px 8px calc(16px + env(safe-area-inset-bottom, 0px));
+  padding: 2px 8px calc(16px + env(safe-area-inset-bottom, 0px));
 }
 
+/* A folder is one line and a file one line with its age: 44px and 46px, where both were 52px. */
 .workspace-row {
   display: flex;
   align-items: center;
   width: 100%;
-  min-height: 52px;
+  min-height: 46px;
   border-radius: var(--r-md);
   transition: opacity var(--dur-2) var(--ease);
 }
+.workspace-row.workspace-directory { min-height: 44px; }
 
 .workspace-row-main {
   display: flex;
   align-items: center;
   flex: 1;
   min-width: 0;
-  min-height: 52px;
+  min-height: 46px;
   gap: 11px;
-  padding: 6px 6px 6px 8px;
+  padding: 4px 6px 4px 8px;
   border-radius: var(--r-md);
   text-align: left;
 }
+.workspace-directory .workspace-row-main { min-height: 44px; }
+.workspace-row-age { flex: none; font-variant-numeric: tabular-nums; }
+.workspace-row-folder { font-family: var(--font); }
 
 .workspace-row-main:active:not(:disabled),
 .workspace-row.active .workspace-row-main,
@@ -152,6 +222,13 @@
 @media (hover: hover) and (pointer: fine) {
   .workspace-row-main:hover:not(:disabled),
   .workspace-row-more:hover:not(:disabled) { background: var(--surface); }
+  .workspace-change-layer { min-height: 32px; }
+  .workspace-change-layer:hover { background: var(--surface); color: var(--ink); }
+  /* Under a mouse the row's ⋯ waits for the hover or the keyboard; the right-click opens the same menu. */
+  .workspace-row-more { opacity: 0; transition: opacity var(--dur-1) var(--ease); }
+  .workspace-row:hover .workspace-row-more,
+  .workspace-row:focus-within .workspace-row-more,
+  .workspace-row-more:focus-visible { opacity: 1; }
 }
 
 /* --- Git marks: the glyph tells kinds apart; colour only supports it ------------ */
@@ -190,20 +267,45 @@
 
 /* --- Change list ------------------------------------------------------------------ */
 
+/* The list is as wide as its column, not as the window: 304px beside an open file in a
+   900px window, the whole page at 820. What a row has room for is asked of the list. */
 .workspace-change-groups {
   flex: 1;
   min-height: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 0 8px calc(16px + env(safe-area-inset-bottom, 0px));
+  container: changes / inline-size;
 }
 
 .workspace-change-group + .workspace-change-group { margin-top: 4px; }
 
+/* The group's title, and beside the first one the way on to the next unseen diff. */
+/* It stays at the top of the list while its group is read, over the rows and over the
+   staged tags, which are raised above their own rows. */
+.workspace-change-group-head { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; min-width: 0; background: var(--bg); }
+
+.workspace-next-unseen {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 44px;
+  padding: 0 6px 0 10px;
+  border-radius: var(--r-sm);
+  color: var(--accent);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  white-space: nowrap;
+  flex: none;
+}
+.workspace-next-unseen .chev { color: inherit; }
+.workspace-next-unseen:active { background: var(--surface); }
+
 .workspace-change-group-title {
   display: flex;
   align-items: center;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   min-height: 44px;
   margin: 0;
   gap: 8px;
@@ -211,8 +313,7 @@
   border-radius: var(--r-sm);
   color: var(--muted);
   font-size: var(--text-caption);
-  font-weight: 700;
-  letter-spacing: 0.01em;
+  font-weight: 600;
   text-align: left;
 }
 .workspace-change-group-title .group-chev { transition: transform var(--dur-2) var(--ease); }
@@ -233,8 +334,116 @@
   text-align: left;
 }
 .workspace-change.active { background: rgba(110, 168, 254, 0.12); }
+
+/* A file changed in both layers: one row, with the staged diff as a tag before the row's size
+   and mark, which keep the list's right-hand column. The row's button is pressed over the
+   whole row (its area is stretched under the tag), so the tail beside it is not a dead strip. */
+.workspace-change-pair {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding-right: 8px;
+  border-radius: var(--r-md);
+}
+.workspace-change-pair > .workspace-change { position: static; flex: 1 1 auto; width: auto; min-width: 0; padding-right: 0; background: none; }
+.workspace-change-pair > .workspace-change::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
+.workspace-change-pair > .workspace-change-layer { position: relative; z-index: 1; margin: 0 -4px; }
+.workspace-change-tail { display: inline-flex; align-items: center; gap: 10px; flex: none; pointer-events: none; }
+.workspace-change-pair.active { background: rgba(110, 168, 254, 0.12); }
+.workspace-change-pair:has(> .workspace-change:active) { background: var(--surface); }
+.workspace-change-layer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--r-md);
+  color: var(--muted);
+  font-size: var(--text-caption);
+  white-space: nowrap;
+  flex: none;
+}
+/* The tag's own size is said where the list is wide enough for two; its bar never is. */
+.workspace-change-layer .workspace-change-stat { display: none; }
+.workspace-change-layer .workspace-change-bar { display: none; }
+@container changes (min-width: 480px) {
+  .workspace-change-layer .workspace-change-stat { display: inline-flex; }
+}
+/* A row that carries a tag gives the file's name the room of its bar in a narrower list. */
+@container changes (max-width: 479.98px) {
+  .workspace-change-tail .workspace-change-bar { display: none; }
+}
+.workspace-change-layer.active { background: rgba(110, 168, 254, 0.12); color: var(--ink); }
+.workspace-change-layer.is-reviewed .workspace-review-dot { border-color: var(--ok); background: var(--ok); }
+.workspace-change-layer:active { background: var(--surface); }
 .workspace-change-head { gap: 2px; }
-.workspace-change .chev { flex: none; color: var(--muted); }
+
+/* Seen or not, in the session list's own vocabulary: a ring until the diff has
+   been read to its end, then the filled dot of "done". */
+.workspace-review-dot {
+  width: 8px;
+  height: 8px;
+  margin: 0 1px;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 50%;
+  flex: none;
+  transition: background var(--dur-2) var(--ease), border-color var(--dur-2) var(--ease);
+}
+.workspace-change.is-reviewed .workspace-review-dot { border-color: var(--ok); background: var(--ok); }
+
+.workspace-change-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+.workspace-change-stat .workspace-additions,
+.workspace-change-stat .workspace-deletions { font-size: 0.68rem; font-weight: 600; }
+.workspace-change-stat.is-binary { color: var(--muted); font-size: 0.68rem; }
+
+/* The same proportion as five cells. A phone's row has no room for it beside
+   the numbers; from the width where the list sits beside the page it does. */
+.workspace-change-bar { display: none; gap: 1px; margin-right: 2px; }
+.workspace-change-bar i { width: 5px; height: 9px; border-radius: 1px; background: var(--line-strong); }
+.workspace-change-bar i.is-added { background: var(--ok); }
+.workspace-change-bar i.is-removed { background: var(--error); }
+@media (min-width: 720px) {
+  .workspace-change-bar { display: inline-flex; }
+}
+
+/* After the folder: when the file last changed, warm while that is the agent's ongoing work. */
+.workspace-change-age::before,
+.workspace-turn-mark::before { content: " · "; color: var(--muted); }
+.workspace-change-age.is-recent,
+.workspace-turn-mark { color: #ffc46b; }
+
+.workspace-section-count { color: var(--muted); font-family: var(--mono); font-size: 0.67rem; font-weight: 600; flex: none; }
+.workspace-search-note { margin: 0; padding: 8px 10px 10px; color: var(--muted); font-size: var(--text-caption); line-height: 1.45; }
+/* A search that did not go through, and the way to ask again. */
+.workspace-search-failed { display: flex; align-items: center; gap: 10px; }
+.workspace-search-failed span { flex: 1; min-width: 0; }
+.workspace-search-failed .btn { flex: none; width: auto; min-height: 36px; padding: 0 12px; font-size: var(--text-caption); }
+/* The rest of a section that lists only its first rows. */
+.workspace-section-more {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 44px;
+  padding: 0 10px 0 44px;
+  border-radius: var(--r-md);
+  color: var(--accent);
+  font-size: var(--text-caption);
+  font-weight: 600;
+  text-align: left;
+}
+.workspace-section-more:active { background: var(--surface); }
+@media not all and (hover: hover) and (pointer: fine) {
+  .workspace-search-failed .btn { position: relative; }
+  .workspace-search-failed .btn::after { content: ""; position: absolute; inset: -4px 0; }
+}
 .workspace-rename { overflow: hidden; color: var(--muted); font-size: 0.65rem; text-overflow: ellipsis; white-space: nowrap; }
 .workspace-change-notes {
   display: inline-flex;
@@ -247,6 +456,7 @@
 
 @media (hover: hover) and (pointer: fine) {
   .workspace-change:hover,
+  .workspace-next-unseen:hover,
   .workspace-change-group-title:not(.is-static):hover { background: var(--surface); }
 }
 

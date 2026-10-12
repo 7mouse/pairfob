@@ -197,7 +197,15 @@ describe("a file deleted from its row's menu", () => {
     await boot(800);
     await remove("a.ts", "key");
     expect(appRoot().querySelector(".workspace-empty")).not.toBeNull();
-    expectSameNode(document.activeElement, appRoot().querySelector(".workspace-crumb.is-current"));
+    // One screen at a time the header carries the folder, so the list starts at its tab.
+    expectSameNode(document.activeElement, appRoot().querySelector(".workspace-tabs [role='tab'][aria-selected='true']"));
+
+    // Beside the session it is the same at the root, where the column draws no trail either.
+    unmountTestApp();
+    names = ["a.ts"];
+    await boot(1440);
+    await remove("a.ts", "key");
+    expectSameNode(document.activeElement, appRoot().querySelector("aside.inspector [role='tab'][aria-selected='true']"));
   });
 
   test("a delete the computer refused leaves the reader on the row, drawn again by the reload", async () => {

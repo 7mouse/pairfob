@@ -3,7 +3,7 @@ import { isAgentChat, isFullTerminal, openPaneId } from "../session/session-stor
 import { adoptDiffNoteScope } from "../../lib/diff-notes";
 import { t } from "../../lib/i18n";
 import { ProtocolError } from "../../lib/protocol/errors";
-import type { GitBranches, GitDiff, GitLayer, WorkspaceDirectoryPage } from "../../lib/workspace";
+import { type GitBranches, type GitDiff, type GitLayer, type WorkspaceDirectoryPage } from "../../lib/workspace";
 import { messageOf } from "../../lib/notices";
 import { type WorkspaceReturnView, type WorkspaceTab } from "./model";
 import { clearWorkspaceMedia, loadWorkspaceMedia, prepareWorkspaceMedia } from "./media-actions";
@@ -12,10 +12,14 @@ import { focusClosingDetail } from "./focus-landing";
 import { focusEnteringScreen, focusLeaving } from "./opener-focus";
 import { applyWorkspaceNavigation, leaveWorkspaceToHome, prepareWorkspaceEnter, restoreWorkspaceLeave } from "./navigation";
 import { cloneData } from "./immutable";
-import { reviewOrder, type ChangeStep } from "./git-marks";
+import { listedChanges, reviewOrder, rowSteps, type ChangeStep } from "./git-marks";
+import { bindDiffNotes as bindOpenDiffNotes, placeWorkspaceNotes } from "./note-carry";
+import { renewFileSearch } from "./file-filter";
+import { forgetRecentFile, noteRecentFile } from "./recent-files";
+import { noteDiffRead, verifyReviewed } from "./review-progress";
 import { workspaceBeside } from "./surface";
+import { loadTurnWrites, rereadTurnWrites } from "./turn-writes";
 import { dismissFilesDialogs } from "./surface-dialogs";
-import { changesLead } from "./tab-order";
 import {
   activeScope,
   applyBrowserTab,
@@ -32,6 +36,7 @@ import {
   readCache,
   currentMediaGeneration,
   toggleChangeGroup,
+  workspacePaneCwd,
   type WorkspaceTicket,
 } from "./store";
 
@@ -40,8 +45,9 @@ function workspaceError(error: unknown): string {
   return messageOf(error);
 }
 
+/** The open diff owns the notes written on it, at the root the pane's files are read at (`note-carry`). */
 function bindDiffNotes(session: object, paneId: string, diff: GitDiff | null): void {
-  adoptDiffNoteScope(diff?.revision ? { session, paneId, revision: diff.revision } : null);
+  bindOpenDiffNotes(session, paneId, activeScope()?.descriptor.root ?? "", diff);
 }
 
 function sessionReturnView(): WorkspaceReturnView {
@@ -49,19 +55,18 @@ function sessionReturnView(): WorkspaceReturnView {
 }
 
 /**
- * What a pane seen for the first time opens on. Beside the list, files and
- * changes are opened to see what the agent changed, and the answer is the same
- * whether the window has room for the inspector or shows the screen instead: a
- * rotation must not move the reader to another tab. A phone opens on its files,
- * as it always has. After the first look the pane keeps the tab the reader
- * chose, on either surface. The tab it opens on is the one that stands first.
+ * `intent` is what a pane seen for the first time opens on. Files and changes
+ * are opened to see what the agent changed, so the files button opens on the
+ * changes; a link to a file or a folder opens on the files. The answer is the
+ * same at every width: a rotation must not move the reader to another tab.
+ * After the first look the pane keeps the tab the reader chose, on either
+ * surface.
  */
-const opensOnChanges = changesLead;
-
 export async function enterWorkspace(
   paneId = openPaneId(),
   returnView: WorkspaceReturnView = sessionReturnView(),
   force = false,
+  intent: WorkspaceTab = "changes",
 ): Promise<void> {
   const session = liveSession();
   if (!session || !paneId) return;
@@ -71,7 +76,7 @@ export async function enterWorkspace(
   const entered = beginEnter(session, paneId, returnView);
   applyWorkspaceNavigation({ screen: "workspace" });
   takeFocus();
-  await loadEntered(session, paneId, entered, force, opensOnChanges());
+  await loadEntered(session, paneId, entered, force, intent === "changes");
 }
 
 /**
@@ -98,7 +103,11 @@ async function loadEntered(
   try {
     const scope = await readCache(session).open(paneId, force);
     if (!bindScope(ticket, scope)) return;
+    // The pane's notes are the ones written at this root.
+    placeWorkspaceNotes(session, paneId, scope.descriptor.root);
     ticket.commit({ descriptor: scope.descriptor });
+    // Beside the lists, not part of them: which files the agent's current turn wrote.
+    void loadTurnWrites(session, paneId, scope.descriptor.root, workspacePaneCwd(paneId));
     let pages = 1;
     if (cached?.root === scope.descriptor.root) {
       ticket.commit({ ...cached.navigation });
@@ -238,6 +247,7 @@ export async function loadWorkspaceFile(path: string, sourceLine: number | null 
     if (!ticket.current()) return;
     if (!ticket.commit({ file })) return;
     if (!ticket.current() || !ticket.sameContent()) return;
+    if (scope.descriptor.root) noteRecentFile(scope.descriptor.root, file);
     // A binary file, or a TEXT file that is an SVG, drives the owned media
     // surface: images auto-load, while AV and SVG wait for an explicit view
     // action (SVG shows its source plus a full-download entry via the media
@@ -265,6 +275,10 @@ export async function loadWorkspaceFile(path: string, sourceLine: number | null 
       }
     }
   } catch (error) {
+    // Gone from the computer, with the reader still on it: it is no longer one of the files to come back to.
+    if (error instanceof ProtocolError && error.code === "workspace_not_found" && ticket.current() && scope.descriptor.root) {
+      forgetRecentFile(scope.descriptor.root, path);
+    }
     ticket.commit({ error: workspaceError(error) });
   } finally {
     ticket.finishLoad();
@@ -282,7 +296,14 @@ export async function loadStatus(owner?: WorkspaceTicket): Promise<void> {
   if (read.cached) ticket.commit({ status: read.cached });
   try {
     const status = await read.value;
-    ticket.commit({ status });
+    if (!ticket.commit({ status })) return;
+    // A file marked as seen may have changed since: its diff says so, and the status only sometimes.
+    if (scope.descriptor.features.git_diff) {
+      verifyReviewed(scope.descriptor.root, status, (path, layer) => scope.diff(path, layer).value);
+    }
+    // The status was read again because the reader came back to it: so is what the agent's turn wrote.
+    // Entering reads both itself (`loadEntered`).
+    if (!owner) rereadTurnWrites();
   } catch (error) {
     ticket.commit({ error: workspaceError(error) });
   }
@@ -293,9 +314,36 @@ export async function refreshWorkspace(): Promise<void> {
   // Beside the session a refresh reloads in place; entering would navigate away from the pane.
   if (workspaceBeside()) await showWorkspaceBeside(snap.paneId, true);
   else await enterWorkspace(snap.paneId, snap.returnView, true);
+  // What a search found may have been renamed, deleted or joined by new files: one on screen asks again.
+  renewFileSearch();
 }
 
+/**
+ * The list follows the diff that is opened: its group is unfolded and the list
+ * drawn on as far as its row, so the stepper and "next unseen" never lead to a
+ * row that is not there.
+ */
+function showChangeRow(path: string, layer: GitLayer): void {
+  const snap = getWorkspaceSnapshot();
+  let before = 0;
+  for (const group of listedChanges(snap.status?.changes ?? []).groups) {
+    const at = group.rows.findIndex((row) => rowSteps(row).some((step) => step.path === path && step.layer === layer));
+    if (at < 0) {
+      before += group.rows.length;
+      continue;
+    }
+    if (group.section !== "conflict" && !snap.changeGroupsExpanded[group.section]) toggleChangeGroup(group.section);
+    const short = before + at + 1 - snap.changeLimit;
+    if (short > 0) bumpWorkspaceChangeLimit(Math.ceil(short / CHANGE_LIMIT_STEP) * CHANGE_LIMIT_STEP);
+    return;
+  }
+}
+
+/** The list is drawn on by this many rows at a time. */
+const CHANGE_LIMIT_STEP = 200;
+
 export async function loadGitDiff(path: string, layer: GitLayer): Promise<void> {
+  showChangeRow(path, layer);
   const snap = getWorkspaceSnapshot();
   const scope = activeScope();
   const session = liveSession();
@@ -322,6 +370,7 @@ export async function loadGitDiff(path: string, layer: GitLayer): Promise<void> 
   }
   try {
     const diff = await read.value;
+    noteDiffRead(scope.descriptor.root, diff);
     ticket.commit({ diff }, () => bindDiffNotes(session, paneId, diff));
   } catch (error) {
     ticket.commit({ error: workspaceError(error) });
@@ -381,7 +430,7 @@ export function closeWorkspaceDetail(): void {
 }
 
 export function showMoreWorkspaceChanges(): void {
-  bumpWorkspaceChangeLimit();
+  bumpWorkspaceChangeLimit(CHANGE_LIMIT_STEP);
 }
 
 export function toggleWorkspaceChangeGroup(layer: GitLayer): void {

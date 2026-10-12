@@ -7,6 +7,7 @@ import {
 } from "../operations";
 import { ProtocolError } from "./errors";
 import { noteDaemonClock } from "../agent-trace-clock";
+import { parseTurnWrites } from "./agent-trace-writes";
 
 type ReadRPC = (op: string, params: Record<string, unknown>) => Promise<unknown>;
 
@@ -14,9 +15,21 @@ type ReadRPC = (op: string, params: Record<string, unknown>) => Promise<unknown>
 export class AgentTraceRPC {
   private summarySupport: "unknown" | "yes" | "no" = "unknown";
 
-  /** markers / labels / times reflect GetConfig.capabilities.trace_markers / trace_labels / trace_times. */
+  /** markers / labels / times / writes reflect GetConfig.capabilities.trace_markers / trace_labels / trace_times / trace_writes. */
   constructor(private readonly rpc: ReadRPC, private readonly markers: () => boolean = () => false,
-    private readonly labels: () => boolean = () => false, private readonly times: () => boolean = () => false) {}
+    private readonly labels: () => boolean = () => false, private readonly times: () => boolean = () => false,
+    private readonly writes: () => boolean = () => false) {}
+
+  /**
+   * The files the agent's edit tools wrote since the reader last spoke to it:
+   * the newest page of the summary, read with writes:true and nothing else, so
+   * the conversation's own reads keep the vocabulary they asked for. Null when
+   * the daemon cannot say (no trace_writes).
+   */
+  async turnWrites(paneId: string): Promise<string[] | null> {
+    if (!this.writes()) return null;
+    return parseTurnWrites(await this.rpc("AgentTraceSummary", { pane_id: paneId, cursor: null, limit: 200, writes: true }));
+  }
 
   async read(paneId: string, cursor: string | null = null, limit = 50): Promise<AgentTracePage> {
     const params = { pane_id: paneId, cursor, limit, ...(this.markers() ? { markers: true } : {}) };

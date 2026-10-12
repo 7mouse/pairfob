@@ -52,14 +52,22 @@ const layers: LayerPolicy[] = [
     // Mutation operation forms and worktree progress. May use shared UI and the
     // protocol/operation libraries, never global state, a screen or a page.
     // The run/owner adapters and the operations controller are the feature's
-    // declared connected adapters (they reach the domain layer and ui/).
+    // declared connected adapters (they reach the domain layer and ui/). The
+    // controller is split by duty: how a mutation runs against the live session
+    // (`live-run`), where a created pane lands (`created-pane`), prompts and
+    // review notes sent to an agent (`agent-prompt`) and worktrees
+    // (`worktree-controller`). Each part reaches what the whole reached.
     name: "features/operations",
     root: "features/operations",
     allowedRoots: ["features/operations/", "shared/", "lib/"],
     allowedModules: [],
     prohibitedModules: applicationModules,
     prohibitedRoots: ["ui/", "pages/", "app/"],
-    exclude: ["features/operations/controller", "features/operations/owner", "features/operations/run"],
+    exclude: [
+      "features/operations/agent-prompt", "features/operations/controller", "features/operations/created-pane",
+      "features/operations/live-run", "features/operations/owner", "features/operations/run",
+      "features/operations/worktree-controller",
+    ],
   },
   {
     // Quota model, snapshot store and views. `actions.ts` is the feature's one
@@ -284,9 +292,13 @@ describe("architecture layer boundaries", () => {
         .sort();
     }
     expect(connectedAdapters("features/operations")).toEqual([
+      "features/operations/agent-prompt",
       "features/operations/controller",
+      "features/operations/created-pane",
+      "features/operations/live-run",
       "features/operations/owner",
       "features/operations/run",
+      "features/operations/worktree-controller",
     ]);
     expect(connectedAdapters("features/agent-quota")).toEqual(["features/agent-quota/actions"]);
     expect(connectedAdapters("features/connection")).toEqual([

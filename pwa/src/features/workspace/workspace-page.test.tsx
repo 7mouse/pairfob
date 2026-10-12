@@ -75,6 +75,13 @@ function buttonNamed(label: string): HTMLButtonElement {
   return found as HTMLButtonElement;
 }
 
+/** A change group's own title: the layer switch of an open diff carries the same word. */
+function groupNamed(label: string): HTMLButtonElement {
+  const found = appRoot().querySelector<HTMLButtonElement>(`button.workspace-change-group-title[aria-label="${label}"]`);
+  if (!found) throw new Error(`missing change group ${label}`);
+  return found;
+}
+
 async function settle(): Promise<void> {
   await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 0)); });
 }
@@ -112,7 +119,7 @@ function mountPage(): void {
 async function boot(live = liveFixture()): Promise<void> {
   prepare(live);
   mountPage();
-  await act(async () => { await enterWorkspace("p1"); });
+  await act(async () => { await enterWorkspace("p1", undefined, false, "files"); });
 }
 
 beforeEach(async () => {
@@ -141,7 +148,7 @@ describe("React workspace screen", () => {
     expect(appRoot().querySelectorAll('[role="tab"]')).toHaveLength(2);
     await act(() => { buttonNamed("src").click(); });
     await settle();
-    expect(appRoot().querySelector(".workspace-breadcrumbs")?.textContent).toContain("src");
+    expect(appRoot().querySelector(".workspace-folder-title")?.textContent).toContain("src");
     await act(() => { buttonNamed("app.ts").click(); });
     await settle();
     expect(appRoot().querySelector(".workspace-shell")?.classList.contains("detail")).toBeTrue();
@@ -158,7 +165,7 @@ describe("React workspace screen", () => {
     const base = liveFixture();
     prepare({ ...base, workspaceList: async () => held });
     mountPage();
-    const opening = enterWorkspace("p1");
+    const opening = enterWorkspace("p1", undefined, false, "files");
     await waitForPending();
     const pending = appRoot().querySelector(".workspace-list-pending");
     expect(pending?.getAttribute("aria-label")).toContain("正在读取工作区");
@@ -187,7 +194,7 @@ describe("React workspace screen", () => {
       },
     });
     mountPage();
-    await act(async () => { await enterWorkspace("p1"); });
+    await act(async () => { await enterWorkspace("p1", undefined, false, "files"); });
     expect(appRoot().querySelector(".workspace-feedback-pane.workspace-error")?.textContent).toContain("已经不在了");
     expect(appRoot().querySelector(".workspace-empty")).toBeNull();
     expect(appRoot().querySelector(".workspace-breadcrumbs")).toBeNull();
@@ -198,17 +205,21 @@ describe("React workspace screen", () => {
     await boot();
     await act(() => { buttonNamed("更改").click(); });
     await settle();
-    expect(appRoot().querySelectorAll(".workspace-change-group-title")).toHaveLength(2);
-    expect(appRoot().querySelectorAll(".workspace-change")).toHaveLength(2);
-    expect(appRoot().querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
-    await act(() => { buttonNamed("已暂存的更改").click(); });
+    // One file changed in both layers is one row, under the working tree; its staged diff is a tag on the row.
+    expect(appRoot().querySelectorAll(".workspace-change-group-title")).toHaveLength(1);
     expect(appRoot().querySelectorAll(".workspace-change")).toHaveLength(1);
-    expect(buttonNamed("已暂存的更改").getAttribute("aria-expanded")).toBe("false");
-    await act(() => { buttonNamed("已暂存的更改").click(); });
-    await act(() => { buttonNamed("src/app.ts · 已暂存 · 修改").click(); });
+    expect(appRoot().querySelectorAll(".workspace-change-layer")).toHaveLength(1);
+    expect(appRoot().querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
+    await act(() => { groupNamed("未暂存").click(); });
+    expect(appRoot().querySelectorAll(".workspace-change")).toHaveLength(0);
+    expect(appRoot().querySelectorAll(".workspace-change-layer")).toHaveLength(0);
+    expect(groupNamed("未暂存").getAttribute("aria-expanded")).toBe("false");
+    await act(() => { groupNamed("未暂存").click(); });
+    await act(() => { buttonNamed("src/app.ts · 已暂存 · 修改 · 未看").click(); });
     await settle();
     expect(appRoot().querySelector(".workspace-layer-switch [aria-pressed='true']")?.textContent).toBe("已暂存");
-    expect(appRoot().querySelectorAll(".workspace-diff-line")).toHaveLength(3);
+    expect(appRoot().querySelectorAll(".workspace-diff-hunk")).toHaveLength(1);
+    expect(appRoot().querySelectorAll(".workspace-diff-line")).toHaveLength(2);
     expect(appRoot().querySelector(".diff-add")?.textContent).toContain("true");
   });
 

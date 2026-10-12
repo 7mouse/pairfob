@@ -8,7 +8,7 @@ import { hasOpenDialog } from "../../lib/dom";
 import { setLang, t } from "../../lib/i18n";
 import { bindOverlayOrigin } from "../../shared/ui/overlay";
 import { buildHerdViewModel, type HerdModelInput } from "../dashboard/model/herd-view";
-import { openCommandPalette, provideCommandPalette, type CommandPalettePorts, type PaletteInput } from "./index";
+import { openCommandPalette, provideCommandPalette, type CommandPalettePorts, type PaletteFiles, type PaletteInput } from "./index";
 
 function agent(id: string, status: DashboardAgentCard["status"] = "idle"): DashboardAgentCard {
   return {
@@ -239,9 +239,12 @@ describe("command palette", () => {
     let release = () => {};
     const press = (pointerType: string) => opener.dispatchEvent(
       new happy.PointerEvent("pointerdown", { bubbles: true, pointerType, clientX: 30, clientY: 70 }) as unknown as Event);
+    // Sizing the window is itself a resize the open palette hears: both happen where React is listening.
     const resize = (width: number) => {
-      happy.happyDOM.setWindowSize({ width, height: 700 });
-      act(() => { window.dispatchEvent(new happy.Event("resize") as unknown as Event); });
+      act(() => {
+        happy.happyDOM.setWindowSize({ width, height: 700 });
+        window.dispatchEvent(new happy.Event("resize") as unknown as Event);
+      });
     };
     beforeEach(() => {
       happy.happyDOM.setWindowSize({ width: 800, height: 700 });
@@ -249,7 +252,8 @@ describe("command palette", () => {
     });
     afterEach(() => {
       release();
-      happy.happyDOM.setWindowSize({ width: 390, height: 844 });
+      // The palette of the test is still open here; the outer afterEach closes it.
+      act(() => { happy.happyDOM.setWindowSize({ width: 390, height: 844 }); });
     });
 
     test("a mouse or ⌘K gets the desk panel below the roomy width; a finger keeps the sheet", async () => {
@@ -300,5 +304,144 @@ describe("command palette", () => {
     other.remove();
     open();
     expect(dialogs()).toHaveLength(1);
+  });
+});
+
+describe("files of the open session's workspace", () => {
+  let searched: string[];
+  const rows = () => options().map((option) => option.textContent);
+  const fileRows = () => options().filter((option) => option.classList.contains("is-file"))
+    .map((option) => `${option.querySelector(".palette-file-folder")?.textContent ?? ""}|${option.querySelector(".palette-file-name")?.textContent}`);
+  const settled = () => act(async () => { await pause(220); });
+
+  function withFiles(files: PaletteFiles | null): void {
+    provideCommandPalette({ ...ports(), files: () => files });
+  }
+  const finder = (answer: (query: string) => string[] | Promise<string[]>): PaletteFiles => ({
+    search: async (query) => { searched.push(query); return answer(query); },
+    open: (path) => { events.push(`file:${path}`); },
+  });
+
+  beforeEach(() => { searched = []; });
+
+  test("from two letters on the computer is asked once typing has settled, and its files are listed under the sessions", async () => {
+    withFiles(finder(() => ["src/docs.ts", "README.md"]));
+    open();
+    expect(field().placeholder).toBe(t("palette.placeholderFiles"));
+    type("d");
+    await settled();
+    expect(searched).toEqual([]);
+    type("do");
+    type("doc");
+    await settled();
+    // Only what the reader stopped on was asked.
+    expect(searched).toEqual(["doc"]);
+    expect(fileRows()).toEqual(["src|docs.ts", "|README.md"]);
+    const heads = [...dialogs()[0].querySelectorAll(".palette-head")].map((head) => head.textContent);
+    expect(heads).toEqual([t("palette.sessions"), t("palette.files")]);
+    // The session still leads: Enter goes where it went before.
+    expect(activeText()).toBe("docs");
+  });
+
+  test("the arrows reach a file and Enter opens it after the dialog has closed", async () => {
+    withFiles(finder(() => ["src/zeta.ts"]));
+    open();
+    type("zeta");
+    await settled();
+    expect(rows()).toHaveLength(1);
+    expect(activeText()).toBe("zeta.ts");
+    key("Enter");
+    // The jump runs once the dialog has finished closing, as the action rows' does.
+    await act(async () => { await pause(10); });
+    expect(dialogs()).toEqual([]);
+    expect(events).toEqual(["file:src/zeta.ts"]);
+  });
+
+  test("an answer for an earlier query is not shown for the one on screen", async () => {
+    let release!: (paths: string[]) => void;
+    withFiles(finder((query) => query === "slow" ? new Promise<string[]>((resolve) => { release = resolve; }) : ["fast.ts"]));
+    open();
+    type("slow");
+    await settled();
+    type("fast");
+    await settled();
+    await act(async () => { release(["slow.ts"]); await pause(); });
+    expect(fileRows()).toEqual(["|fast.ts"]);
+  });
+
+  const note = () => dialogs()[0].querySelector(".palette-none");
+
+  test("a failed search lists no files and says the files could not be searched; a palette opened where no session is says nothing of files", async () => {
+    withFiles(finder(() => { throw new Error("offline"); }));
+    open();
+    type("zzzz");
+    await settled();
+    expect(fileRows()).toEqual([]);
+    // Not "nothing matches": the files were never looked through.
+    expect(note()?.textContent).toBe(t("palette.filesFailed"));
+    await act(async () => { closeTestDialogs(); await pause(); });
+
+    withFiles(null);
+    open();
+    expect(field().placeholder).toBe(t("palette.placeholder"));
+    type("zzzz");
+    await settled();
+    expect(searched).toEqual(["zzzz"]);
+    expect(note()?.textContent).toBe(t("palette.none"));
+  });
+
+  test("while the computer is asked the list says so, and with nothing found it names files among what did not match", async () => {
+    let release!: (paths: string[]) => void;
+    withFiles(finder(() => new Promise<string[]>((resolve) => { release = resolve; })));
+    open();
+    type("zzzz");
+    // Typed, not yet asked: still not "nothing matches".
+    expect(note()?.textContent).toBe(t("palette.searchingFiles"));
+    await settled();
+    expect(note()?.textContent).toBe(t("palette.searchingFiles"));
+    await act(async () => { release([]); await pause(); });
+    expect(note()?.textContent).toBe(t("palette.noneFiles"));
+    expect(note()?.classList.contains("is-note")).toBeFalse();
+    // One letter is not asked of the computer, and matches nothing here.
+    type("q");
+    expect(note()?.textContent).toBe(t("palette.noneFiles"));
+  });
+
+  test("more files than the rows shown is said under them", async () => {
+    withFiles(finder(() => Array.from({ length: 20 }, (_, index) => `src/zeta-${index}.ts`)));
+    open();
+    type("zeta");
+    await settled();
+    expect(fileRows()).toHaveLength(12);
+    expect(note()?.textContent).toBe(t("palette.filesMore", { count: 12 }));
+    expect(note()?.classList.contains("is-note")).toBeTrue();
+  });
+
+  test("files that arrive do not move the highlight off the row Enter was aimed at", async () => {
+    let release!: (paths: string[]) => void;
+    withFiles(finder(() => new Promise<string[]>((resolve) => { release = resolve; })));
+    open();
+    // No session answers "sett"; the Settings action does, and is what Enter would take.
+    type("sett");
+    await settled();
+    expect(activeText()).toBe(t("palette.settings"));
+    await act(async () => { release(["src/settings.ts"]); await pause(); });
+    // The file is listed above the action, and the highlight has stayed where it was.
+    expect(fileRows()).toEqual(["src|settings.ts"]);
+    expect(activeText()).toBe(t("palette.settings"));
+    key("Enter");
+    await act(async () => { await pause(10); });
+    expect(events).toEqual(["run:settings"]);
+  });
+
+  test("with nothing else to highlight, the first file that arrives is the default", async () => {
+    withFiles(finder(() => ["src/zeta.ts", "src/zeta.test.ts"]));
+    open();
+    type("zeta");
+    await settled();
+    expect(activeText()).toBe("zeta.ts");
+    // The arrows still move from there.
+    key("ArrowDown");
+    expect(activeText()).toBe("zeta.test.ts");
   });
 });

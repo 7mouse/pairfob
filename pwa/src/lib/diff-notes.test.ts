@@ -6,9 +6,15 @@ import {
   clearAllDiffNotes,
   clearDiffNotes,
   composeDiffNotesPrompt,
+  diffNoteCounts,
   diffNoteForPin,
+  diffNotePanes,
+  diffNotePlace,
   diffNoteTarget,
+  diffNotesAt,
   diffNotesFor,
+  forgetPaneDiffNotes,
+  placeDiffNotes,
   endDiffNoteSend,
   removeDiffNote,
   removeDiffNotes,
@@ -128,7 +134,7 @@ describe("note store", () => {
     beginDiffNoteSend([first.id]);
     const later = upsertDiffNote(diffNoteTarget("src/app.ts", "worktree", add)!, "after send started")!;
     expect(later.id).not.toBe(first.id);
-    removeDiffNotes([first.id]);
+    removeDiffNotes([first]);
     endDiffNoteSend();
     expect(diffNotesFor("src/app.ts", "worktree").map((note) => note.body)).toEqual(["after send started"]);
   });
@@ -182,5 +188,62 @@ describe("compose prompt", () => {
     const [, , del] = lines();
     const note = upsertDiffNote(diffNoteTarget("src/app.ts", "worktree", del)!, "a".repeat(DIFF_NOTE_BODY_LIMIT * 4))!;
     expect(note.body.length).toBe(DIFF_NOTE_BODY_LIMIT);
+  });
+});
+
+describe("the place a note belongs to", () => {
+  // One connection, as the app has it: it says which Herdr session it is on.
+  const connection = { herd: null as string | null, herdSession() { return this.herd; } };
+  const [, , , added] = lines();
+  const target = diffNoteTarget("src/app.ts", "worktree", added)!;
+  const write = (herd: string | null, paneId: string, root: string, body: string) => {
+    adoptDiffNoteScope({ session: connection, herd, paneId, root, revision });
+    return upsertDiffNote(target, body)!;
+  };
+
+  test("pane ids repeat across Herdr sessions: a note is only met on the one it was written on", () => {
+    connection.herd = null;
+    write(null, "p1", "/repo", "on the default session");
+    // The same connection moves to another Herdr session, whose first pane is p1 too.
+    connection.herd = "work";
+    adoptDiffNoteScope({ session: connection, herd: "work", paneId: "p1", root: "/repo", revision });
+    expect(diffNotesFor("src/app.ts", "worktree")).toEqual([]);
+    expect(diffNoteCounts(connection, "p1").size).toBe(0);
+    expect(diffNotesAt(diffNotePlace(connection, "p1"))).toEqual([]);
+    write("work", "p1", "/repo", "on the work session");
+    expect(diffNotesAt(diffNotePlace(connection, "p1")).map((note) => note.body)).toEqual(["on the work session"]);
+    connection.herd = null;
+    placeDiffNotes({ session: connection, herd: null, paneId: "p1", root: "/repo" });
+    expect(diffNotesAt(diffNotePlace(connection, "p1")).map((note) => note.body)).toEqual(["on the default session"]);
+  });
+
+  test("a pane that moved to another repository does not bring the old one's notes along", () => {
+    connection.herd = null;
+    write(null, "p1", "/repo", "about this repository");
+    // The pane's files are read at another root now.
+    placeDiffNotes({ session: connection, herd: null, paneId: "p1", root: "/elsewhere" });
+    expect(diffNoteCounts(connection, "p1").size).toBe(0);
+    adoptDiffNoteScope({ session: connection, herd: null, paneId: "p1", root: "/elsewhere", revision });
+    expect(diffNotesFor("src/app.ts", "worktree")).toEqual([]);
+    // They are still its notes when it comes back.
+    placeDiffNotes({ session: connection, herd: null, paneId: "p1", root: "/repo" });
+    expect(diffNoteCounts(connection, "p1").get("worktree:src/app.ts")).toBe(1);
+  });
+
+  test("a pane that is gone takes its notes with it, on its own Herdr session only", () => {
+    connection.herd = null;
+    write(null, "p1", "/repo", "closed with its pane");
+    write(null, "p2", "/repo", "another pane");
+    write("work", "p1", "/repo", "same id, another session");
+    expect(diffNotePanes(connection, null).sort()).toEqual(["p1", "p2"]);
+    forgetPaneDiffNotes(connection, null, "p1");
+    expect(diffNotePanes(connection, null)).toEqual(["p2"]);
+    expect(diffNotePanes(connection, "work")).toEqual(["p1"]);
+  });
+
+  test("nothing is counted without a session or a pane", () => {
+    expect(diffNotePlace(null, "p1")).toBeNull();
+    expect(diffNotePlace(connection, "")).toBeNull();
+    expect(diffNotesAt(null)).toEqual([]);
   });
 });

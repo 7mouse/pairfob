@@ -18,9 +18,10 @@ import { clearWorkspacePendingReveal, enterWorkspace, workspaceModel } from "./i
 import { INSPECTOR_TAB_ORDER } from "./tab-order";
 
 /**
- * The two tabs stand in one order wherever the list sits beside the page:
- * changes first, as in the inspector and as the tab a first look opens on. A
- * phone keeps its files first, upright or on its side.
+ * The two tabs stand in one order on every device and at every width: changes
+ * first, as in the inspector. Which tab a pane opens on is decided by how the
+ * reader came in (the files button for the changes, a link for the files), not
+ * by the window, so neither a rotation nor a resize moves anything.
  */
 
 const seedRestorer = new WorkspaceSnapshotRestorer();
@@ -49,7 +50,7 @@ function device(width: number, height: number, screen = { width, height }): void
   Object.defineProperty(globalThis, "screen", { value: screen, configurable: true });
 }
 
-async function open(): Promise<void> {
+async function open(intent?: "files" | "changes"): Promise<void> {
   await act(async () => {
     setLang("zh");
     seedRestorer.capture();
@@ -65,7 +66,7 @@ async function open(): Promise<void> {
     });
     attachLiveSession(liveFixture() as never);
     renderReact(<WorkspaceScreen />);
-    await enterWorkspace("p1");
+    await enterWorkspace("p1", undefined, false, intent);
   });
   await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 0)); });
 }
@@ -106,17 +107,24 @@ test("beside the list the screen shows them in the inspector's order, and opens 
   }
 });
 
-test("a phone keeps files first, upright and on its side", async () => {
+test("a phone shows the same order and opens on the same tab, upright and on its side", async () => {
   for (const [width, height] of [[390, 844], [844, 390], [932, 430]]) {
     device(width, height);
     await open();
-    expect(tabs()).toEqual(["文件", "更改"]);
-    expect(workspaceModel.tab).toBe("files");
+    expect(tabs()).toEqual(["更改", "文件"]);
+    expect(workspaceModel.tab).toBe("changes");
     await act(async () => { unmountReact(); });
   }
 });
 
-test("the order follows the window as it crosses the tier, with the screen open", async () => {
+test("a link to a file opens the pane on its files, in the same order", async () => {
+  device(390, 844);
+  await open("files");
+  expect(tabs()).toEqual(["更改", "文件"]);
+  expect(workspaceModel.tab).toBe("files");
+});
+
+test("the order stays as the window crosses the tier, with the screen open", async () => {
   device(800, 700, { width: 1440, height: 900 });
   await open();
   expect(tabs()).toEqual(["更改", "文件"]);
@@ -124,7 +132,7 @@ test("the order follows the window as it crosses the tier, with the screen open"
     happy.happyDOM.setWindowSize({ width: 600, height: 700 });
     window.dispatchEvent(new window.Event("resize"));
   });
-  expect(tabs()).toEqual(["文件", "更改"]);
+  expect(tabs()).toEqual(["更改", "文件"]);
   // The tab the reader is on does not change with it.
   expect(workspaceModel.tab).toBe("changes");
 });

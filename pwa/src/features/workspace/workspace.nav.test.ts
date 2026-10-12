@@ -102,6 +102,13 @@ function buttonNamed(label: string): HTMLButtonElement {
   return found as HTMLButtonElement;
 }
 
+/** A change group's own title: the layer switch of an open diff carries the same word. */
+function groupNamed(label: string): HTMLButtonElement {
+  const found = app.querySelector<HTMLButtonElement>(`button.workspace-change-group-title[aria-label="${label}"]`);
+  if (!found) throw new Error(`missing change group ${label}`);
+  return found;
+}
+
 async function settle(): Promise<void> {
   await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 0)); });
 }
@@ -136,7 +143,7 @@ function prepare(live: LiveSession = liveFixture()): void {
 async function boot(live: LiveSession = liveFixture()): Promise<LiveSession> {
   prepare(live);
   await act(async () => {
-    await enterWorkspace("p1");
+    await enterWorkspace("p1", undefined, false, "files");
     // Drain the completion continuations (finishLoad, reveal settle) so no
     // workspace publication resolves after this act boundary.
     await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
@@ -187,7 +194,7 @@ describe("mobile workspace navigation", () => {
     await actRun(() => upsertDiffNote({ path: "src/app.ts", layer: "worktree", side: "new", line: 1, snippet: "true" }, "p1 comment"));
     expect(diffNotes()).toHaveLength(1);
 
-    await actRun(() => enterWorkspace("p2"));
+    await actRun(() => enterWorkspace("p2", undefined, false, "files"));
     expect(workspaceModel.directory).toBe("");
     expect(workspaceModel.view).toBe("browser");
     await actRun(() => loadDirectory("src"));
@@ -202,7 +209,7 @@ describe("mobile workspace navigation", () => {
     expect(diffNotes()).toHaveLength(0);
     await actRun(() => leaveWorkspace());
     expect(openPaneId()).toBe("p2");
-    await actRun(() => enterWorkspace("p1"));
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
     expect(workspaceModel.directory).toBe("src");
     expect(workspaceModel.view).toBe("diff");
     expect(diffNoteScope()?.paneId).toBe("p1");
@@ -219,7 +226,7 @@ describe("mobile workspace navigation", () => {
     await actRun(() => addSibling());
     let first!: Promise<unknown>;
     act(() => { first = loadWorkspaceFile("src/app.ts"); });
-    await actRun(() => enterWorkspace("p2"));
+    await actRun(() => enterWorkspace("p2", undefined, false, "files"));
     let second!: ReturnType<typeof loadWorkspaceFile>;
     act(() => { second = loadWorkspaceFile("src/app.ts"); });
     await settle();
@@ -242,7 +249,7 @@ describe("mobile workspace navigation", () => {
       clock.mockReturnValue(now + WORKSPACE_CACHE_TTL_MS);
       const pending = deferred<typeof diff>();
       const read = spyOn(live, "gitDiff").mockImplementation(() => pending.promise);
-      await act(async () => { await enterWorkspace("p2"); });
+      await act(async () => { await enterWorkspace("p2", undefined, false, "files"); });
       let loading!: ReturnType<typeof loadGitDiff>;
       act(() => { loading = loadGitDiff("src/app.ts", "worktree"); });
       await settle();
@@ -266,11 +273,11 @@ describe("mobile workspace navigation", () => {
     await boot(live);
     await actRun(() => addSibling());
     await actRun(() => loadWorkspaceFile("src/app.ts"));
-    await actRun(() => enterWorkspace("p2"));
+    await actRun(() => enterWorkspace("p2", undefined, false, "files"));
     const updated = { ...await liveFixture().workspaceRead(), content: "updated" };
     read.mockImplementation(async () => updated);
     await actRun(() => refreshWorkspace());
-    await actRun(() => enterWorkspace("p1"));
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
     expect(workspaceModel.file?.content).toBe("updated");
     expect(read).toHaveBeenCalledTimes(2);
   });
@@ -285,10 +292,27 @@ describe("mobile workspace navigation", () => {
     });
     const descriptor = await live.workspaceOpen();
     live.workspaceOpen = async () => ({ ...descriptor, root: "/other" });
-    await actRun(() => enterWorkspace("p1"));
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
     expect(workspaceModel.descriptor?.root).toBe("/other");
     expect(workspaceModel.view).toBe("browser");
     expect(workspaceModel.file).toBeNull();
+  });
+
+  test("a pane of the same id in another Herdr session is not where this one was left", async () => {
+    let herd: string | null = null;
+    const live = { ...liveFixture(), herdSession: () => herd };
+    await boot(live as never);
+    await actRun(() => loadWorkspaceFile("src/app.ts"));
+    expect(workspaceModel.view).toBe("file");
+    // Pane ids repeat across the Herdr sessions of one connection.
+    herd = "work";
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
+    expect(workspaceModel.view).toBe("browser");
+    expect(workspaceModel.file).toBeNull();
+    // Back in its own session it is found as it was left.
+    herd = null;
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
+    expect(workspaceModel.view).toBe("file");
   });
 
   test("restores cached directory pages once and stops restoration after navigation", async () => {
@@ -302,7 +326,7 @@ describe("mobile workspace navigation", () => {
     await boot(live);
     await actRun(() => loadDirectory("", true));
     await actRun(() => leaveWorkspace());
-    await actRun(() => enterWorkspace("p1"));
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
     expect(workspaceModel.entries.map((entry) => entry.path)).toEqual(["src", "src/app.ts"]);
     expect(list).toHaveBeenCalledTimes(2);
 
@@ -312,7 +336,7 @@ describe("mobile workspace navigation", () => {
       const pending = deferred<typeof firstPage>();
       list.mockImplementation(async (_pane, path = "") => path ? { ...secondPage, path } : pending.promise);
       let opening!: Promise<void>;
-      act(() => { opening = enterWorkspace("p1"); });
+      act(() => { opening = enterWorkspace("p1", undefined, false, "files"); });
       await settle();
       await actRun(() => loadDirectory("src"));
       pending.resolve(firstPage);
@@ -335,7 +359,7 @@ describe("mobile workspace navigation", () => {
     live.workspaceRead = () => pendingFile.promise;
     prepare(live);
     let opening!: Promise<void>;
-    act(() => { opening = enterWorkspace("p1"); });
+    act(() => { opening = enterWorkspace("p1", undefined, false, "files"); });
     await settle();
     let reading!: Promise<unknown>;
     act(() => { reading = loadWorkspaceFile("src/app.ts"); });
@@ -353,7 +377,7 @@ describe("mobile workspace navigation", () => {
     expect(app.querySelectorAll('[role="tab"]')).toHaveLength(2);
     act(() => buttonNamed("src").click());
     await settle();
-    expect(app.querySelector(".workspace-breadcrumbs")?.textContent).toContain("src");
+    expect(app.querySelector(".workspace-folder-title")?.textContent).toContain("src");
     act(() => buttonNamed("app.ts").click());
     await settle();
     expect(app.querySelector(".workspace-shell")?.classList.contains("detail")).toBeTrue();
@@ -430,19 +454,24 @@ describe("mobile workspace navigation", () => {
     await boot();
     act(() => buttonNamed("更改").click());
     await settle();
-    expect(app.querySelectorAll(".workspace-change-group-title")).toHaveLength(2);
-    expect(app.querySelectorAll(".workspace-change")).toHaveLength(2);
+    // One file changed in both layers is one row, under the working tree; its staged diff is a tag on the row.
+    expect(app.querySelectorAll(".workspace-change-group-title")).toHaveLength(1);
+    expect(app.querySelectorAll(".workspace-change")).toHaveLength(1);
+    expect(app.querySelectorAll(".workspace-change-layer")).toHaveLength(1);
     expect(app.querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
 
-    act(() => buttonNamed("已暂存的更改").click());
-    expect(app.querySelectorAll(".workspace-change")).toHaveLength(1);
-    expect(buttonNamed("已暂存的更改").getAttribute("aria-expanded")).toBe("false");
-    act(() => buttonNamed("已暂存的更改").click());
+    act(() => groupNamed("未暂存").click());
+    expect(app.querySelectorAll(".workspace-change")).toHaveLength(0);
+    expect(app.querySelectorAll(".workspace-change-layer")).toHaveLength(0);
+    expect(groupNamed("未暂存").getAttribute("aria-expanded")).toBe("false");
+    act(() => groupNamed("未暂存").click());
 
-    act(() => buttonNamed("src/app.ts · 已暂存 · 修改").click());
+    act(() => buttonNamed("src/app.ts · 已暂存 · 修改 · 未看").click());
     await settle();
     expect(app.querySelector(".workspace-layer-switch [aria-pressed='true']")?.textContent).toBe("已暂存");
-    expect(app.querySelectorAll(".workspace-diff-line")).toHaveLength(3);
+    // One hunk under its head: the line removed and the line in its place.
+    expect(app.querySelectorAll(".workspace-diff-hunk")).toHaveLength(1);
+    expect(app.querySelectorAll(".workspace-diff-line")).toHaveLength(2);
     expect(app.querySelector(".diff-add")?.textContent).toContain("true");
   });
 
@@ -483,15 +512,15 @@ describe("mobile workspace navigation", () => {
     await boot();
     act(() => buttonNamed("更改").click());
     await settle();
-    act(() => buttonNamed("已暂存的更改").click());
-    expect(buttonNamed("已暂存的更改").getAttribute("aria-expanded")).toBe("false");
+    act(() => groupNamed("未暂存").click());
+    expect(groupNamed("未暂存").getAttribute("aria-expanded")).toBe("false");
 
     act(() => buttonNamed("返回终端").click());
-    await actRun(() => enterWorkspace("p1"));
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
 
     expect(workspaceModel.tab).toBe("changes");
-    expect(buttonNamed("已暂存的更改").getAttribute("aria-expanded")).toBe("false");
-    expect(app.querySelectorAll(".workspace-change")).toHaveLength(1);
+    expect(groupNamed("未暂存").getAttribute("aria-expanded")).toBe("false");
+    expect(app.querySelectorAll(".workspace-change")).toHaveLength(0);
   });
 
   test("back from the root returns to the same terminal pane", async () => {
@@ -542,7 +571,7 @@ describe("mobile workspace navigation", () => {
     });
     expect(currentScreen()).toBe("pane");
     expect(workspaceModel.view).toBe("file");
-    await actRun(() => enterWorkspace("p1"));
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
 
     expect(currentScreen()).toBe("workspace");
     expect(workspaceModel.view).toBe("file");
@@ -564,7 +593,7 @@ describe("mobile workspace navigation", () => {
       workspaceList: async () => held,
     });
     let opening!: Promise<void>;
-    act(() => { opening = enterWorkspace("p1"); });
+    act(() => { opening = enterWorkspace("p1", undefined, false, "files"); });
     await waitForPending();
     const pending = app.querySelector(".workspace-list-pending");
     expect(pending?.getAttribute("aria-label")).toContain("正在读取工作区");
@@ -593,7 +622,7 @@ describe("mobile workspace navigation", () => {
         throw new ProtocolError("workspace_not_found", "gone");
       },
     });
-    await actRun(() => enterWorkspace("p1"));
+    await actRun(() => enterWorkspace("p1", undefined, false, "files"));
     expect(app.querySelector(".workspace-feedback-pane.workspace-error")?.textContent).toContain("已经不在了");
     expect(app.querySelector(".workspace-empty")).toBeNull();
     expect(app.querySelector(".workspace-breadcrumbs")).toBeNull();
