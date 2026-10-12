@@ -46,6 +46,8 @@
   font-size: var(--text-caption);
   font-weight: 500;
   line-height: 1.45;
+  /* Beside a control the hint is a narrow column: no last line of one word. */
+  text-wrap: balance;
 }
 
 .menu-setting .seg {
@@ -186,6 +188,9 @@
   border-top: 1px solid var(--line);
   border-radius: 0;
 }
+
+/* A row that follows a setting in the same card is ruled off from it too. */
+.menu-setting + .menu-row { border-top: 1px solid var(--line); }
 
 .menu-row:last-child:not(:first-child) { border-radius: 0 0 var(--r-lg) var(--r-lg); }
 

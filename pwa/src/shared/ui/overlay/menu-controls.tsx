@@ -1,5 +1,5 @@
 import { ChevronRight, Minus, Plus } from "lucide-react";
-import type { ReactNode } from "react";
+import type { HTMLAttributes, ReactNode } from "react";
 import { Button } from "../primitives/button";
 import type { ActionSheetController, SheetAction } from "./action-sheet";
 import { useMenuItemRole } from "./popover-frame";
@@ -16,12 +16,16 @@ export function MenuGroup({ label, children, className = "" }: { label?: string;
   return <div className={`menu-group${className ? ` ${className}` : ""}`} role={label ? "group" : undefined} aria-label={label}>{children}</div>;
 }
 
-/** A labelled setting row; `stacked` puts a wide control under its label. */
-export function MenuSetting({ label, hint, stacked = false, children }: {
-  label: string; hint?: string; stacked?: boolean; children: ReactNode;
+/**
+ * A labelled setting row; `stacked` puts a wide control under its label.
+ * `hintProps` names the hint for the control it describes, or makes it a live
+ * region when it reports the setting's state.
+ */
+export function MenuSetting({ label, hint, hintProps, stacked = false, children }: {
+  label: string; hint?: string; hintProps?: Pick<HTMLAttributes<HTMLElement>, "id" | "role">; stacked?: boolean; children: ReactNode;
 }) {
   return <div className={`menu-setting${stacked ? " is-stacked" : ""}`}>
-    <div className="menu-setting-label">{label}{hint && <small>{hint}</small>}</div>
+    <div className="menu-setting-label">{label}{hint && <small {...hintProps}>{hint}</small>}</div>
     {children}
   </div>;
 }

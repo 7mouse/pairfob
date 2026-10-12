@@ -8,13 +8,12 @@ export function PaneScreenSetting() {
   const wake = useSyncExternalStore(screenWake.subscribe, screenWake.get);
   const id = useId();
   return <MenuGroup label={t("pm.wakeLabel")}>
-    <MenuSetting label={t("pm.wakeLabel")}>
+    <MenuSetting label={t("pm.wakeLabel")} hint={t(`pm.wake.${wake.status}`)} hintProps={{ id, role: "status" }}>
       <Button className="menu-switch" role="switch" aria-checked={wake.enabled}
         aria-label={t("pm.wakeLabel")} aria-describedby={id}
         disabled={!wake.eligible || wake.status === "unsupported"}
         onClick={() => screenWake.setEnabled(!wake.enabled)} />
     </MenuSetting>
-    <p id={id} className="pane-mode-hint" role="status">{t(`pm.wake.${wake.status}`)}</p>
     {wake.status === "unavailable" && <MenuRow label={t("pm.wakeRetry")} onClick={screenWake.retry} />}
   </MenuGroup>;
 }
