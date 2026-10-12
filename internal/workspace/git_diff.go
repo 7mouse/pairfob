@@ -11,14 +11,31 @@ import (
 	"unicode/utf8"
 )
 
+// diffStats counts a patch's added and removed lines. Only lines inside a hunk
+// are counted, by their first column: a removed "-- comment" reads "--- comment"
+// and is a line like any other, not a file header. A conflict's combined diff
+// has one column per side, and a line counts once.
 func diffStats(patch string) (int, int, bool) {
 	additions, deletions := 0, 0
 	binary := strings.Contains(patch, "Binary files ") || strings.Contains(patch, "GIT binary patch")
+	columns := 0
 	for _, line := range strings.Split(patch, "\n") {
 		switch {
-		case strings.HasPrefix(line, "+") && !strings.HasPrefix(line, "+++"):
+		case strings.HasPrefix(line, "@@"):
+			columns = len(line) - len(strings.TrimLeft(line, "@")) - 1
+			continue
+		case strings.HasPrefix(line, "diff --"):
+			columns = 0
+			continue
+		}
+		if columns == 0 || line == "" {
+			continue
+		}
+		marks := line[:min(columns, len(line))]
+		switch {
+		case strings.Contains(marks, "+"):
 			additions++
-		case strings.HasPrefix(line, "-") && !strings.HasPrefix(line, "---"):
+		case strings.Contains(marks, "-"):
 			deletions++
 		}
 	}
@@ -56,7 +73,11 @@ func untrackedPatch(root, relative string) (string, bool, bool, error) {
 		lines = strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
 	}
 	var builder strings.Builder
-	_, _ = fmt.Fprintf(&builder, "diff --git a/%s b/%s\nnew file mode 100644\n--- /dev/null\n+++ b/%s\n@@ -0,0 +1,%d @@\n", relative, relative, relative, len(lines))
+	_, _ = fmt.Fprintf(&builder, "diff --git a/%s b/%s\nnew file mode 100644\n", relative, relative)
+	// An empty file has no lines to show, and so no hunk: as Git writes it.
+	if len(lines) > 0 {
+		_, _ = fmt.Fprintf(&builder, "--- /dev/null\n+++ b/%s\n@@ -0,0 +1,%d @@\n", relative, len(lines))
+	}
 	for _, line := range lines {
 		builder.WriteByte('+')
 		builder.WriteString(line)
@@ -111,7 +132,7 @@ func (i *Inspector) Diff(root, relative, layer string) (Diff, error) {
 	truncated = truncated || encodedTruncated
 	binary := false
 	if patch == "" && layer == "worktree" {
-		status, statusErr := i.Status(root)
+		status, statusErr := repo.status()
 		if statusErr == nil && isUntracked(status.Changes, clean) {
 			patch, binary, truncated, err = untrackedPatch(root, clean)
 			if err != nil {

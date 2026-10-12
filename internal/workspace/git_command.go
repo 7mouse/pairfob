@@ -6,6 +6,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -33,8 +34,22 @@ func (b *cappedBuffer) String() string { return string(b.data) }
 type repositoryState struct {
 	root      string
 	workspace string
-	branch    *string
-	head      string
+	// prefix is the workspace's place inside the repository, "" at its top or
+	// "dir/". Git names paths from the top; the workspace's RPCs name them from
+	// the workspace.
+	prefix string
+	branch *string
+	head   string
+}
+
+// inWorkspace turns a path Git reported into one relative to the workspace.
+// It is false for a path that is not under the workspace.
+func (r repositoryState) inWorkspace(path string) (string, bool) {
+	if r.prefix == "" {
+		return path, path != ""
+	}
+	rest, ok := strings.CutPrefix(path, r.prefix)
+	return rest, ok && rest != ""
 }
 
 func gitArgs(args ...string) []string {
@@ -42,6 +57,8 @@ func gitArgs(args ...string) []string {
 		"-c", "core.fsmonitor=false",
 		"-c", "core.untrackedCache=false",
 		"-c", "diff.external=",
+		// A blank context line keeps its leading space, as every reader of a patch expects.
+		"-c", "diff.suppressBlankEmpty=false",
 		"--no-pager",
 	}, args...)
 }
@@ -111,7 +128,9 @@ func optionalGitLine(root string, args ...string) *string {
 	return &value
 }
 
-func (i *Inspector) repository(workspaceRoot string) (repositoryState, error) {
+// repositoryRoot finds the repository a workspace directory is in, with one
+// git read. It does not say what is checked out.
+func repositoryRoot(workspaceRoot string) (repositoryState, error) {
 	workspaceRoot, err := canonicalRoot(workspaceRoot)
 	if err != nil {
 		return repositoryState{}, err
@@ -124,10 +143,22 @@ func (i *Inspector) repository(workspaceRoot string) (repositoryState, error) {
 	if err != nil || !within(repoRoot, workspaceRoot) {
 		return repositoryState{}, ErrNotRepository
 	}
-	head := optionalGitLine(workspaceRoot, "rev-parse", "--verify", "HEAD")
-	branch := optionalGitLine(workspaceRoot, "symbolic-ref", "--quiet", "--short", "HEAD")
-	state := repositoryState{root: repoRoot, workspace: workspaceRoot, branch: branch}
-	if head != nil {
+	prefix := ""
+	if relative, relErr := filepath.Rel(repoRoot, workspaceRoot); relErr != nil {
+		return repositoryState{}, ErrNotRepository
+	} else if relative != "." {
+		prefix = filepath.ToSlash(relative) + "/"
+	}
+	return repositoryState{root: repoRoot, workspace: workspaceRoot, prefix: prefix}, nil
+}
+
+func (i *Inspector) repository(workspaceRoot string) (repositoryState, error) {
+	state, err := repositoryRoot(workspaceRoot)
+	if err != nil {
+		return repositoryState{}, err
+	}
+	state.branch = optionalGitLine(state.workspace, "symbolic-ref", "--quiet", "--short", "HEAD")
+	if head := optionalGitLine(state.workspace, "rev-parse", "--verify", "HEAD"); head != nil {
 		state.head = *head
 	}
 	return state, nil

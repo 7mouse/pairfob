@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"reflect"
 )
 
 func TestRecordTimeParsesTranscriptTimestamps(t *testing.T) {
@@ -52,7 +54,7 @@ func requireSameShape(t *testing.T, plain, timed TraceSummaryPage) []int64 {
 	for i, item := range timed.Items {
 		withoutAt := item
 		withoutAt.At = 0
-		if withoutAt != plain.Items[i] {
+		if !reflect.DeepEqual(withoutAt, plain.Items[i]) {
 			t.Fatalf("item %d differs beyond at: %+v vs %+v", i, item, plain.Items[i])
 		}
 		ats = append(ats, item.At)

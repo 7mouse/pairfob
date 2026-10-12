@@ -92,7 +92,7 @@ func (r *Reader) ReadTraceSummaryWith(ref Ref, cursor *string, limit int, option
 	for _, item := range page.Items {
 		if item.Type == "tool" {
 			items = append(items, TraceSummaryItem{
-				Type: item.Type, Name: item.Name, State: traceToolState(item), DetailRef: item.DetailRef, Label: item.Label, At: item.At,
+				Type: item.Type, Name: item.Name, State: traceToolState(item), DetailRef: item.DetailRef, Label: item.Label, Writes: item.Writes, At: item.At,
 			})
 			continue
 		}
@@ -102,13 +102,13 @@ func (r *Reader) ReadTraceSummaryWith(ref Ref, cursor *string, limit int, option
 	return TraceSummaryPage{Items: items, NextCursor: page.NextCursor, Truncated: page.SummaryTruncated}, nil
 }
 
-// fitSummaryExtras keeps a summary with opt-in labels and times inside the
-// page budget. Neither counts toward the full trace page it was cut from (labels
-// come from unclipped input), so pages, cursors and detail refs match every
-// view; when the extras overflow, the oldest labels go first, then the oldest
-// times.
+// fitSummaryExtras keeps a summary with opt-in labels, written paths and times
+// inside the page budget. None counts toward the full trace page it was cut
+// from (labels and paths come from unclipped input), so pages, cursors and
+// detail refs match every view; when the extras overflow, the oldest labels go
+// first, then the oldest written paths, then the oldest times.
 func fitSummaryExtras(items []TraceSummaryItem) {
-	if !slices.ContainsFunc(items, func(item TraceSummaryItem) bool { return item.Label != "" || item.At != 0 }) {
+	if !slices.ContainsFunc(items, func(item TraceSummaryItem) bool { return item.Label != "" || len(item.Writes) > 0 || item.At != 0 }) {
 		return
 	}
 	total := 0
@@ -117,6 +117,7 @@ func fitSummaryExtras(items []TraceSummaryItem) {
 	}
 	drops := []func(*TraceSummaryItem) bool{
 		func(item *TraceSummaryItem) bool { dropped := item.Label != ""; item.Label = ""; return dropped },
+		func(item *TraceSummaryItem) bool { dropped := len(item.Writes) > 0; item.Writes = nil; return dropped },
 		func(item *TraceSummaryItem) bool { dropped := item.At != 0; item.At = 0; return dropped },
 	}
 	for _, drop := range drops {

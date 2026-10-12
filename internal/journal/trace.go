@@ -9,17 +9,18 @@ import (
 
 // Event is one step on the agent execution timeline.
 type Event struct {
-	Type             string `json:"type"`
-	Text             string `json:"text,omitempty"`
-	Name             string `json:"name,omitempty"`
-	Input            string `json:"input,omitempty"`
-	Output           string `json:"output,omitempty"`
-	DetailRef        string `json:"-"`
-	State            string `json:"-"`
-	Label            string `json:"-"`
-	At               int64  `json:"-"`
-	DetailTruncated  bool   `json:"-"`
-	SummaryTruncated bool   `json:"-"`
+	Type             string   `json:"type"`
+	Text             string   `json:"text,omitempty"`
+	Name             string   `json:"name,omitempty"`
+	Input            string   `json:"input,omitempty"`
+	Output           string   `json:"output,omitempty"`
+	DetailRef        string   `json:"-"`
+	State            string   `json:"-"`
+	Label            string   `json:"-"`
+	Writes           []string `json:"-"`
+	At               int64    `json:"-"`
+	DetailTruncated  bool     `json:"-"`
+	SummaryTruncated bool     `json:"-"`
 }
 
 type TracePage struct {
@@ -30,13 +31,14 @@ type TracePage struct {
 }
 
 type TraceSummaryItem struct {
-	Type      string `json:"type"`
-	Text      string `json:"text,omitempty"`
-	Name      string `json:"name,omitempty"`
-	State     string `json:"state,omitempty"`
-	DetailRef string `json:"detail_ref,omitempty"`
-	Label     string `json:"label,omitempty"`
-	At        int64  `json:"at,omitempty"`
+	Type      string   `json:"type"`
+	Text      string   `json:"text,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	State     string   `json:"state,omitempty"`
+	DetailRef string   `json:"detail_ref,omitempty"`
+	Label     string   `json:"label,omitempty"`
+	Writes    []string `json:"writes,omitempty"`
+	At        int64    `json:"at,omitempty"`
 }
 
 type TraceSummaryPage struct {

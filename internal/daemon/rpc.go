@@ -330,7 +330,7 @@ func (e *Engine) dispatch(s *sess, id, op string, params json.RawMessage) {
 		e.rpcPromptAgent(s, id, params)
 	case "ListWorktrees":
 		e.rpcListWorktrees(s, id, params)
-	case "WorkspaceListAtRoot", "WorkspaceReadAtRoot", "WorkspaceResolve", "WorkspaceOpen", "WorkspaceList", "WorkspaceRead", "GitStatus", "GitDiff", "GitBranches":
+	case "WorkspaceListAtRoot", "WorkspaceReadAtRoot", "WorkspaceResolve", "WorkspaceSearch", "WorkspaceOpen", "WorkspaceList", "WorkspaceRead", "GitStatus", "GitDiff", "GitBranches":
 		go e.dispatchWorkspaceRead(s, id, op, params)
 	case "WorkspaceMediaOpenAtRoot", "WorkspaceMediaOpen", "WorkspaceMediaRead", "WorkspaceMediaClose":
 		go e.dispatchWorkspaceMedia(s, id, op, params)

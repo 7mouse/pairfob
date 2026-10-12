@@ -108,15 +108,15 @@ func TestDescribeNonRepositoryKeepsFileBrowsing(t *testing.T) {
 }
 
 func TestParseStatusDropsPartialRecords(t *testing.T) {
-	changes, truncated := parseStatus([]byte(" M complete.txt\x00?? partial"))
+	changes, truncated := parseStatus([]byte(" M complete.txt\x00?? partial"), repositoryState{})
 	if !truncated || len(changes) != 1 || changes[0].Path != "complete.txt" {
 		t.Fatalf("changes=%+v truncated=%v", changes, truncated)
 	}
-	changes, truncated = parseStatus([]byte("R  renamed.txt\x00"))
+	changes, truncated = parseStatus([]byte("R  renamed.txt\x00"), repositoryState{})
 	if !truncated || len(changes) != 0 {
 		t.Fatalf("partial rename changes=%+v truncated=%v", changes, truncated)
 	}
-	changes, truncated = parseStatus([]byte("?? line\nbreak.txt\x00"))
+	changes, truncated = parseStatus([]byte("?? line\nbreak.txt\x00"), repositoryState{})
 	if !truncated || len(changes) != 0 {
 		t.Fatalf("control path changes=%+v truncated=%v", changes, truncated)
 	}
@@ -144,5 +144,46 @@ func TestGitStderrBufferIsBounded(t *testing.T) {
 	written, err := buffer.Write(payload)
 	if err != nil || written != len(payload) || len(buffer.String()) != maxGitStderrBytes {
 		t.Fatalf("written=%d buffered=%d err=%v", written, len(buffer.String()), err)
+	}
+}
+
+func TestDiffStatsCountsLinesByTheirPlaceNotTheirText(t *testing.T) {
+	// A removed SQL comment and an added "++j;" look like file headers by their text.
+	patch := "diff --git a/q.sql b/q.sql\n--- a/q.sql\n+++ b/q.sql\n@@ -1,3 +1,3 @@ select\n one\n--- a sql comment\n+++j;\n two\n\\ No newline at end of file\n"
+	if additions, deletions, binary := diffStats(patch); additions != 1 || deletions != 1 || binary {
+		t.Fatalf("additions=%d deletions=%d binary=%v", additions, deletions, binary)
+	}
+	// A conflict has a column per side; a line added against either side is one addition.
+	combined := "diff --cc a.txt\n--- a/a.txt\n+++ b/a.txt\n@@@ -1,2 -1,1 +1,5 @@@\n++<<<<<<< HEAD\n +ours\n- gone\n++=======\n+ theirs\n++>>>>>>> other\n  same\n"
+	if additions, deletions, _ := diffStats(combined); additions != 5 || deletions != 1 {
+		t.Fatalf("combined additions=%d deletions=%d", additions, deletions)
+	}
+}
+
+func TestDiffKeepsTheSpaceOfABlankContextLine(t *testing.T) {
+	root := gitFixture(t)
+	gitTestRun(t, root, "config", "diff.suppressBlankEmpty", "true")
+	path := filepath.Join(root, "tracked.txt")
+	if err := os.WriteFile(path, []byte("before\n\nmiddle\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	gitTestRun(t, root, "commit", "-am", "blank")
+	if err := os.WriteFile(path, []byte("before\n\nmiddle\nafter\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	diff, err := NewInspector().Diff(root, "tracked.txt", "worktree")
+	if err != nil || !strings.Contains(diff.Patch, "\n before\n \n middle\n+after\n") {
+		t.Fatalf("patch=%q err=%v", diff.Patch, err)
+	}
+}
+
+func TestAnEmptyNewFileHasNoHunk(t *testing.T) {
+	root := gitFixture(t)
+	if err := os.WriteFile(filepath.Join(root, "empty.py"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	diff, err := NewInspector().Diff(root, "empty.py", "worktree")
+	if err != nil || strings.Contains(diff.Patch, "@@") || !strings.Contains(diff.Patch, "new file mode") || diff.Additions != 0 || diff.Binary {
+		t.Fatalf("diff=%+v err=%v", diff, err)
 	}
 }

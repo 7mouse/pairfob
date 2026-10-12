@@ -85,7 +85,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		"PushSubscribe", "RevokeDevice", "ListDevices", "ListSessions", "History", "AgentTrace", "AgentTraceSummary", "AgentTraceDetail", "RenamePane",
 		"RenameTab", "RenameWorkspace", "ClosePane", "CloseTab", "CloseWorkspace",
 		"CreateConversation", "CreateTab", "SplitPane", "PromptAgent", "ListWorktrees",
-		"WorkspaceOpen", "WorkspaceResolve", "WorkspaceList", "WorkspaceListAtRoot", "WorkspaceRead", "WorkspaceReadAtRoot", "WorkspaceMediaOpen", "WorkspaceMediaOpenAtRoot", "WorkspaceMediaRead", "WorkspaceMediaClose", "WorkspaceUploadBegin", "WorkspaceUploadWrite", "WorkspaceUploadStatus", "WorkspaceUploadCommit", "WorkspaceUploadCancel", "WorkspaceUploadBeginV2", "WorkspaceUploadWriteV2", "WorkspaceUploadStatusV2", "WorkspaceUploadCommitV2", "WorkspaceUploadCancelV2", "WorkspaceRename", "WorkspaceDelete", "GitStatus", "GitDiff", "GitBranches",
+		"WorkspaceOpen", "WorkspaceResolve", "WorkspaceSearch", "WorkspaceList", "WorkspaceListAtRoot", "WorkspaceRead", "WorkspaceReadAtRoot", "WorkspaceMediaOpen", "WorkspaceMediaOpenAtRoot", "WorkspaceMediaRead", "WorkspaceMediaClose", "WorkspaceUploadBegin", "WorkspaceUploadWrite", "WorkspaceUploadStatus", "WorkspaceUploadCommit", "WorkspaceUploadCancel", "WorkspaceUploadBeginV2", "WorkspaceUploadWriteV2", "WorkspaceUploadStatusV2", "WorkspaceUploadCommitV2", "WorkspaceUploadCancelV2", "WorkspaceRename", "WorkspaceDelete", "GitStatus", "GitDiff", "GitBranches",
 		"CreateWorktree", "OpenWorktree", "ResizePane", "SwapPane", "ZoomPane",
 		"TerminalOpen", "TerminalInput", "TerminalResize", "TerminalScroll", "TerminalClose",
 		"TransportOffer", "TransportCommit", "TransportRestart",
@@ -159,7 +159,17 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		!slices.Equal(listWorktrees.OneOf[1].Required, []string{"cwd"}) {
 		t.Errorf("ListWorktrees must require exactly one explicit scope, got oneOf=%v", listWorktrees.OneOf)
 	}
-	for _, op := range []string{"WorkspaceOpen", "GitStatus", "GitBranches"} {
+	// stats is opt-in on the status read (git_change_stats).
+	if params := paramsByOp["GitStatus"]; !slices.Equal(sortedPropertyNames(params.Properties), []string{"pane_id", "session", "stats"}) ||
+		!slices.Equal(params.Required, []string{"pane_id"}) || params.AdditionalProperties == nil || *params.AdditionalProperties {
+		t.Errorf("GitStatus params fields=%q required=%q", sortedPropertyNames(params.Properties), params.Required)
+	}
+	// A search is bound to the root the client shows, like every bound read.
+	if params := paramsByOp["WorkspaceSearch"]; !slices.Equal(sortedPropertyNames(params.Properties), []string{"limit", "pane_id", "query", "root", "session"}) ||
+		params.AdditionalProperties == nil || *params.AdditionalProperties {
+		t.Errorf("WorkspaceSearch params fields=%q", sortedPropertyNames(params.Properties))
+	}
+	for _, op := range []string{"WorkspaceOpen", "GitBranches"} {
 		params := paramsByOp[op]
 		if got, want := sortedPropertyNames(params.Properties), []string{"pane_id", "session"}; !slices.Equal(got, want) || !slices.Equal(params.Required, []string{"pane_id"}) {
 			t.Errorf("%s params fields=%q required=%q", op, got, params.Required)
@@ -193,6 +203,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 	}
 	for op, required := range map[string][]string{
 		"WorkspaceResolve":         {"pane_id", "root", "path"},
+		"WorkspaceSearch":          {"pane_id", "root", "query"},
 		"WorkspaceListAtRoot":      {"pane_id", "root", "path"},
 		"WorkspaceReadAtRoot":      {"pane_id", "root", "path"},
 		"WorkspaceMediaOpenAtRoot": {"pane_id", "root", "path"},
@@ -213,11 +224,11 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 			t.Errorf("%s params must reject additional properties", op)
 		}
 	}
-	// labels and times are opt-in on the summary only; the full trace carries
-	// input instead.
+	// labels, times and writes are opt-in on the summary only; the full trace
+	// carries input instead.
 	for op, want := range map[string][]string{
 		"AgentTrace":        {"cursor", "limit", "markers", "pane_id", "session"},
-		"AgentTraceSummary": {"cursor", "labels", "limit", "markers", "pane_id", "session", "times"},
+		"AgentTraceSummary": {"cursor", "labels", "limit", "markers", "pane_id", "session", "times", "writes"},
 	} {
 		params := paramsByOp[op]
 		if got := sortedPropertyNames(params.Properties); !slices.Equal(got, want) || !slices.Equal(params.Required, []string{"pane_id"}) {
@@ -271,7 +282,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		"create_conversation", "create_tab", "split_pane", "prompt_agent", "history",
 		"list_worktrees", "create_worktree", "open_worktree", "resize_pane", "swap_pane", "zoom_pane",
 	}
-	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times"), capabilities)
+	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_writes", "git_change_stats", "search_files"), capabilities)
 
 	// Machine linking names machines by opaque ID only: no SSH target, host,
 	// or path may be added to these objects.
@@ -336,7 +347,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 	)
 	requireExactObject(t, schema.Defs, "agentTraceResult", []string{"items", "next_cursor", "truncated"})
 	requireExactObjectFields(t, schema.Defs, "agentTraceSummaryItem",
-		[]string{"type", "text", "name", "state", "detail_ref", "label", "at"},
+		[]string{"type", "text", "name", "state", "detail_ref", "label", "writes", "at"},
 		[]string{"type"},
 	)
 	requireExactObjectFields(t, schema.Defs, "agentTraceSummaryResult",
@@ -365,7 +376,11 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 	})
 	requireExactObject(t, schema.Defs, "workspaceMediaReadResult", []string{"handle", "offset", "length", "bytes", "eof"})
 	requireExactObject(t, schema.Defs, "workspaceMediaCloseResult", []string{"handle", "closed"})
-	requireExactObject(t, schema.Defs, "gitChange", []string{"path", "original_path", "index", "worktree"})
+	requireExactObjectFields(t, schema.Defs, "gitChange", []string{"path", "original_path", "index", "worktree", "stat", "modified_ms"}, []string{"path", "original_path", "index", "worktree"})
+	requireExactObjectFields(t, schema.Defs, "gitChangeStat", []string{"staged", "worktree"}, nil)
+	requireExactObjectFields(t, schema.Defs, "gitLineCount", []string{"additions", "deletions", "binary"}, []string{"additions", "deletions"})
+	requireExactObject(t, schema.Defs, "workspaceSearchItem", []string{"path", "name"})
+	requireExactObject(t, schema.Defs, "workspaceSearchResult", []string{"query", "items", "truncated"})
 	requireExactObject(t, schema.Defs, "gitStatusResult", []string{"branch", "head", "upstream", "ahead", "behind", "changes", "truncated", "revision"})
 	requireExactObject(t, schema.Defs, "gitDiffResult", []string{"path", "layer", "patch", "additions", "deletions", "binary", "truncated", "revision"})
 	requireExactObject(t, schema.Defs, "gitBranch", []string{"name", "kind", "current", "head", "upstream"})

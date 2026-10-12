@@ -170,7 +170,10 @@
         "link_machine": { "type": "boolean" },
         "trace_markers": { "type": "boolean" },
         "trace_labels": { "type": "boolean" },
-        "trace_times": { "type": "boolean" }
+        "trace_times": { "type": "boolean" },
+        "trace_writes": { "type": "boolean" },
+        "git_change_stats": { "type": "boolean" },
+        "search_files": { "type": "boolean" }
       },
       "additionalProperties": false
     },
@@ -376,6 +379,12 @@
         "state": { "enum": ["running", "done", "error"] },
         "detail_ref": { "type": "string", "minLength": 1, "maxLength": 1024 },
         "label": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "writes": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 1024 }
+        },
         "at": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
@@ -477,6 +486,29 @@
         "root": { "$ref": "#/$defs/path" },
         "path": { "type": "string", "maxLength": 4096 },
         "kind": { "enum": ["file", "directory"] }
+      },
+      "additionalProperties": false
+    },
+    "workspaceSearchItem": {
+      "type": "object",
+      "required": ["path", "name"],
+      "properties": {
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 4096 }
+      },
+      "additionalProperties": false
+    },
+    "workspaceSearchResult": {
+      "type": "object",
+      "required": ["query", "items", "truncated"],
+      "properties": {
+        "query": { "type": "string", "maxLength": 128 },
+        "items": {
+          "type": "array",
+          "maxItems": 50,
+          "items": { "$ref": "#/$defs/workspaceSearchItem" }
+        },
+        "truncated": { "type": "boolean" }
       },
       "additionalProperties": false
     },
@@ -653,6 +685,25 @@
         }
       ]
     },
+    "gitLineCount": {
+      "type": "object",
+      "required": ["additions", "deletions"],
+      "properties": {
+        "additions": { "type": "integer", "minimum": 0 },
+        "deletions": { "type": "integer", "minimum": 0 },
+        "binary": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "gitChangeStat": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {
+        "staged": { "$ref": "#/$defs/gitLineCount" },
+        "worktree": { "$ref": "#/$defs/gitLineCount" }
+      },
+      "additionalProperties": false
+    },
     "gitChange": {
       "type": "object",
       "required": ["path", "original_path", "index", "worktree"],
@@ -660,7 +711,9 @@
         "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
         "original_path": { "type": ["string", "null"], "minLength": 1, "maxLength": 4096 },
         "index": { "type": "string", "minLength": 1, "maxLength": 1 },
-        "worktree": { "type": "string", "minLength": 1, "maxLength": 1 }
+        "worktree": { "type": "string", "minLength": 1, "maxLength": 1 },
+        "stat": { "$ref": "#/$defs/gitChangeStat" },
+        "modified_ms": { "type": "integer", "minimum": 0 }
       },
       "additionalProperties": false
     },
@@ -993,6 +1046,7 @@
             "ListWorktrees",
             "WorkspaceOpen",
             "WorkspaceResolve",
+            "WorkspaceSearch",
             "WorkspaceList",
             "WorkspaceListAtRoot",
             "WorkspaceRead",
@@ -1248,7 +1302,8 @@
                   "limit": { "type": "integer", "minimum": 1, "maximum": 200 },
                   "markers": { "type": "boolean" },
                   "labels": { "type": "boolean" },
-                  "times": { "type": "boolean" }
+                  "times": { "type": "boolean" },
+                  "writes": { "type": "boolean" }
                 },
                 "additionalProperties": false
               }
@@ -1550,6 +1605,25 @@
           }
         },
         {
+          "if": { "properties": { "op": { "const": "WorkspaceSearch" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "root", "query"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "root": { "type": "string", "minLength": 1, "maxLength": 4096 },
+                  "query": { "type": "string", "maxLength": 128 },
+                  "limit": { "type": "integer", "minimum": 0, "maximum": 50 }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
           "if": { "properties": { "op": { "const": "WorkspaceOpen" } } },
           "then": {
             "properties": {
@@ -1574,7 +1648,8 @@
                 "required": ["pane_id"],
                 "properties": {
                   "session": { "$ref": "#/$defs/session" },
-                  "pane_id": { "$ref": "#/$defs/paneId" }
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "stats": { "type": "boolean" }
                 },
                 "additionalProperties": false
               }

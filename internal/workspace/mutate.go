@@ -73,6 +73,8 @@ func MutateFile(root, expectedRoot, relative, newName, revision string, size, mo
 		return ErrConflict
 	}
 	err = mutateFileAt(int(dir.Fd()), name, newName, rename)
+	// The names of this workspace changed, or may have: the next search lists them again.
+	forgetSearchListing(canonical)
 	if errors.Is(err, unix.EIO) || errors.Is(err, unix.ESTALE) {
 		return errors.Join(ErrMutationUnknown, err)
 	}

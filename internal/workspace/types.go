@@ -101,6 +101,9 @@ type Change struct {
 	OriginalPath *string `json:"original_path"`
 	Index        string  `json:"index"`
 	Worktree     string  `json:"worktree"`
+	// Stat and ModifiedMS are only set by StatusWithStats (git_change_stats).
+	Stat       *ChangeStat `json:"stat,omitempty"`
+	ModifiedMS *int64      `json:"modified_ms,omitempty"`
 }
 
 type Status struct {

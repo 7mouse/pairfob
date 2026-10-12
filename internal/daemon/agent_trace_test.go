@@ -286,6 +286,41 @@ func TestAgentTraceSummaryTimesAreOptIn(t *testing.T) {
 	}
 }
 
+func TestAgentTraceSummaryWritesAreOptIn(t *testing.T) {
+	root := t.TempDir()
+	sessionID := "session_12345678"
+	transcript := filepath.Join(root, "sessions", "2026", "10", "03", "rollout-"+sessionID+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(transcript), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	lines := `{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"go"}]}}` + "\n" +
+		`{"type":"response_item","payload":{"type":"custom_tool_call","name":"apply_patch","call_id":"c1","input":"*** Begin Patch\n*** Update File: src/app.ts\n@@\n-a\n+b\n*** End Patch"}}` + "\n" +
+		`{"type":"response_item","payload":{"type":"custom_tool_call_output","call_id":"c1","output":"Success"}}` + "\n"
+	if err := os.WriteFile(transcript, []byte(lines), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	fake := runtime.NewFake()
+	fake.Snap.Panes[0].Agent = "codex"
+	fake.Snap.Panes[0].AgentSession = &runtime.AgentSessionRef{Source: "herdr:codex", Agent: "codex", Kind: "id", Value: sessionID}
+	engine, client := runtimeRPCClient(t, fake)
+	engine.Journal = &journal.Reader{CodexRoot: root}
+
+	plain, err := client.RPC("AgentTraceSummary", map[string]any{"pane_id": "w0:p1", "limit": 20})
+	if err != nil || strings.Contains(string(plain), `"writes"`) {
+		t.Fatalf("plain=%s err=%v", plain, err)
+	}
+	written, err := client.RPC("AgentTraceSummary", map[string]any{"pane_id": "w0:p1", "limit": 20, "writes": true})
+	if err != nil || !strings.Contains(string(written), `"writes":["src/app.ts"]`) {
+		t.Fatalf("written=%s err=%v", written, err)
+	}
+	if raw, err := client.RPC("AgentTrace", map[string]any{"pane_id": "w0:p1", "limit": 20, "writes": true}); err == nil || err.Error() != "invalid_argument" {
+		t.Fatalf("AgentTrace accepted writes: %s err=%v", raw, err)
+	}
+	if raw, err := client.RPC("AgentTraceSummary", map[string]any{"pane_id": "w0:p1", "writes": "yes"}); err == nil || err.Error() != "invalid_argument" {
+		t.Fatalf("non-boolean writes accepted: %s err=%v", raw, err)
+	}
+}
+
 // A Cursor pane is served by the same RPCs as any other agent: the snapshot
 // offers its history without naming the session, and its steps carry a state
 // although Cursor records no results.

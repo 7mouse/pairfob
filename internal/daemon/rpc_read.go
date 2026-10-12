@@ -71,6 +71,14 @@ func (e *Engine) rpcGetConfig(s *sess, id string, params json.RawMessage) {
 		// trace_times: AgentTraceSummary accepts times:true and then may add
 		// each item's transcript record time (epoch ms) as at.
 		"trace_times": describeErr == nil && e.Journal != nil,
+		// trace_writes: AgentTraceSummary accepts writes:true and then may add
+		// the files an edit tool wrote to tool items.
+		"trace_writes": describeErr == nil && e.Journal != nil,
+		// git_change_stats: GitStatus accepts stats:true and then adds each
+		// change's line counts and modification time.
+		"git_change_stats": describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
+		// search_files: WorkspaceSearch finds files of the pane's workspace by name.
+		"search_files": describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
 	}
 	agentKinds := make([]string, 0, len(descriptor.AgentKinds))
 	for _, kind := range descriptor.AgentKinds {
@@ -252,6 +260,7 @@ func (e *Engine) rpcAgentTraceSummary(s *sess, id string, params json.RawMessage
 		Markers *bool   `json:"markers"`
 		Labels  *bool   `json:"labels"`
 		Times   *bool   `json:"times"`
+		Writes  *bool   `json:"writes"`
 	}
 	if badParams(params, &p) || !validID(p.PaneID) || invalidSession(p.Session) || (p.Cursor != nil && utf8.RuneCountInString(*p.Cursor) > 1024) || (p.Limit != nil && (*p.Limit < 1 || *p.Limit > 200)) {
 		e.replyErr(s, id, "invalid_argument", "invalid agent trace summary params")
@@ -267,6 +276,7 @@ func (e *Engine) rpcAgentTraceSummary(s *sess, id string, params json.RawMessage
 	}
 	options := journal.TraceOptions{
 		Markers: p.Markers != nil && *p.Markers, Labels: p.Labels != nil && *p.Labels, Times: p.Times != nil && *p.Times,
+		Writes: p.Writes != nil && *p.Writes,
 	}
 	page, err := e.Journal.ReadTraceSummaryWith(ref, p.Cursor, limit, options)
 	if err != nil {

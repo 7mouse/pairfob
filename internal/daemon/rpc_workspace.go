@@ -82,6 +82,8 @@ func (e *Engine) dispatchWorkspaceRead(s *sess, id, op string, params json.RawMe
 		e.rpcWorkspaceBound(s, id, op, params)
 	case "WorkspaceResolve":
 		e.rpcWorkspaceResolve(s, id, params)
+	case "WorkspaceSearch":
+		e.rpcWorkspaceSearch(s, id, params, inspector)
 	case "WorkspaceOpen":
 		e.rpcWorkspaceOpen(s, id, params, inspector)
 	case "WorkspaceList":
@@ -172,17 +174,53 @@ func (e *Engine) rpcWorkspaceRead(s *sess, id string, params json.RawMessage, in
 	e.reply(s, id, view)
 }
 
+// rpcWorkspaceSearch finds files by name under the root the client is
+// showing. The root is mandatory and checked against the pane's live one in
+// the same call, as for every bound read: a result never names a file of a
+// workspace the reader has since left.
+func (e *Engine) rpcWorkspaceSearch(s *sess, id string, params json.RawMessage, inspector *workspace.Inspector) {
+	var p struct {
+		workspacePaneParams
+		Root  string  `json:"root"`
+		Query *string `json:"query"`
+		Limit int     `json:"limit"`
+	}
+	if badParams(params, &p) || !validPath(p.Root) || p.Query == nil || !utf8.ValidString(*p.Query) ||
+		utf8.RuneCountInString(*p.Query) > workspace.MaxSearchQueryRunes || p.Limit < 0 || p.Limit > workspace.MaxSearchLimit {
+		e.replyErr(s, id, "invalid_argument", "invalid workspace search request")
+		return
+	}
+	root, ok := e.workspaceReadTarget(s, id, p.workspacePaneParams, []string{p.Root})
+	if !ok {
+		return
+	}
+	page, err := inspector.Search(root, *p.Query, p.Limit)
+	if err != nil {
+		e.replyWorkspaceErr(s, id, err)
+		return
+	}
+	e.reply(s, id, page)
+}
+
 func (e *Engine) rpcGitStatus(s *sess, id string, params json.RawMessage, inspector *workspace.Inspector) {
-	var p workspacePaneParams
+	var p struct {
+		workspacePaneParams
+		// Stats asks for each change's line counts and modification time (git_change_stats).
+		Stats *bool `json:"stats"`
+	}
 	if badParams(params, &p) {
 		e.replyErr(s, id, "invalid_argument", "invalid Git status request")
 		return
 	}
-	root, ok := e.workspaceTarget(s, id, p)
+	root, ok := e.workspaceTarget(s, id, p.workspacePaneParams)
 	if !ok {
 		return
 	}
-	status, err := inspector.Status(root)
+	read := inspector.Status
+	if p.Stats != nil && *p.Stats {
+		read = inspector.StatusWithStats
+	}
+	status, err := read(root)
 	if err != nil {
 		e.replyWorkspaceErr(s, id, err)
 		return

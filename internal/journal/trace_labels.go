@@ -33,8 +33,8 @@ func toolLabel(name, input string) string {
 	if trimmed == "" {
 		return ""
 	}
-	var fields map[string]json.RawMessage
-	if !strings.HasPrefix(trimmed, "{") || json.Unmarshal([]byte(trimmed), &fields) != nil {
+	fields := inputFields(trimmed)
+	if fields == nil {
 		if name == "exec" {
 			return labelText(codeModeLabel(input))
 		}
@@ -137,7 +137,8 @@ func commandLine(raw json.RawMessage) string {
 func patchLabel(text string) string {
 	first, more := "", 0
 	for line := range strings.Lines(text) {
-		line = strings.TrimSpace(line)
+		// A marker starts its line. Indented, it is text of the file being patched.
+		line = strings.TrimRight(line, "\r\n")
 		for _, prefix := range []string{"*** Update File: ", "*** Add File: ", "*** Delete File: "} {
 			file, ok := strings.CutPrefix(line, prefix)
 			if !ok || strings.TrimSpace(file) == "" {
@@ -154,6 +155,41 @@ func patchLabel(text string) string {
 		return first
 	}
 	return first + " +" + strconv.Itoa(more)
+}
+
+// inputFields reads a tool's JSON arguments. An agent whose sessions are
+// stored clipped (opencode, Hermes) hands over a long input cut inside its
+// content; the keys before the cut still read, and the file an edit names
+// comes before what it writes. It returns nil for anything else.
+func inputFields(trimmed string) map[string]json.RawMessage {
+	if !strings.HasPrefix(trimmed, "{") {
+		return nil
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal([]byte(trimmed), &fields) == nil {
+		return fields
+	}
+	decoder := json.NewDecoder(strings.NewReader(trimmed))
+	if _, err := decoder.Token(); err != nil {
+		return nil
+	}
+	fields = map[string]json.RawMessage{}
+	for {
+		key, err := decoder.Token()
+		name, isKey := key.(string)
+		if err != nil || !isKey {
+			break
+		}
+		var value json.RawMessage
+		if decoder.Decode(&value) != nil {
+			break
+		}
+		fields[name] = value
+	}
+	if len(fields) == 0 {
+		return nil
+	}
+	return fields
 }
 
 func firstString(fields map[string]json.RawMessage, keys []string) string {

@@ -18,16 +18,22 @@ type TraceOptions struct {
 	Labels bool
 	// Times adds each summary item's record time, epoch ms (trace_times).
 	Times bool
+	// Writes adds the files an edit tool wrote to summary tool items (trace_writes).
+	Writes bool
 }
 
 // adapt maps a parsed event to the client's vocabulary. Without markers a
 // command reads as a user prompt and the textless markers are dropped. Source
 // ordinals are assigned before adapt, so detail refs match in both views.
-// Labels are derived here, from the tool's input before any clipping; record
-// times survive only with Times.
+// Labels and written paths are derived here, before the summary clips the
+// input (a store-rendered session's input may already be cut, see
+// inputFields); record times survive only with Times.
 func (o TraceOptions) adapt(ev parsedEvent) (parsedEvent, bool) {
 	if o.Labels && ev.Type == "tool" && !ev.outputOnly {
 		ev.Label = toolLabel(ev.Name, ev.Input)
+	}
+	if o.Writes && ev.Type == "tool" && !ev.outputOnly {
+		ev.Writes = toolWrites(ev.Name, ev.Input)
 	}
 	if !o.Times {
 		ev.At = 0

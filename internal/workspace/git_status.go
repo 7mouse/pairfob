@@ -6,7 +6,9 @@ import (
 	"strings"
 )
 
-func parseStatus(data []byte) ([]Change, bool) {
+// parseStatus reads `git status --porcelain=v1 -z`. Git names each path from
+// the repository's top; a change is kept under its path in the workspace.
+func parseStatus(data []byte, repo repositoryState) ([]Change, bool) {
 	records := strings.Split(string(data), "\x00")
 	outputTruncated := len(data) > 0 && data[len(data)-1] != 0
 	if outputTruncated {
@@ -23,13 +25,22 @@ func parseStatus(data []byte) ([]Change, bool) {
 		if len(record) < 4 || record[2] != ' ' {
 			continue
 		}
+		renamed := record[0] == 'R' || record[0] == 'C' || record[1] == 'R' || record[1] == 'C'
 		path, pathErr := cleanRelative(filepathSlash(record[3:]))
-		if pathErr != nil || path == "" {
+		inside := false
+		if pathErr == nil {
+			path, inside = repo.inWorkspace(path)
+		}
+		if !inside {
 			truncated = true
+			// The record after a rename is its old path, not a change.
+			if renamed && index+1 < len(records) {
+				index++
+			}
 			continue
 		}
 		change := Change{Index: record[:1], Worktree: record[1:2], Path: path}
-		if change.Index == "R" || change.Index == "C" || change.Worktree == "R" || change.Worktree == "C" {
+		if renamed {
 			if index+1 >= len(records) || records[index+1] == "" {
 				truncated = true
 				continue
@@ -40,7 +51,10 @@ func parseStatus(data []byte) ([]Change, bool) {
 				index++
 				continue
 			}
-			change.OriginalPath = &original
+			// A file that came from outside the workspace has no old path in it.
+			if original, inside = repo.inWorkspace(original); inside {
+				change.OriginalPath = &original
+			}
 			index++
 		}
 		if len(changes) == MaxStatusEntries {
@@ -67,11 +81,15 @@ func (i *Inspector) Status(root string) (Status, error) {
 	if err != nil {
 		return Status{}, err
 	}
+	return repo.status()
+}
+
+func (repo repositoryState) status() (Status, error) {
 	data, outputTruncated, err := runGit(repo.workspace, 1024*1024, "status", "--porcelain=v1", "-z", "--untracked-files=all", "--", ".")
 	if err != nil {
 		return Status{}, err
 	}
-	changes, itemTruncated := parseStatus(data)
+	changes, itemTruncated := parseStatus(data, repo)
 	upstream := optionalGitLine(repo.workspace, "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{upstream}")
 	ahead, behind := aheadBehind(repo.workspace)
 	hash := sha256.New()
