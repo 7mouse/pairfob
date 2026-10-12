@@ -70,7 +70,6 @@ func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 	t.Cleanup(func() { timeAfter = prevTF })
 
 	// Admit offset 3 FIRST and run it in a goroutine.
-	offset3Start := time.Now()
 	type o3result struct {
 		res map[string]any
 		err error
@@ -108,6 +107,10 @@ func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 			t.Fatalf("predecessor offset %d failed: %v", ci, lower[ci])
 		}
 	}
+	// Measure only the wake after the predecessors settle. Starting before
+	// writeV2 also counts encryption, transport and predecessor writes, which
+	// can exceed the wake budget under the race detector without a stuck wait.
+	predecessorsSettled := time.Now()
 
 	// Offset 3 must wake promptly (well under the 2s wait-limit) and
 	// SUCCEED. Under the frozen bug it sleeps the full wait-limit and then
@@ -115,7 +118,7 @@ func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 	// NOTIFICATION-REPORT.md.
 	select {
 	case r := <-o3:
-		elapsed := time.Since(offset3Start)
+		elapsed := time.Since(predecessorsSettled)
 		if r.err != nil {
 			t.Fatalf("offset 3 did not wake promptly after predecessors succeeded: err=%v after %v (frozen bug: empty-chans wait selects on own ticket.done / timeAfter, not pipeline settlement/admission broadcast)", r.err, elapsed)
 		}
