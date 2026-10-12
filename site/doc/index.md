@@ -84,8 +84,8 @@ You already run coding agents in Herdr 0.8 or newer on a computer, and you want 
 ## Shortest path
 
 <ol class="pf-track">
-<li><p>Herdr is installed on the computer; pairfob starts it on launch</p></li>
-<li><p><a href="./install">Install</a> <code>pairfob</code> with <code>curl -fsSL https://pairfob.com/install.sh | sh</code></p></li>
+<li><p>Keep a macOS or Linux computer awake and online; Herdr 0.8+ runs the agents here</p></li>
+<li><p><a href="./install">Install</a> <code>pairfob</code> with <code>curl -fsSL https://pairfob.com/install.sh | sh</code>; if Herdr is missing, the installer asks before installing it</p></li>
 <li><p>Run <code>pairfob pair</code> on the computer; open <a href="/pair">pairfob.com/pair</a> on the other device</p></li>
 <li><p>After the other device scans, press Enter once on the computer</p></li>
 </ol>

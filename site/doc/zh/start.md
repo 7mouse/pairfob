@@ -7,7 +7,7 @@ description: 电脑装好 Herdr 和 pairfob，配对一次就能在另一台设�
 
 本项目的官方实例是 `https://pairfob.com`。电脑必须能打开本机 Herdr。目前支持 macOS 和 Linux，Windows 还不支持。
 
-做完这四步，就可以在另一台设备上看到电脑上的会话：安装 Herdr → 安装 Pairfob → 配对 → 点进列表。
+做完这四步，就可以在另一台设备上看到电脑上的会话：确认使用条件 → 安装 Pairfob（缺少 Herdr 时一并安装）→ 配对 → 点进列表。
 
 ## 你需要什么
 
@@ -18,7 +18,9 @@ description: 电脑装好 Herdr 和 pairfob，配对一次就能在另一台设�
 | `curl` | 安装脚本用来下载 |
 | 另一台设备的浏览器 | 手机、平板，或另一台电脑都可以 |
 
-## 1. 电脑上装好 Herdr
+## 1. 确认电脑的使用条件
+
+用手机接着操作时，macOS 或 Linux 电脑必须保持唤醒并联网。需要 Herdr 0.8 或更高版本，但不必单独安装：第 2 步的安装脚本发现缺少 Herdr 时，会先询问，再安装固定版本 0.8.2。已有 Herdr 不会自动升级。
 
 Pairfob 不代替 Herdr。agent 仍在这台电脑上跑，但安装 Pairfob 前不需要先打开 Herdr。`pairfob` 启动时发现 Herdr 不在线，就会自己拉起它。你之后照常运行 `herdr`，会接到同一个地方，手机上已经打开的会话不会变成副本。
 
@@ -30,7 +32,7 @@ Pairfob 不代替 Herdr。agent 仍在这台电脑上跑，但安装 Pairfob 前
 curl -fsSL https://pairfob.com/install.sh | sh
 ```
 
-这会下载 `pairfob`、向官方实例 `https://pairfob.com` 登记，并装上登录即启动的用户服务。
+这会下载 `pairfob`、检查 Herdr 并按需启动、向官方实例 `https://pairfob.com` 登记，并装上登录即启动的用户服务。
 
 这是登录后启动，不是开机就活。合盖睡眠或注销会停掉，回到同一次图形会话后再起来。
 
@@ -59,6 +61,8 @@ pairfob pair
 细节、过期和报错见 [配对](/zh/pair)。
 
 ## 4. 点进去
+
+还没有会话时，先在电脑上打开 Herdr，在项目里启动 Codex 或 Claude。
 
 Herdr 里的会话会出现在 Pairfob 列表里。点一张卡片，打开的是电脑上那个会话，不是副本。
 

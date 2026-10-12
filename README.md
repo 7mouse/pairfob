@@ -16,8 +16,9 @@ end-to-end encrypted.
 
 ## Quick start
 
-macOS or Linux, with Herdr installed (the installer offers to install it if
-missing).
+Use a macOS or Linux computer with Herdr 0.8 or newer. If Herdr is missing,
+the installer asks before installing it. Keep this computer awake and online
+while using Pairfob from your phone.
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh
@@ -35,7 +36,8 @@ binary on first use. See [`plugin/herdr/`](plugin/herdr/README.md).
 ## What you can do from the phone
 
 - **Respond when an agent needs you.** A **Needs you** strip and optional push
-  notifications surface waiting agents; one tap opens the exact prompt.
+  notifications surface waiting agents. Open a waiting session from the list
+  to handle its prompt.
 - **Work in the live session.** **Auto** picks per session between **Control**
   (terminal view + system keyboard, dictation and a keypad), **Terminal** (the
   real PTY, for vim and full-screen TUIs) and **Chat** (message the agent and
