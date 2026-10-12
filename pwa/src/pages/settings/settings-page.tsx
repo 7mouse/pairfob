@@ -7,6 +7,7 @@ import { computerTitle } from "../../lib/computer-catalog";
 import { t } from "../../lib/i18n";
 import { leaveSettings } from "../../features/settings/actions";
 import { useLang } from "../../features/settings/language";
+import { screenWake, screenWakeMode } from "../../features/session/screen-wake-lifecycle";
 import { setSettingsSection, settingsSection, subscribeSettingsSection } from "../../features/settings/settings-section";
 import { herdStatusOf } from "../../features/connection/herd-status";
 import { AppNotice } from "../../app/notice";
@@ -37,11 +38,12 @@ function useSettingsView() {
   useLayoutEffect(() => {
     if (section !== "overview") window.scrollTo(0, 0);
   }, [section]);
-  return { connection, runtime, preferences, computers, section };
+  const wake = useSyncExternalStore(screenWake.subscribe, screenWake.get);
+  return { connection, runtime, preferences, computers, section, wake };
 }
 
 export function SettingsContent({ withBack }: { withBack: boolean }) {
-  const { connection, runtime, preferences, computers, section } = useSettingsView();
+  const { connection, runtime, preferences, computers, section, wake } = useSettingsView();
   useLang();
   // Project the status row from the same published snapshots the surrounding
   // panel reads. The live handle is the snapshot's opaque identity; a staged
@@ -90,6 +92,11 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
             pushEnabled: runtime.pushEnabled,
             pushSubscribed: runtime.pushSubscribed,
             error: runtime.pushConfigError,
+          },
+          screenWake: {
+            mode: screenWakeMode(preferences.screenWake),
+            supported: wake.status !== "unsupported",
+            denied: wake.denied,
           },
           desk: withBack,
         }} />

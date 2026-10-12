@@ -207,7 +207,10 @@
 /* Where the second line is a sentence. A line of facts joined by dots (a quota's
    window and reset) keeps its plain wrap: evened out, it would start a line with the dot. */
 .notification-item .set-item-sub,
+.wake-item .set-item-sub,
 .set-radio .set-item-sub { text-wrap: balance; }
+
+.set-item-sub.is-warn { color: var(--warn); }
 
 .set-item-sub.is-error,
 .set-item.is-error .set-item-label { color: var(--error); }
@@ -403,6 +406,13 @@
   flex: 1000 0 auto;
   min-height: 44px;
   justify-content: center;
+}
+
+/* The screen row's second line is a sentence, so it gives way: beside the
+   control on a wide card, a full line above it on a phone. */
+.set-item.wake-item > .set-item-text {
+  flex: 1000 1 16rem;
+  min-width: 0;
 }
 
 .set-seg.seg {

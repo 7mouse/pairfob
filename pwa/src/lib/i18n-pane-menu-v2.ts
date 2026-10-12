@@ -1,13 +1,5 @@
 /** Pane menu sheet pages: new tab, split, layout, worktree, info, rename, close. Chinese is the source; English must cover the same keys. */
 export const zhPaneMenuV2 = {
-  "pm.wakeLabel": "本次保持常亮",
-  "pm.wake.off": "仅在查看这个会话时生效，离开后自动关闭。",
-  "pm.wake.requesting": "正在申请保持常亮…",
-  "pm.wake.active": "已保持常亮。切到后台时暂停，回到这个会话时恢复。",
-  "pm.wake.paused": "已暂停。回到这个会话后会尝试恢复。",
-  "pm.wake.unavailable": "未能保持常亮，系统可能限制了此功能。可以重试或关闭。",
-  "pm.wake.unsupported": "当前浏览器或页面不支持保持常亮。",
-  "pm.wakeRetry": "重新申请",
 
   "pm.copyPathAria": "复制路径 {path}",
   "pm.pathCopied": "已复制路径",
@@ -81,14 +73,6 @@ export const zhPaneMenuV2 = {
 } as const;
 
 export const enPaneMenuV2: { [K in keyof typeof zhPaneMenuV2]: string } = {
-  "pm.wakeLabel": "Keep awake this time",
-  "pm.wake.off": "Only while viewing this session. Turns off when you leave.",
-  "pm.wake.requesting": "Requesting screen wake lock…",
-  "pm.wake.active": "Keeping the screen awake. Pauses in the background and resumes in this session.",
-  "pm.wake.paused": "Paused. Will try to resume when you return to this session.",
-  "pm.wake.unavailable": "Could not keep the screen awake. The system may restrict it. Retry or turn it off.",
-  "pm.wake.unsupported": "This browser or page does not support keeping the screen awake.",
-  "pm.wakeRetry": "Try again",
 
   "pm.copyPathAria": "Copy path {path}",
   "pm.pathCopied": "Path copied",

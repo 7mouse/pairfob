@@ -122,7 +122,12 @@ export function createSession(source: SessionSource = {}): FixtureSession {
     isConnected: () => connected && !disposed,
     onEvent(listener: (event: SessionEvent) => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     ping: (time: number) => request("ping", [time], () => ({ t: time })),
-    getConfig: () => request("getConfig", [], () => ({ runtime: "herdr", hostname: "MacBook Pro", build: "v2.4.0", push_enabled: false, capabilities, agent_kinds: source.agentKinds ?? ["codex", "claude", "grok", "pi"] })),
+    getConfig: () => request("getConfig", [], () => ({
+      // The whole GetConfig shape: Settings reads it through the same strict parser as production.
+      protocol: 1, build: "v2.4.0", daemon_id: "d_aaaaaaaaaaaaaaaaaaaa", hostname: "MacBook Pro", runtime: "herdr",
+      vapid_public: "", submit_keys: ["Enter"], idle_pause_ms: 30 * 60 * 1000, push_delivery: "webpush", push_enabled: false,
+      capabilities, agent_kinds: source.agentKinds ?? ["codex", "claude", "grok", "pi"],
+    })),
     snapshot: () => request("snapshot", [], () => structuredClone(snapshot)),
     paneRead: (paneId: string, lines?: number, format?: string) => request("paneRead", [paneId, lines, format], () => ({ text: source.paneText?.(paneId) ?? text, hash: hash.toString(16).padStart(64, "0"), truncated: false })),
     sendText: (paneId: string, input: string) => mutation("sendText", [paneId, input], () => { text += input; hash++; return { operation_id: op() }; }),

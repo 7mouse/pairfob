@@ -35,11 +35,15 @@ export const PANE_ACTIVATED_KEY = "pairfob:paneActivated";
 export const PANE_PINNED_KEY = "pairfob:panePinned";
 export const PANE_TERM_MODE_KEY = "pairfob:paneTermMode";
 export const DEFAULT_TERM_MODE_KEY = "pairfob:defaultTermMode";
+export const SCREEN_WAKE_KEY = "pairfob:screenWake";
 
 export type TermFit = "pan" | "fit";
 export const TERM_COL_PRESETS = [80, 100, 120] as const;
 export type TermCols = (typeof TERM_COL_PRESETS)[number];
 export type PadKind = "keys" | "slash";
+/** When this device keeps its screen awake: never, while an agent on screen is working, or whenever a session or the board is open. */
+export const SCREEN_WAKE_MODES = ["off", "working", "always"] as const;
+export type ScreenWakeMode = (typeof SCREEN_WAKE_MODES)[number];
 
 export const TERM_FONT_MIN = 9;
 export const TERM_FONT_MAX = 22;
@@ -78,6 +82,8 @@ export type PreferencesRecord = {
    * a line. Off by default: soft keyboards have no Shift+Enter.
    */
   composeEnterSends: boolean;
+  /** null: never chosen on this device, so the device's kind decides (`screenWakeMode`). */
+  screenWake: ScreenWakeMode | null;
 };
 
 /** Guarded storage read for call-time loaders (a session opening, not an import). */
@@ -151,6 +157,11 @@ export function loadComposeEnterSends(read: StoredValueReader = readStorage): bo
   return read(COMPOSE_ENTER_SENDS_KEY) === "1";
 }
 
+export function loadScreenWake(read: StoredValueReader = readStorage): ScreenWakeMode | null {
+  const raw = read(SCREEN_WAKE_KEY);
+  return SCREEN_WAKE_MODES.find(mode => mode === raw) ?? null;
+}
+
 export function loadDefaultTermMode(read: StoredValueReader = readStorage): TermMode {
   return parseTermMode(read(DEFAULT_TERM_MODE_KEY));
 }
@@ -216,6 +227,7 @@ export function initialPreferences(): PreferencesRecord {
     defaultComposeLive: false,
     paneComposeLive: {},
     composeEnterSends: false,
+    screenWake: null,
   };
 }
 
@@ -241,6 +253,7 @@ export function hydratePreferences(environment: DomainEnvironment): void {
     record.defaultTermMode = loadDefaultTermMode(stored);
     record.defaultComposeLive = loadDefaultComposeLive(stored);
     record.composeEnterSends = loadComposeEnterSends(stored);
+    record.screenWake = loadScreenWake(stored);
   });
 }
 
@@ -533,6 +546,16 @@ export function setComposeEnterSends(sends: boolean): void {
       record.composeEnterSends = sends;
     });
     writeStorage(COMPOSE_ENTER_SENDS_KEY, sends ? "1" : "0");
+  });
+}
+
+export function setScreenWake(mode: ScreenWakeMode): void {
+  if (read().screenWake === mode) return;
+  batch(() => {
+    write((record) => {
+      record.screenWake = mode;
+    });
+    writeStorage(SCREEN_WAKE_KEY, mode);
   });
 }
 

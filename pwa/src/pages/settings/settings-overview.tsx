@@ -10,6 +10,7 @@ import { AgentQuotaModule } from "../../pages/quota/quota-summary";
 import { ComputerPanel, type LinkState } from "./computer-panel";
 import { SessionDefaults } from "./settings-defaults";
 import { NotificationItem, type NotificationRowInput } from "./settings-notifications";
+import { ScreenWakeItem, type ScreenWakeRowInput } from "./settings-screen-wake";
 
 export type SettingsOverviewInput = {
   computerName: string;
@@ -19,6 +20,7 @@ export type SettingsOverviewInput = {
   defaultComposeLive: boolean;
   composeEnterSends: boolean;
   notification: NotificationRowInput;
+  screenWake: ScreenWakeRowInput;
   /** The desktop names the local group for the device, not the phone. */
   desk: boolean;
 };
@@ -26,7 +28,7 @@ export type SettingsOverviewInput = {
 /**
  * The Settings overview: the computer panel (tap for the computer page), the
  * quota module, the session defaults chosen in place, then this device's
- * notifications and language. Nothing here opens a sheet; explanations sit in
+ * notifications, screen and language. Nothing here opens a sheet; explanations sit in
  * the notes under each card.
  */
 export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
@@ -42,6 +44,7 @@ export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
       <SessionDefaults mode={input.defaultTermMode} live={input.defaultComposeLive} enterSends={input.composeEnterSends} />
       <SetGroup label={t(input.desk ? "set.deviceSection" : "settings.phoneSection")}>
         <NotificationItem input={input.notification} />
+        <ScreenWakeItem input={input.screenWake} />
         <SetItem className="language-item" label={t("settings.language")} trailing={<LanguageControl className="set-seg" />} />
       </SetGroup>
     </>

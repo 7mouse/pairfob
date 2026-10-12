@@ -23,34 +23,38 @@ function pending() {
   return { promise, resolve, reject };
 }
 
-test("default off, active only after a grant; leaving and re-entering never remembers the choice", async () => {
-  const lock = sentinel();
+test("held only while wanted: asked for once, released when nothing is watched any more", async () => {
+  const locks = [sentinel(), sentinel()];
   let calls = 0;
-  const wake = createScreenWake(async () => { calls++; return lock; });
-  wake.setScope("computer/runtime/pane");
-  expect(wake.get().enabled).toBeFalse();
+  const wake = createScreenWake(async () => locks[calls++]);
+  expect(wake.get()).toEqual({ status: "off", denied: false });
   expect(calls).toBe(0);
-  wake.setEnabled(true);
+  wake.setWanted(true);
+  wake.setWanted(true);
   expect(wake.get().status).toBe("requesting");
   await tick();
   expect(wake.get().status).toBe("active");
-  wake.setScope(null);
-  expect(lock.releases()).toBe(1);
-  wake.setScope("computer/runtime/pane");
-  expect(wake.get()).toEqual({ enabled: false, eligible: true, status: "off" });
   expect(calls).toBe(1);
+  wake.setWanted(false);
+  expect(locks[0].releases()).toBe(1);
+  expect(wake.get().status).toBe("off");
+  wake.setWanted(true);
+  await tick();
+  expect(calls).toBe(2);
+  expect(wake.get().status).toBe("active");
+  wake.dispose();
+  expect(locks[1].releases()).toBe(1);
 });
 
 test("background releases and visibility reacquires once; repeated visible events do nothing", async () => {
   const locks = [sentinel(), sentinel()];
   let calls = 0;
   const wake = createScreenWake(async () => locks[calls++]);
-  wake.setScope("one");
-  wake.setEnabled(true);
+  wake.setWanted(true);
   await tick();
   wake.setVisible(false);
   expect(locks[0].releases()).toBe(1);
-  expect(wake.get()).toMatchObject({ enabled: true, status: "paused" });
+  expect(wake.get().status).toBe("paused");
   wake.setVisible(true);
   wake.setVisible(true);
   await tick();
@@ -60,34 +64,68 @@ test("background releases and visibility reacquires once; repeated visible event
   expect(locks[1].releases()).toBe(1);
 });
 
-test("rejection and OS release require deliberate retry, without a retry loop", async () => {
+test("wanted in the background waits for the page instead of asking", async () => {
+  let calls = 0;
+  const wake = createScreenWake(async () => { calls++; return sentinel(); });
+  wake.setVisible(false);
+  wake.setWanted(true);
+  await tick();
+  expect(calls).toBe(0);
+  expect(wake.get().status).toBe("paused");
+  wake.setVisible(true);
+  await tick();
+  expect(calls).toBe(1);
+  expect(wake.get().status).toBe("active");
+});
+
+test("a refusal is remembered until a grant; an OS release is not a refusal and starts no retry loop", async () => {
   const lock = sentinel();
   let calls = 0;
   const wake = createScreenWake(async () => { if (++calls === 1) throw new Error("denied"); return lock; });
-  wake.setScope("one");
-  wake.setEnabled(true);
+  wake.setWanted(true);
   await tick();
-  expect(wake.get().status).toBe("unavailable");
+  expect(wake.get()).toEqual({ status: "unavailable", denied: true });
   expect(calls).toBe(1);
-  wake.retry();
+  wake.setWanted(false);
+  expect(wake.get()).toEqual({ status: "off", denied: true });
+  wake.setWanted(true);
   wake.retry();
   await tick();
   expect(calls).toBe(2);
+  expect(wake.get()).toEqual({ status: "active", denied: false });
   lock.revoke();
   await tick();
-  expect(wake.get().status).toBe("unavailable");
+  expect(wake.get()).toEqual({ status: "unavailable", denied: false });
   expect(calls).toBe(2);
+  wake.retry();
+  wake.retry();
+  await tick();
+  expect(calls).toBe(3);
 });
 
-for (const boundary of ["off", "hidden", "scope", "dispose"] as const) {
+test("retry with nothing to watch asks once and lets go, so Settings can say whether the system allows it", async () => {
+  const lock = sentinel();
+  let calls = 0;
+  const wake = createScreenWake(async () => { if (++calls === 1) throw new Error("denied"); return lock; });
+  wake.retry();
+  wake.retry();
+  await tick();
+  expect(calls).toBe(1);
+  expect(wake.get()).toEqual({ status: "off", denied: true });
+  wake.retry();
+  await tick();
+  expect(calls).toBe(2);
+  expect(lock.releases()).toBe(1);
+  expect(wake.get()).toEqual({ status: "off", denied: false });
+});
+
+for (const boundary of ["off", "hidden", "dispose"] as const) {
   test(`a late grant after ${boundary} is released without publishing active`, async () => {
     const flight = pending();
     const wake = createScreenWake(() => flight.promise);
-    wake.setScope("one");
-    wake.setEnabled(true);
-    if (boundary === "off") wake.setEnabled(false);
+    wake.setWanted(true);
+    if (boundary === "off") wake.setWanted(false);
     if (boundary === "hidden") wake.setVisible(false);
-    if (boundary === "scope") wake.setScope("two");
     if (boundary === "dispose") wake.dispose();
     const lock = sentinel();
     flight.resolve(lock);
@@ -102,30 +140,26 @@ test("an old rejected request cannot overwrite a newer active one", async () => 
   const second = sentinel();
   let calls = 0;
   const wake = createScreenWake(() => ++calls === 1 ? first.promise : Promise.resolve(second));
-  wake.setScope("one");
-  wake.setEnabled(true);
-  wake.setEnabled(false);
-  wake.setEnabled(true);
+  wake.setWanted(true);
+  wake.setWanted(false);
+  wake.setWanted(true);
   await tick();
   first.reject(new Error("old"));
   await tick();
-  expect(wake.get().status).toBe("active");
+  expect(wake.get()).toEqual({ status: "active", denied: false });
   expect(second.releases()).toBe(0);
   wake.dispose();
 });
 
-test("unsupported, no scope and an already released grant never claim active", async () => {
+test("unsupported and an already released grant never claim active", async () => {
   const unsupported = createScreenWake(null);
-  unsupported.setScope("one");
-  unsupported.setEnabled(true);
-  expect(unsupported.get()).toMatchObject({ enabled: false, status: "unsupported" });
+  unsupported.setWanted(true);
+  unsupported.retry();
+  expect(unsupported.get()).toEqual({ status: "unsupported", denied: false });
   const lock = sentinel();
   lock.revoke();
   const wake = createScreenWake(async () => lock);
-  wake.setEnabled(true);
-  expect(wake.get().enabled).toBeFalse();
-  wake.setScope("one");
-  wake.setEnabled(true);
+  wake.setWanted(true);
   await tick();
-  expect(wake.get().status).toBe("unavailable");
+  expect(wake.get()).toEqual({ status: "unavailable", denied: true });
 });
