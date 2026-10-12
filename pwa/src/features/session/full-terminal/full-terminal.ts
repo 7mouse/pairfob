@@ -1,4 +1,6 @@
 import { TerminalRecoveryDiagnostics } from "./terminal-recovery-diagnostics";
+import { captureFileLinkOwner, openPaneFile } from "../../workspace/file-links";
+import { terminalLinkProvider } from "./full-terminal-links";
 import { encodeLiveKey } from "../keypad/live-key";
 import type { FitAddon } from "@xterm/addon-fit";
 import type { Terminal } from "@xterm/xterm";
@@ -41,7 +43,6 @@ import { flyKeyToCursor } from "../guided/key-flight";
 import {
   bindXtermKeyboard,
   encodeTerminalKey,
-  httpLinkProvider,
   notifyFullTerminalKeyboard,
   terminalLinkHandler,
   type TerminalKeyboard,
@@ -336,6 +337,8 @@ async function mount(host: HTMLElement): Promise<void> {
   }
   if (version !== rendererVersion || !isFullTerminal() || !host.isConnected) return;
   mounting = false;
+  const fileOwner = captureFileLinkOwner();
+  const openFile = (value: string) => { if (version === rendererVersion) void openPaneFile(value, fileOwner); };
   const fontPx = termFontPx();
   terminal = new module.Terminal(fullTerminalOptions({
     fontFamily: FULL_TERM_FONT_FAMILY,
@@ -346,7 +349,7 @@ async function mount(host: HTMLElement): Promise<void> {
       window.devicePixelRatio || 1,
       24,
     ),
-    linkHandler: terminalLinkHandler(),
+    linkHandler: terminalLinkHandler(openFile),
   }));
   fitAddon = new module.FitAddon();
   terminal.loadAddon(fitAddon);
@@ -369,7 +372,7 @@ async function mount(host: HTMLElement): Promise<void> {
     await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
     if (version !== rendererVersion || !host.isConnected) return;
     fit();
-    terminal?.registerLinkProvider(httpLinkProvider(terminal));
+    terminal?.registerLinkProvider(terminalLinkProvider(terminal, openFile));
     bindInput(host);
     // The host also resizes when the inspector opens, the list gives way, a
     // mouse calls up the key pad or a draft grows a line. Those leave the

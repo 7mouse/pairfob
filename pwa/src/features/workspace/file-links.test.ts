@@ -5,9 +5,9 @@ import { setScreen } from '../../app/navigation-store';
 import { clearNotice, visibleNotice } from '../../app/notices-store';
 import { attachLiveSession } from '../computers/catalog-store';
 import { replaceAgentsFromSnapshot } from '../dashboard/catalog-store';
-import { selectPane } from '../session/session-store';
+import { isFullTerminal, selectPane, setFullTerminal } from '../session/session-store';
 import { setPhase } from '../connection/connection-store';
-import { captureFileLinkOwner, openChatFile } from './file-links';
+import { captureFileLinkOwner, openChatFile, openPaneFile } from './file-links';
 import { ProtocolError } from '../../lib/protocol/errors';
 import type { WorkspaceReference } from '../../lib/protocol/workspace-reference';
 import { leaveWorkspace } from './actions';
@@ -53,6 +53,20 @@ test('a file URI uses the paired workspace and retains line navigation', async (
   await openChatFile('file:///work/p1/report.html:2', captureFileLinkOwner());
   expect(f.reads).toEqual(['report.html']);
   expect(getWorkspaceSnapshot().sourceLine).toBe(2);
+});
+
+test('a terminal reference resolves from cwd, opens its source line and remembers the terminal', async () => {
+  const f = fixture();
+  setFullTerminal(true);
+  try {
+    await openPaneFile('src/app.ts:2', captureFileLinkOwner());
+    expect(f.reads).toEqual(['src/app.ts']);
+    expect(getWorkspaceSnapshot().sourceLine).toBe(2);
+    expect(getWorkspaceSnapshot().returnView).toBe('full');
+    expect(isFullTerminal()).toBe(false);
+  } finally {
+    setFullTerminal(false);
+  }
 });
 
 test('a file URI outside the current workspace remains outside its read scope', async () => {

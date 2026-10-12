@@ -1,9 +1,10 @@
 import { parkComposeView } from "../session/drafts/compose-drafts";
 import { leaveAgentChat } from "../session/chat/agent-chat-controller";
+import { leaveFullTerminal } from "../session/full-terminal/full-terminal";
 import { showError } from "../../app/notices-store";
 import { liveSession } from '../computers/catalog-store';
 import { dashboardStore } from '../dashboard/catalog-store';
-import { openPaneId } from '../session/session-store';
+import { isAgentChat, isFullTerminal, openPaneId } from '../session/session-store';
 import { currentScreen } from '../../app/navigation-store';
 import { isRoomy } from '../../app/viewport';
 import { parseFileReference } from '../../lib/file-reference';
@@ -33,6 +34,10 @@ export function captureFileLinkOwner() {
 
 let latestOpen = 0;
 export async function openChatFile(value: string, owner: ReturnType<typeof captureFileLinkOwner>): Promise<void> {
+  return openPaneFile(value, owner);
+}
+
+export async function openPaneFile(value: string, owner: ReturnType<typeof captureFileLinkOwner>): Promise<void> {
   const reference = parseFileReference(value);
   if (!reference || currentScreen() !== 'pane') return;
   if (!owner.current()) { showError(t('preview.stale')); return; }
@@ -54,8 +59,11 @@ export async function openChatFile(value: string, owner: ReturnType<typeof captu
     if (isRoomy()) await openWorkspaceInspector();
     else {
       parkComposeView();
-      leaveAgentChat({ rememberGuided: false, paint: false });
-      await enterWorkspace(owner.paneId, 'agent', false, 'files');
+      const returnView = isFullTerminal() ? 'full' : isAgentChat() ? 'agent' : 'guided';
+      if (isFullTerminal()) await leaveFullTerminal({ rememberGuided: false, paint: false });
+      if (!current() || currentScreen() !== 'pane') return;
+      if (isAgentChat()) leaveAgentChat({ rememberGuided: false, paint: false });
+      await enterWorkspace(owner.paneId, returnView, false, 'files');
     }
     if (!current()) return;
     const snap = getWorkspaceSnapshot();
