@@ -688,8 +688,16 @@ export function bindTermField(input: HTMLTextAreaElement): () => void {
   input.value = composeDraft();
   sizeCompose(input);
   let blurTimer: number | null = null;
-  const onInput = () => {
+  const onInput = (event: Event) => {
     if (composeLive()) {
+      // Self-heal for input methods that fire compositionstart without the
+      // matching compositionend (observed with third-party iOS keyboards):
+      // the input event's isComposing reflects the browser's own composition
+      // state, so a non-composing input while our flag is still set means the
+      // end event was lost — resync instead of buffering forever.
+      if (composeIME() && event instanceof InputEvent && event.isComposing === false) {
+        setComposeIME(false);
+      }
       if (composeIME()) {
         setComposeDraft(input.value);
         sizeCompose(input);
