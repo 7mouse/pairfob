@@ -12,6 +12,7 @@ const html = `<!doctype html><html lang="zh"><head><title>Preview acceptance</ti
 <link rel="stylesheet" href="./report.css"></head><body>
 <h1>交互式报告</h1>
 <button id="increment">计数 +1</button><output id="count">0</output>
+<button id="next-page">HTML 下一页</button><output id="page">1</output>
 <p id="local">Local data pending</p><p id="external">External API pending</p>
 <p id="cors">CORS pending</p><p id="isolation">Isolation pending</p>
 <p id="module">Module pending</p><p id="full">Full file pending</p>
@@ -34,6 +35,10 @@ const files: Record<string, string> = {
   'public/module.js': 'import { label } from "./module-label.js"; document.querySelector("#module").textContent = label;',
   'public/module-label.js': 'export const label = "ES module loaded";',
   'public/app.js': `let n=0; document.querySelector('#increment').onclick=()=>document.querySelector('#count').textContent=String(++n);
+document.querySelector('#next-page').onclick=()=>{ const page=Number(document.querySelector('#page').textContent)+1; history.pushState({page},''); document.querySelector('#page').textContent=String(page); };
+// QA-only control for browser drivers that cannot hit-test an opaque nested iframe.
+addEventListener('message',event=>{if(event.source===parent && event.data==='qa-next-page') document.querySelector('#next-page').click();});
+addEventListener('popstate',()=>document.querySelector('#page').textContent=String(history.state?.page||1));
 fetch('./data.json').then(r=>r.json()).then(d=>document.querySelector('#local').textContent=d.message);
 fetch('http://localhost:5173/qa/preview-api').then(r=>r.json()).then(d=>document.querySelector('#external').textContent=d.message);
 fetch('http://localhost:5173/qa/preview-no-cors').then(()=>document.querySelector('#cors').textContent='Unexpected CORS success').catch(()=>document.querySelector('#cors').textContent='CORS enforced');

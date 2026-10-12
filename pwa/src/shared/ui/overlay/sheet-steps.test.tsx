@@ -97,13 +97,16 @@ test("Escape undoes the last step first: the question asked in place, then the p
   expect(dialogs()).toHaveLength(0);
 });
 
-test("a close request that is no key means the whole step back, as before: a phone's system back skips nothing new", () => {
+test("system Back undoes the in-place question before the pushed page", () => {
   press("mouse");
   open();
   act(() => named("Rename").click());
   act(() => named("Reset").click());
   act(() => { top().dispatchEvent(new happy.Event("cancel", { cancelable: true }) as unknown as Event); });
-  // The page is stepped back from, question and all: the request did not come from Escape.
+  // Native system Back and browser Back follow the same inner steps as Escape.
+  expect(top().querySelector(".question")).toBeNull();
+  expect(top().querySelector("h2")?.textContent).toBe("Rename");
+  act(() => { top().dispatchEvent(new happy.Event("cancel", { cancelable: true }) as unknown as Event); });
   expect(top().querySelector("h2")?.textContent).toBe("Session");
 });
 

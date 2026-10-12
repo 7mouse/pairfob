@@ -2,6 +2,7 @@ import { ChevronRight, Columns2, Copy, GitBranch, Info, LayoutGrid, Pencil, Plus
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { AgentInformation } from "./agent-information";
 import { PaneDisplaySettings, PaneModeSetting } from "./pane-menu-settings";
+import { PaneScreenSetting } from "./pane-screen-setting";
 import { NewTabPage, RenamePage, SplitPage } from "./pane-menu-pages";
 import { WorktreePage, worktreeBranch } from "./pane-worktree-pages";
 import { PaneLayoutPage, useTabLayout } from "./pane-layout-page";
@@ -172,6 +173,7 @@ function PaneMenu({ modal, agent, full, chat }: MenuContext) {
     <p className="pane-menu-status" role="status">{status || (!chat ? t("pm.copyHint") : "")}</p>
     {!chat && <h3 className="pane-group-title">{t("pm.groupDisplay")}</h3>}
     <PaneDisplaySettings modal={modal} full={full} chat={chat} />
+    <PaneScreenSetting />
     <h3 className="pane-group-title">{t("pm.groupSession")}</h3>
     <MenuGroup label={t("pm.groupSession")}>
       {full && <MenuRow icon={<RotateCw size={18} />} label={t("pane.reconnect")} modal={modal} action={retryFullTerminal} />}

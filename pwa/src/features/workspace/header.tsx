@@ -2,7 +2,8 @@ import { ChevronDown, Ellipsis, GitBranch, RefreshCw } from "lucide-react";
 import { t } from "../../lib/i18n";
 import { workspaceBreadcrumbs } from "../../lib/workspace";
 import { BackButton, Button } from "../../shared/ui/primitives";
-import { closeWorkspaceDetail, leaveWorkspace, loadDirectory, refreshWorkspace } from "./actions";
+import { refreshWorkspace } from "./actions";
+import { workspaceBackAction } from "./back";
 import { openDetailMenu } from "./detail-menu";
 import { DiffStepper } from "./diff-stepper";
 import { openPathSheet } from "./files";
@@ -130,11 +131,7 @@ export function WorkspaceHeader({ snapshot, onBranches }: { snapshot: WorkspaceS
   const stacked = detail && !together;
   const inFolder = !detail && !together && snapshot.tab === "files" && snapshot.directory !== "";
   const parent = inFolder ? workspaceBreadcrumbs(snapshot.directory).at(-2)?.path ?? "" : null;
-  const back = () => {
-    if (stacked) closeWorkspaceDetail();
-    else if (parent !== null) void loadDirectory(parent);
-    else leaveWorkspace();
-  };
+  const back = workspaceBackAction(snapshot, together);
   const backTitle = stacked ? t("workspace.closeDetail") : parent !== null ? t("workspace.upDir") : backLabel(snapshot.returnView);
   return <header className={`workspace-chrome${detail ? " is-detail" : ""}${inFolder ? " is-folder" : ""}`}>
     {/* Up stays under the pointer (BackButton guards the tap): a doubled press would climb two folders. */}

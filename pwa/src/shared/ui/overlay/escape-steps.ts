@@ -10,8 +10,8 @@ import { createContext, useContext, useEffect, useRef } from "react";
  * this the key skipped straight to the page or the dialog and threw away the
  * step the reader meant to take back.
  *
- * A step is the key's alone. A close request that is not a key (a phone's
- * system back, the backdrop, the close control) still means the whole surface.
+ * Escape and system Back share these steps. The backdrop and explicit close
+ * control still dismiss the whole surface.
  */
 export type EscapeSteps = {
   /** Note a step that is showing; the returned function forgets it. */

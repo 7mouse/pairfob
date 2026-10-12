@@ -273,7 +273,7 @@ export function setNetworkMode(mode: NetworkMode): void {
  */
 export function capturePairingFragment(): void {
   const initialHash = location.hash;
-  if (initialHash) history.replaceState(null, "", `${location.pathname}${location.search}`);
+  if (initialHash) history.replaceState(history.state, "", `${location.pathname}${location.search}`);
   const notificationTarget = parseNotificationTarget(initialHash);
   const fragment = notificationTarget ? null : parsePairingFragment(initialHash);
   batch(() => {

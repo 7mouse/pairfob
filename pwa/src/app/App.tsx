@@ -1,4 +1,6 @@
-import { useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useSyncExternalStore, type ReactNode } from "react";
+import { bindSystemBack } from "./system-back";
+import { bindScreenWake } from "../features/session/screen-wake-lifecycle";
 import { langRevision, subscribeLang } from "../lib/i18n";
 import { AgentChatPane } from "../features/session/chat/agent-chat";
 import { SessionPane } from "../features/session/guided/session-pane";
@@ -43,6 +45,8 @@ const railHiddenHandlers = { ...handlers, onBack: closeWorkspaceInspector };
 const NO_SCROLL: SessionScroll = { top: 0, left: 0, bottom: true };
 
 export function App() {
+  useEffect(bindSystemBack, []);
+  useEffect(bindScreenWake, []);
   const frame = useSyncExternalStore(subscribeAppFrame, getAppFrame);
   // Locale composition boundary: every mounted copy — the rail beside the main
   // column, the quota/computers labels, the boot screen — re-renders on the

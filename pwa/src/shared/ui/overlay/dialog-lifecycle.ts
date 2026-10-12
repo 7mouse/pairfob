@@ -5,6 +5,7 @@ import { useQuietFocus } from "./quiet-focus";
 import { bindSheetDrag } from "./sheet-drag";
 import { trapTab } from "./tab-stops";
 import { followTrigger } from "./trigger";
+import { registerDialogBack } from "./back";
 
 type ElementRef<T> = RefObject<T | null>;
 type DialogLifecycle = {
@@ -53,14 +54,10 @@ export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancel
     const origin = restoreFocus ? followTrigger(document.activeElement instanceof HTMLElement ? document.activeElement : null) : null;
     const openedAt = performance.now();
     const dismiss = () => latest.current.onDismiss();
-    // A close request does not say what asked for it: Escape pressed while
-    // focus rests on nothing reaches the dialog only as this request, like a
-    // phone's system back. The key is told apart by being down.
-    let escapeDown = false;
-    const track = (event: KeyboardEvent) => { if (event.key === "Escape") escapeDown = event.type === "keydown"; };
+    // Escape and system Back undo the innermost step before the surface.
     const cancel = (event: Event) => {
       event.preventDefault();
-      if (escapeDown && latest.current.steps?.undo()) return;
+      if (latest.current.steps?.undo()) return;
       if (performance.now() - openedAt >= cancelGuardMs) (latest.current.onCancel ?? dismiss)();
     };
     // Escape is answered on the key itself. Left to the browser's close request
@@ -85,9 +82,10 @@ export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancel
     element.addEventListener("click", backdrop);
     element.addEventListener("close", closed);
     document.addEventListener("keydown", tab);
-    window.addEventListener("keydown", track, true);
-    window.addEventListener("keyup", track, true);
     element.showModal();
+    const releaseBack = registerDialogBack(element, () => {
+      if (!latest.current.steps?.undo()) (latest.current.onCancel ?? dismiss)();
+    });
     const disposeDrag = form?.current ? bindSheetDrag({
       dialog: element, form: form.current, scroller: scroller?.current ?? null, close: dismiss,
       detents: expandable ? {
@@ -97,14 +95,13 @@ export function useDialogLifecycle({ dialog, sheet, restoreFocus = false, cancel
     }) : undefined;
     latest.current.focus?.();
     return () => {
+      releaseBack();
       disposeDrag?.();
       element.removeEventListener("cancel", cancel);
       element.removeEventListener("keydown", escape);
       element.removeEventListener("click", backdrop);
       element.removeEventListener("close", closed);
       document.removeEventListener("keydown", tab);
-      window.removeEventListener("keydown", track, true);
-      window.removeEventListener("keyup", track, true);
       if (element.open) element.close();
       if (origin) queueMicrotask(() => {
         origin.live()?.focus({ preventScroll: true });
