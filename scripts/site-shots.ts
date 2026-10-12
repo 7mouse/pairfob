@@ -33,7 +33,9 @@ const SHOTS: Shot[] = [
   { name: "home-grouped", scene: "home-grouped", ...PHONE },
   { name: "guided-draft", scene: "guided-draft", ...PHONE },
   { name: "guided-expanded", scene: "guided-expanded", ...PHONE },
-  { name: "workspace-diff", scene: "workspace-diff", ...PHONE },
+  // Under a finger, as on the phone it stands for: with a mouse the diff tells
+  // its reader about the keyboard and keeps "view in file" for the hover.
+  { name: "workspace-diff", scene: "workspace-diff", ...PHONE, touch: true },
   { name: "chat-complete", scene: "chat-complete", ...PHONE },
   { name: "settings", scene: "settings", ...PHONE },
   // iPad landscape: the two-column desk layout, operated by touch (the mouse
