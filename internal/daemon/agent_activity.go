@@ -29,8 +29,9 @@ func (e *Engine) decorateAgentActivity(snapshot runtime.Snapshot) runtime.Snapsh
 		if pane.AgentStatus == "done" && activity.State == "working" {
 			pane.AgentStatus = "working"
 		}
-		if pane.AgentStatus == "done" && activity.Key == "" ||
-			pane.AgentStatus == "working" && activity.Known && activity.Key == "" {
+		// Missing bindings, a rotating file or an incomplete bounded tail are
+		// unknown, not evidence of an empty startup. Preserve the runtime state.
+		if (pane.AgentStatus == "done" || pane.AgentStatus == "working") && activity.Known && activity.Key == "" {
 			pane.AgentStatus = "idle"
 		}
 	}

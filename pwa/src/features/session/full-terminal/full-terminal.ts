@@ -1,5 +1,4 @@
 import { TerminalRecoveryDiagnostics } from "./terminal-recovery-diagnostics";
-import { captureFileLinkOwner, openPaneFile } from "../../workspace/file-links";
 import { terminalLinkProvider } from "./full-terminal-links";
 import { encodeLiveKey } from "../keypad/live-key";
 import type { FitAddon } from "@xterm/addon-fit";
@@ -50,7 +49,7 @@ import {
 import { setFullTerminalInputMode, submitFullTerminalCompose, type FullTerminalControlsOptions } from "./full-terminal-compose";
 import { bindTerminalCopyKey, copyTerminalSelection } from "./full-terminal-copy";
 import { bindHostScroll, pageLineCount, reportsWheel, type ScrollAt } from "./full-terminal-scroll";
-import { attachFullTerminalHost, clearFullTerminalAttach, connectFullTerminalEngine, fullTerminalOwnerKey } from "./full-terminal-engine";
+import { attachFullTerminalHost, attachedFullTerminalFileOpener, clearFullTerminalAttach, connectFullTerminalEngine, fullTerminalOwnerKey } from "./full-terminal-engine";
 import { releaseFullTerminalScreen } from "./full-terminal-screen";
 import { TerminalCommandPump, type TerminalCommand, type TerminalInputQueueOptions } from "./full-terminal-command";
 import { loadFullTerminalXterm, terminalWebglSupported } from "./full-terminal-loader";
@@ -337,8 +336,8 @@ async function mount(host: HTMLElement): Promise<void> {
   }
   if (version !== rendererVersion || !isFullTerminal() || !host.isConnected) return;
   mounting = false;
-  const fileOwner = captureFileLinkOwner();
-  const openFile = (value: string) => { if (version === rendererVersion) void openPaneFile(value, fileOwner); };
+  const fileOpener = attachedFullTerminalFileOpener();
+  const openFile = fileOpener ? (value: string) => { if (version === rendererVersion) fileOpener(value); } : undefined;
   const fontPx = termFontPx();
   terminal = new module.Terminal(fullTerminalOptions({
     fontFamily: FULL_TERM_FONT_FAMILY,

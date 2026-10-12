@@ -27,12 +27,14 @@ export const FullTerminalHost = memo(function FullTerminalHost({
   onRetry,
   scroll,
   pageLines,
+  captureFileLink,
 }: {
   paneId: string;
   active: boolean;
   onRetry: () => void;
   scroll: RemoteScroll;
   pageLines: () => number;
+  captureFileLink?: () => (value: string) => void;
 }) {
   useSyncExternalStore(subscribeLang, langRevision);
   const rootRef = useRef<HTMLElement | null>(null);
@@ -52,7 +54,7 @@ export const FullTerminalHost = memo(function FullTerminalHost({
     rootRef.current = host.closest(".full-terminal-root");
     const root = rootRef.current;
     if (!root || !active) return;
-    return attachFullTerminalHost(root, host);
+    return attachFullTerminalHost(root, host, captureFileLink?.());
   }, [paneId, active]);
 
   return (

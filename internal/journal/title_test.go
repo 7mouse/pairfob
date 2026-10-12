@@ -101,6 +101,43 @@ func TestTitleUnavailableDatabaseFallsBackWithoutReadingAnotherSession(t *testin
 	}
 }
 
+func TestTitleTransientReadFailureKeepsOnlyItsOwnPreviouslyReadName(t *testing.T) {
+	r, ref, _ := titleFixture(t)
+	if err := os.WriteFile(filepath.Join(r.CodexRoot, "state_5.sqlite"), nil, 0600); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Unix(100, 0)
+	r.now = func() time.Time { return now }
+	fail, name := false, "Saved task name"
+	r.sqlite = func(context.Context, string, string) ([]byte, error) {
+		if fail {
+			return nil, errors.New("database is locked")
+		}
+		return json.Marshal([]map[string]string{{"id": ref.Value, "name": name, "prompt": "First request"}})
+	}
+	want := r.ReadTitle(ref)
+	fail = true
+	now = now.Add(3 * time.Second)
+	if got := r.ReadTitle(ref); got != want {
+		t.Fatalf("temporary failure erased title: %+v", got)
+	}
+	other := ref
+	other.Value = "different_session_1234"
+	if got := r.ReadTitle(other); got != (Title{}) {
+		t.Fatalf("different binding borrowed title: %+v", got)
+	}
+	fail, name = false, ""
+	now = now.Add(3 * time.Second)
+	if got := r.ReadTitle(ref); got.Name != "" || got.Prompt != "First request" {
+		t.Fatalf("successful name removal ignored: %+v", got)
+	}
+	r.CodexRoot = t.TempDir()
+	now = now.Add(3 * time.Second)
+	if got := r.ReadTitle(ref); got != (Title{}) {
+		t.Fatalf("different provider root borrowed title: %+v", got)
+	}
+}
+
 func TestTitleConfinesFilesAndBoundsExcerpt(t *testing.T) {
 	r, ref, path := titleFixture(t)
 	outside := filepath.Join(t.TempDir(), "private.jsonl")

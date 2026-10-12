@@ -1,4 +1,5 @@
 import { useHardwareKeyboard } from "../../../app/input-mode";
+import { captureFileLinkOwner, openPaneFile } from "../../workspace/file-links";
 import { sessionHandlers } from "../pane-actions";
 import { FullTerminalScreen, type FullTerminalScreenProps } from "./full-terminal-screen";
 import {
@@ -7,6 +8,11 @@ import {
   retryFullTerminal,
   sendFullTerminalScroll,
 } from "./full-terminal";
+
+function captureFileLink(): (value: string) => void {
+  const owner = captureFileLinkOwner();
+  return value => { void openPaneFile(value, owner); };
+}
 /**
  * Declarative complete-terminal route.
  *
@@ -36,6 +42,7 @@ export function FullTerminalRoute({ includeBack = true, onBack: back }: {
     scroll: sendFullTerminalScroll,
     pageLines: pageScrollLines,
     controls: fullTerminalControlOptions(),
+    captureFileLink,
   };
   return <FullTerminalScreen {...props} />;
 }

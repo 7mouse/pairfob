@@ -43,13 +43,22 @@ func (r *Reader) ReadTitle(ref Ref) Title {
 	}
 	r.titleMu.Lock()
 	defer r.titleMu.Unlock()
-	key := refFingerprint(ref)
-	if entry, ok := r.titleCache[key]; ok && now.Sub(entry.at) < 2*time.Second {
+	key := r.CodexRoot + "\x00" + refFingerprint(ref)
+	entry, cached := r.titleCache[key]
+	if cached && now.Sub(entry.at) < 2*time.Second {
 		return entry.value
 	}
-	title := r.codexStoredTitle(ref.Value)
+	title, stored := r.codexStoredTitle(ref.Value)
 	if title.Prompt == "" {
 		title.Prompt = r.codexFirstPrompt(ref)
+	}
+	// A locked/unavailable database is not a rename. Keep display-only metadata
+	// from this exact binding, but let successful reads clear a removed name.
+	if !stored && cached {
+		title.Name = entry.value.Name
+		if title.Prompt == "" {
+			title.Prompt = entry.value.Prompt
+		}
 	}
 	if r.titleCache == nil || len(r.titleCache) >= maxTraceCacheEntries {
 		r.titleCache = make(map[string]titleCacheEntry)
@@ -58,7 +67,7 @@ func (r *Reader) ReadTitle(ref Ref) Title {
 	return title
 }
 
-func (r *Reader) codexStoredTitle(id string) Title {
+func (r *Reader) codexStoredTitle(id string) (Title, bool) {
 	files, _ := filepath.Glob(filepath.Join(r.CodexRoot, "state_*.sqlite"))
 	latest, version := "", -1
 	for _, file := range files {
@@ -73,7 +82,7 @@ func (r *Reader) codexStoredTitle(id string) Title {
 	}
 	db, err := verifiedRegular(r.CodexRoot, latest)
 	if latest == "" || err != nil {
-		return Title{}
+		return Title{}, false
 	}
 	query := r.sqlite
 	if query == nil {
@@ -86,10 +95,16 @@ func (r *Reader) codexStoredTitle(id string) Title {
 	// injected context there. 'name' is the explicitly saved/generated name.
 	reply, err := query(ctx, db, fmt.Sprintf("select id, substr(name,1,256) as name, substr(first_user_message,1,65536) as prompt from threads where id='%s' limit 1;", id))
 	var rows []struct{ ID, Name, Prompt string }
-	if err != nil || len(reply) > maxMessageBytes*6 || json.Unmarshal(reply, &rows) != nil || len(rows) != 1 || rows[0].ID != id {
-		return Title{}
+	if err != nil || len(reply) > maxMessageBytes*6 || json.Unmarshal(reply, &rows) != nil {
+		return Title{}, false
 	}
-	return Title{Name: titleText(rows[0].Name, 256), Prompt: promptTitle(rows[0].Prompt)}
+	if len(rows) == 0 {
+		return Title{}, true
+	}
+	if len(rows) != 1 || rows[0].ID != id {
+		return Title{}, false
+	}
+	return Title{Name: titleText(rows[0].Name, 256), Prompt: promptTitle(rows[0].Prompt)}, true
 }
 
 func (r *Reader) codexFirstPrompt(ref Ref) string {

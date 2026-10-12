@@ -92,10 +92,38 @@ func TestAgentActivityStartupTaskAndReconnect(t *testing.T) {
 	}
 	pane.AgentSession = &runtime.AgentSessionRef{Agent: "codex", Kind: "id", Value: "replacement_1234"}
 	pane.AgentInstanceID = "two"
-	observe("done", "idle")
+	observe("done", "done") // An unavailable replacement transcript is not known-empty.
 	observe("unknown", "unknown")
 	engine.Journal = nil
-	observe("done", "idle")
+	observe("done", "done")
+}
+
+func TestAgentActivityMissingEvidenceDoesNotEraseRuntimeCompletion(t *testing.T) {
+	engine := NewEngine(nil, nil, newMonitorTestRuntime())
+	ref, appendEvent := taskActivityFixture(t, engine)
+	pane := runtime.Pane{PaneID: "p1", Agent: "codex", AgentStatus: "done", AgentSession: ref}
+	assertStatus := func(want string) {
+		t.Helper()
+		got := engine.decorateAgentActivity(runtime.Snapshot{Panes: []runtime.Pane{pane}}).Panes[0]
+		if got.AgentStatus != want {
+			t.Fatalf("status=%s want=%s", got.AgentStatus, want)
+		}
+	}
+	assertStatus("idle") // Positively empty startup still cannot finish a task.
+	appendEvent(`{"type":"event_msg","payload":{"type":"task_complete"}}`)
+	assertStatus("done")
+	pane.AgentSession = nil
+	assertStatus("done")
+	pane.AgentSession = ref
+	path := filepath.Join(engine.Journal.CodexRoot, "sessions", "rollout-activity_session_1234.jsonl")
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+	assertStatus("done")
+	// A large metadata record can push all task evidence outside the bounded
+	// tail. It cannot prove the runtime's completion was merely a startup.
+	appendEvent(`{"type":"session_meta","payload":{"padding":"` + strings.Repeat("x", 600<<10) + `"}}`)
+	assertStatus("done")
 }
 
 func TestAgentActivityPushRequiresNewTaskEvidence(t *testing.T) {

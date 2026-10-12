@@ -21,6 +21,7 @@ export type FullTerminalScreenProps = {
   scroll: RemoteScroll;
   pageLines: () => number;
   controls: FullTerminalControlsOptions;
+  captureFileLink?: () => (value: string) => void;
   engineActive?: boolean;
   includeBack?: boolean;
 };
@@ -44,7 +45,7 @@ export function FullTerminalScreen(props: FullTerminalScreenProps) {
   return <FullTerminalBody key={view.owner} view={view} {...props} />;
 }
 
-function FullTerminalBody({ view, onBack, onWorkspace, onMenu, onRetry, scroll, pageLines, controls, engineActive, includeBack = true }: FullTerminalScreenProps & { view: FullTerminalViewSnapshot }) {
+function FullTerminalBody({ view, onBack, onWorkspace, onMenu, onRetry, scroll, pageLines, controls, captureFileLink, engineActive, includeBack = true }: FullTerminalScreenProps & { view: FullTerminalViewSnapshot }) {
   // The fallback follows the session domain's frozen snapshot: the terminal
   // shell is active exactly while the session domain says the complete
   // terminal is mounted.
@@ -64,6 +65,7 @@ function FullTerminalBody({ view, onBack, onWorkspace, onMenu, onRetry, scroll, 
         onRetry={onRetry}
         scroll={scroll}
         pageLines={pageLines}
+        captureFileLink={captureFileLink}
       />
       <FullTerminalPad options={controls} onPage={(direction) => scroll(direction, pageLines(), "page_key")} />
     </div>

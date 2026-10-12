@@ -38,6 +38,7 @@ let attached: {
   host: HTMLElement;
   incarnation: number;
   owner: string;
+  openFile?: (value: string) => void;
 } | null = null;
 
 export function connectFullTerminalEngine(next: FullTerminalEngineHost): void {
@@ -48,12 +49,17 @@ export function attachedFullTerminalHost(): HTMLElement | null {
   return attached?.host ?? null;
 }
 
+/** Navigation belongs to the route; the renderer keeps only its attached owner's action. */
+export function attachedFullTerminalFileOpener(): ((value: string) => void) | undefined {
+  return attached?.openFile;
+}
+
 function applyPanClass(host: HTMLElement): void {
   host.classList.add("full-terminal-host");
   host.classList.toggle("is-pan", fullTerminalHostIsPan(termFit()));
 }
 
-export function attachFullTerminalHost(_root: HTMLElement, host: HTMLElement): () => void {
+export function attachFullTerminalHost(_root: HTMLElement, host: HTMLElement, openFile?: (value: string) => void): () => void {
   const id = ++attachSeq;
   const bound = bindSessionOwnerFromLive();
   const paneId = bound.paneId;
@@ -78,7 +84,7 @@ export function attachFullTerminalHost(_root: HTMLElement, host: HTMLElement): (
 
   applyPanClass(host);
   engine?.setShellActive(true);
-  attached = { id, paneId, host, incarnation, owner };
+  attached = { id, paneId, host, incarnation, owner, openFile };
   engine?.scheduleMount(host);
   return () => retireAttach(id);
 }
