@@ -6,11 +6,19 @@ import { NamespaceIndexClient } from "../index/client.ts";
 import { CfSocket, wrapSockets } from "./cf-socket.ts";
 import { CfStore } from "./cf-store.ts";
 import { RoomCore } from "./core.ts";
-import { closeReason, diagnosticLog, frameLabel, isDiagnosticTarget, traceHandler } from "./diagnostics.ts";
 import { handleRoomFetch } from "./http.ts";
 import { watchUpgradeCancellation } from "./upgrade-cancellation.ts";
 import { onMessage } from "./ws.ts";
-import { lifecycleLog, socketCounts, socketFields, traceLifecycle } from "./lifecycle-diagnostics.ts";
+
+const closeReasons = new Set([
+  "closed", "replaced", "kicked", "daemon_offline", "unpaired", "unbound",
+  "pair_timeout", "pairing_expired", "bad_frame", "normal", "shutdown",
+]);
+
+// Peer-provided text must not enter metrics or notifications verbatim.
+function closeReason(reason: string): string {
+  return reason === "" ? "empty" : closeReasons.has(reason) ? reason : "other";
+}
 
 export class DaemonRoom {
   readonly ctx: DurableObjectState;
@@ -21,11 +29,7 @@ export class DaemonRoom {
   constructor(ctx: DurableObjectState, env: Env) {
     this.ctx = ctx;
     this.env = env;
-    const store = new CfStore(ctx.storage, Date.now, (previous, due, scheduled) => {
-      diagnosticLog(env, ctx.id.toString(), {
-        event: "room_alarm_rearmed", previous_at: previous, due_at: due, scheduled_at: scheduled,
-      });
-    });
+    const store = new CfStore(ctx.storage);
     const self = this;
     this.core = new RoomCore({
       daemonId: ctx.id.name || "",
@@ -37,10 +41,7 @@ export class DaemonRoom {
       metrics: roomMetrics(env, ctx.id.name || ""),
     });
     ctx.blockConcurrencyWhile(async () => {
-      const target = isDiagnosticTarget(env, ctx.id.toString());
-      if (target) lifecycleLog(env, ctx.id.toString(), "room_construct", () => ({ phase: "start" }));
       this.core.coldStart();
-      if (target) lifecycleLog(env, ctx.id.toString(), "room_construct", () => ({ phase: "end", sql_calls: store.stats.sql }));
     });
   }
 
@@ -59,16 +60,7 @@ export class DaemonRoom {
           const wrapped = new CfSocket(server);
           this.wraps.set(server, wrapped);
           this.core.attachSocket(wrapped);
-          const metadata = () => ({ ...socketFields(this.core.att(wrapped), server.readyState),
-            ...socketCounts(this.ctx.getWebSockets()) });
-          lifecycleLog(this.env, this.ctx.id.toString(), "room_upgrade_accepted", metadata);
-          watchUpgradeCancellation(request.signal, client, wrapped, () => {
-            diagnosticLog(this.env, this.ctx.id.toString(), {
-              event: "room_upgrade_cancelled", role: att.role,
-            });
-          }, () => {
-            lifecycleLog(this.env, this.ctx.id.toString(), "room_upgrade_abort_after_handoff", metadata);
-          });
+          watchUpgradeCancellation(request.signal, client, wrapped);
           return new Response(null, { status: 101, webSocket: client, headers });
         },
       },
@@ -86,30 +78,16 @@ export class DaemonRoom {
     // A close handshake can still deliver queued frames. Retired sockets must
     // neither answer PING nor register themselves again after hibernation.
     if (socket.isRetired()) return;
-    const frame = frameLabel(message);
-    const dispatch = () => traceHandler(this.env, this.ctx.id.toString(), frame, this.core.att(socket)?.role ?? "unknown",
-      () => onMessage(this.core, socket, message));
-    if (frame === "HELLO_DAEMON") {
-      return traceLifecycle(this.env, this.ctx.id.toString(), "room_daemon_hello",
-        () => ({ ...socketFields(this.core.att(socket), ws.readyState), ...socketCounts(this.ctx.getWebSockets()) }), dispatch);
-    }
-    return dispatch();
+    return onMessage(this.core, socket, message);
   }
 
-  webSocketClose(ws: WebSocket, code: number, reason: string, wasClean: boolean): void {
+  webSocketClose(ws: WebSocket, code: number, reason: string, _wasClean: boolean): void {
     let cleanupFailed = false;
-    let stage = "attachment";
     try {
       const wrapped = this.wraps.get(ws) ?? new CfSocket(ws);
-      diagnosticLog(this.env, this.ctx.id.toString(), {
-        event: "room_socket_close", code, was_clean: wasClean, reason: closeReason(reason),
-        ...socketFields(this.core.att(wrapped), ws.readyState),
-      });
-      stage = "cleanup";
       this.core.onClose(wrapped, closeReason(reason));
     } catch (error) {
       cleanupFailed = true;
-      diagnosticLog(this.env, this.ctx.id.toString(), { event: "room_close_failed", stage, code });
       throw error;
     } finally {
       // Hibernating sockets still need a reciprocal Close frame. Use the raw
@@ -118,23 +96,17 @@ export class DaemonRoom {
         if (code === 1005 || code === 1006) ws.close();
         else ws.close(code);
       } catch (error) {
-        diagnosticLog(this.env, this.ctx.id.toString(), { event: "room_close_failed", stage: "reply", code });
         // Preserve the first failure if cleanup and the close reply both fail.
         if (!cleanupFailed) throw error;
       }
     }
   }
 
-  webSocketError(ws: WebSocket, _error: unknown): void {
-    const wrapped = this.wraps.get(ws) ?? new CfSocket(ws);
+  webSocketError(_ws: WebSocket, _error: unknown): void {
     // A non-disconnection error is not evidence that all peers must be closed.
-    diagnosticLog(this.env, this.ctx.id.toString(), {
-      event: "room_socket_error", role: this.core.att(wrapped)?.role ?? "unknown",
-    });
   }
 
   async alarm(): Promise<void> {
-    await traceLifecycle(this.env, this.ctx.id.toString(), "room_alarm",
-      () => socketCounts(this.ctx.getWebSockets()), () => this.core.alarm());
+    await this.core.alarm();
   }
 }

@@ -12,8 +12,6 @@ export function watchUpgradeCancellation(
   signal: AbortSignal,
   client: UpgradeEndpoint,
   server: RoomEndpoint,
-  onCanceled: () => void,
-  onHandedOff?: () => void,
 ): void {
   const cancel = () => {
     try {
@@ -22,7 +20,6 @@ export function watchUpgradeCancellation(
       client.accept();
     } catch (error) {
       if (error instanceof TypeError && error.message === "Can't accept() WebSocket that was already used in a response.") {
-        onHandedOff?.();
         return;
       }
       throw error;
@@ -34,7 +31,6 @@ export function watchUpgradeCancellation(
     } finally {
       server.close(1000, "upgrade_cancelled");
     }
-    onCanceled();
   };
   if (signal.aborted) cancel();
   else signal.addEventListener("abort", cancel, { once: true });

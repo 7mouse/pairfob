@@ -28,31 +28,27 @@ describe("upgrade response handoff cancellation", () => {
       const controller = new AbortController();
       const pair = endpoints();
       if (alreadyAborted) controller.abort();
-      let canceled = 0;
-      watchUpgradeCancellation(controller.signal, pair.client, pair.server, () => canceled++);
+      watchUpgradeCancellation(controller.signal, pair.client, pair.server);
       controller.abort();
       controller.abort();
       expect(pair.calls).toEqual(["client.accept", "client.close", "server.close"]);
       expect(new CfSocket(pair.raw).isRetired()).toBe(true);
-      expect(canceled).toBe(1);
     });
   }
 
   test("a successful response handoff prevents cleanup from closing the established server", () => {
     const controller = new AbortController();
     const pair = endpoints(true);
-    let handedOff = 0;
-    watchUpgradeCancellation(controller.signal, pair.client, pair.server, () => { throw new Error("unexpected cleanup"); }, () => { handedOff++; });
+    watchUpgradeCancellation(controller.signal, pair.client, pair.server);
     controller.abort();
     expect(pair.calls).toEqual([]);
     expect(pair.server.isRetired()).toBe(false);
-    expect(handedOff).toBe(1);
   });
 
   test("an uncanceled connection is not accepted locally or retired", () => {
     const controller = new AbortController();
     const pair = endpoints();
-    watchUpgradeCancellation(controller.signal, pair.client, pair.server, () => { throw new Error("unexpected cleanup"); });
+    watchUpgradeCancellation(controller.signal, pair.client, pair.server);
     expect(pair.calls).toEqual([]);
     expect(pair.server.isRetired()).toBe(false);
   });
@@ -63,7 +59,7 @@ describe("upgrade response handoff cancellation", () => {
     const pair = endpoints();
     const failure = new Error("transport failed");
     pair.client.close = () => { throw failure; };
-    expect(() => watchUpgradeCancellation(controller.signal, pair.client, pair.server, () => {})).toThrow(failure);
+    expect(() => watchUpgradeCancellation(controller.signal, pair.client, pair.server)).toThrow(failure);
     expect(pair.server.isRetired()).toBe(true);
     expect(pair.calls).toEqual(["client.accept", "server.close"]);
   });

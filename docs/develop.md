@@ -91,31 +91,20 @@ roots or `PAIRFOB_ALLOWED_ROOTS`.
 
 ## Durable Object duration diagnostics
 
-`ROOM_DIAGNOSTICS_SAMPLE_RATE` (0–1, default 0) and an ISO8601
-`ROOM_DIAGNOSTICS_UNTIL` must both be set to enable temporary message tracing.
-Use a low production rate; traces stop automatically at the deadline. A sampled
-`room_handler` emits matching `start` and `end`/`error` records with an opaque
-object ID, event ID, header type, role, build, timestamps and elapsed milliseconds.
-It does not decode payloads, log credentials, add timers, access storage or call
-`waitUntil`. Synchronous handlers remain synchronous. These records measure
-handler completion, not socket flush or Cloudflare's billable duration.
-Cloudflare's event clock can stay fixed during synchronous execution, so a zero
-`elapsed_ms` is not a precise CPU measurement; use the platform CPU metric.
-
-`room_socket_close` records the numeric close code, cleanliness and an allowlisted
-reason category; arbitrary peer text is `other`. `room_socket_error` records the
-role without treating a non-disconnection error as a reason to close all peers.
-Late-alarm logs include `ms`. Existing Analytics Engine counters remain available.
+Use Cloudflare invocation logs and periodic Durable Object metrics, together
+with the existing Analytics Engine counters. The production room does not
+include temporary per-message or lifecycle trace hooks. Close reasons passed
+to application metrics remain allowlisted; arbitrary peer text is `other`.
 
 For a duration investigation, compare the **same object, deployment and time
 window** in periodic DO metrics and invocation metrics. Periodic `duration` is
 GB-s, while `activeTime` and `cpuTime` are microseconds. Hibernating inbound
 messages are counted in invocations; periodic inbound zero is not evidence of
 zero incoming messages. Do not sum event wall times to attribute billed duration.
-An `end` marker preceding a long platform wall time is a lead for runtime
-investigation, not by itself proof of a platform defect. Validate against an
-isolated hibernating echo object with the same heartbeat cadence before changing
-the protocol or promising savings.
+A long platform wall time is not by itself proof of a platform defect or of
+client-visible latency. Correlate client RTT and an isolated hibernating echo
+object with the same heartbeat cadence before changing the protocol or
+promising savings.
 
 ## Releases
 

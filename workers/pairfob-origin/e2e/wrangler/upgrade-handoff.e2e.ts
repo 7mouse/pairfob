@@ -14,7 +14,7 @@ it("canceling an unclaimed hibernatable upgrade completes both native close dire
     const closed = new Promise<number>((resolve) => pair[0].addEventListener("close", (event) => resolve(event.code), { once: true }));
     const controller = new AbortController();
     const wrapped = new CfSocket(pair[1]);
-    watchUpgradeCancellation(controller.signal, pair[0], wrapped, () => {});
+    watchUpgradeCancellation(controller.signal, pair[0], wrapped);
     controller.abort();
     const code = await closed;
     return { code, retired: wrapped.isRetired(), clientState: pair[0].readyState };

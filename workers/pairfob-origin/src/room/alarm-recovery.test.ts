@@ -5,15 +5,14 @@ import { newAttachment } from "./attachment.ts";
 
 function clockedStore(current: number | null, now = 10_000) {
   const writes: number[] = [];
-  const repairs: number[][] = [];
   let deletes = 0;
   const storage = {
     getAlarm: async () => current,
     setAlarm: async (at: number) => { current = at; writes.push(at); },
     deleteAlarm: async () => { current = null; deletes++; },
   } as unknown as DurableObjectStorage;
-  const store = new CfStore(storage, () => now, (...args) => { repairs.push(args); });
-  return { store, writes, repairs, deletes: () => deletes };
+  const store = new CfStore(storage, () => now);
+  return { store, writes, deletes: () => deletes };
 }
 
 describe("abandoned alarm recovery", () => {
@@ -21,7 +20,6 @@ describe("abandoned alarm recovery", () => {
     const h = clockedStore(100);
     await h.store.setAlarmIfChanged(100);
     expect(h.writes).toEqual([10_001]);
-    expect(h.repairs).toEqual([[100, 100, 10_001]]);
   });
 
   test("an unchanged future alarm does not add writes", async () => {

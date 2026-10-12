@@ -6,12 +6,8 @@
   "workers_dev": false,
   "preview_urls": false,
   "vars": {
-    "BUILD": "2026-10-12.4",
-    "P2P_OPEN": "1",
-    // Expiring metadata-only diagnostic sample; never logs frame payloads.
-    "ROOM_DIAGNOSTICS_SAMPLE_RATE": "1",
-    "ROOM_DIAGNOSTICS_UNTIL": "2026-10-12T09:26:43Z",
-    "ROOM_DIAGNOSTICS_OBJECT_IDS": "aeef184f70045599eced8b1b41155f79e6b2010f730b9e2c1f9f799a4c777c8c,4e1e8297d5a725e1cfda098e0ab801820357c456872fe91ff51b5a06b9255034,d880e3a6712a93326d2a308dfc57fdf548b35486ae6c57baf2447c19634bd69a,086159770a71753848dfa475e04cab15f07eb236078bb060abe323c90e46cc0c"
+    "BUILD": "2026-10-12.5",
+    "P2P_OPEN": "1"
   },
   "observability": {
     "enabled": true,

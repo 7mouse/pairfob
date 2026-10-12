@@ -15,7 +15,6 @@ export class CfStore implements RoomStore {
   constructor(
     private readonly storage: DurableObjectStorage,
     private readonly now: () => number = Date.now,
-    private readonly onAlarmRepair?: (previous: number, due: number, scheduled: number) => void,
   ) {}
 
   private get sql(): SqlExec {
@@ -58,9 +57,6 @@ export class CfStore implements RoomStore {
     if (cur === nextAt && nextAt > now) return;
     const scheduled = Math.max(nextAt, now + 1);
     await this.setAlarm(scheduled);
-    if (cur !== null && cur <= now) {
-      try { this.onAlarmRepair?.(cur, nextAt, scheduled); } catch { /* diagnostics only */ }
-    }
   }
 
   ensureSchema(): void {

@@ -158,12 +158,11 @@ the operation name and status. Successful lookups still consume their JSON.
 
 ### Validate canceled upgrade cleanup
 
-`room_upgrade_cancelled` records completion of the local two-endpoint cleanup
-routine. It is emitted after both close calls return, not after a completed
-close handshake or confirmed hibernation. No marker does not prove that
-cancellation was never attempted. Check exceptions too. An endpoint
-already handed off in a response must not be reclaimed by the DO's abort
-listener, since that can close a healthy connection.
+Canceled upgrades close both local endpoints. Close calls returning does not
+prove that the close handshake or hibernation has completed; check native
+exceptions and active duration too. An endpoint already handed off in a
+response must not be reclaimed by the DO's abort listener, since that can
+close a healthy connection.
 
 For a cancellation regression, use an isolated namespace and test both sides
 of the handoff: cancellation before the DO returns its 101, and cancellation
@@ -178,8 +177,7 @@ Compare SQL `alarms` row counts and oldest deadlines with actual alarm
 invocations. A past timestamp returned by `getAlarm()` is not evidence that
 the scheduler will still deliver it: platform retries are bounded. The store
 only skips an unchanged alarm while its deadline is in the future; overdue
-work is rearmed after the current time. `room_alarm_rearmed` records the old,
-due and newly scheduled timestamps without row contents.
+work is rearmed after the current time.
 
 The queue has indexes on `at` and `(kind, ref)`. Each invocation drains at most
 128 rows; socket-wide hello/resume sweeps run once per batch. Future rows and
@@ -191,11 +189,10 @@ deadline avoids SQL writes; a refreshed deadline updates the existing row
 instead of deleting and rebuilding both indexes. Duplicate legacy references
 still use the original replacement path to retain deduplication.
 
-For remaining lifecycle failures, `room_close_failed.stage` distinguishes
-attachment, cleanup and native close-reply failures while preserving the
-original exception. `ROOM_DIAGNOSTICS_OBJECT_IDS` enables full metadata traces
-and constructor boundaries for exact platform object IDs until the existing
-diagnostic expiry. It never enables payload or credential logging.
+For remaining lifecycle failures, inspect native invocation exceptions. The
+close handler replies even if cleanup fails and preserves the original cleanup
+exception if the reply also fails. Production has no temporary per-object,
+message or lifecycle tracing configuration.
 
 ### Operational actions
 

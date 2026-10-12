@@ -6,10 +6,14 @@ import { DaemonRoom } from "./room.ts";
 function setup(options: { metadataError?: unknown; cleanupError?: unknown; closeError?: unknown; retired?: boolean } = {}) {
   const calls: string[] = [];
   const replies: (number | undefined)[] = [];
+  const reasons: string[] = [];
   const attachment = newAttachment("daemon", 1, { hello_at_ms: 1, retired: options.retired });
   const ws = {
     readyState: 2,
-    deserializeAttachment: () => attachment,
+    deserializeAttachment: () => {
+      if ("metadataError" in options) throw options.metadataError;
+      return attachment;
+    },
     close(code?: number) {
       calls.push("reply");
       replies.push(code);
@@ -21,21 +25,33 @@ function setup(options: { metadataError?: unknown; cleanupError?: unknown; close
     env: { BUILD: "test" }, ctx: { id: { toString: () => "11".repeat(32) } },
     wraps: new WeakMap([[ws, wrapped]]),
     core: {
-      att() {
-        if ("metadataError" in options) throw options.metadataError;
-        return attachment;
-      },
-      onClose(socket: CfSocket) {
+      onClose(socket: CfSocket, reason: string) {
         expect(socket).toBe(wrapped);
         calls.push("cleanup");
+        reasons.push(reason);
+        socket.deserializeAttachment();
         if ("cleanupError" in options) throw options.cleanupError;
       },
     },
   } as unknown as DaemonRoom;
-  return { calls, replies, close: (code = 1000) => DaemonRoom.prototype.webSocketClose.call(room, ws, code, "", code !== 1006) };
+  return {
+    calls, replies, reasons,
+    close: (code = 1000, reason = "") => DaemonRoom.prototype.webSocketClose.call(room, ws, code, reason, code !== 1006),
+    error: () => DaemonRoom.prototype.webSocketError.call(room, ws, new Error("transport error")),
+  };
 }
 
 describe("hibernating WebSocket close handshake", () => {
+  test("peer close text stays bounded and an error callback does not tear down peers", () => {
+    for (const [input, expected] of [["replaced", "replaced"], ["", "empty"], ["reconnect_token=rt_secret", "other"]]) {
+      const h = setup();
+      h.error();
+      expect(h.calls).toEqual([]);
+      h.close(1000, input);
+      expect(h.reasons).toEqual([expected]);
+    }
+  });
+
   test("replies after local cleanup, including a retired socket", () => {
     for (const retired of [false, true]) {
       const h = setup({ retired });
