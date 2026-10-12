@@ -82,7 +82,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 	}
 	wantOps := []string{
 		"Ping", "GetConfig", "DaemonUpdateStatus", "DaemonUpdate", "AgentQuota", "AgentInspect", "Snapshot", "PaneRead", "SendText", "SendKeys",
-		"PushSubscribe", "RevokeDevice", "ListDevices", "ListSessions", "History", "AgentTrace", "AgentTraceSummary", "AgentTraceDetail", "RenamePane",
+		"PushSubscribe", "RevokeDevice", "ListDevices", "ListSessions", "History", "AgentTrace", "AgentTraceSummary", "AgentTraceModelSummary", "AgentTraceDetail", "RenamePane",
 		"RenameTab", "RenameWorkspace", "ClosePane", "CloseTab", "CloseWorkspace",
 		"CreateConversation", "CreateTab", "SplitPane", "PromptAgent", "ListWorktrees",
 		"WorkspaceOpen", "WorkspaceResolve", "WorkspaceSearch", "WorkspaceList", "WorkspaceListAtRoot", "WorkspaceRead", "WorkspaceReadAtRoot", "WorkspaceMediaOpen", "WorkspaceMediaOpenAtRoot", "WorkspaceMediaRead", "WorkspaceMediaClose", "WorkspaceUploadBegin", "WorkspaceUploadWrite", "WorkspaceUploadStatus", "WorkspaceUploadCommit", "WorkspaceUploadCancel", "WorkspaceUploadBeginV2", "WorkspaceUploadWriteV2", "WorkspaceUploadStatusV2", "WorkspaceUploadCommitV2", "WorkspaceUploadCancelV2", "WorkspaceRename", "WorkspaceDelete", "GitStatus", "GitDiff", "GitBranches",
@@ -227,8 +227,9 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 	// labels, times and writes are opt-in on the summary only; the full trace
 	// carries input instead.
 	for op, want := range map[string][]string{
-		"AgentTrace":        {"cursor", "limit", "markers", "pane_id", "session"},
-		"AgentTraceSummary": {"cursor", "labels", "limit", "markers", "pane_id", "session", "times", "writes"},
+		"AgentTrace":             {"cursor", "limit", "markers", "pane_id", "session"},
+		"AgentTraceSummary":      {"cursor", "labels", "limit", "markers", "pane_id", "session", "times", "writes"},
+		"AgentTraceModelSummary": {"cursor", "labels", "limit", "markers", "pane_id", "session", "times", "writes"},
 	} {
 		params := paramsByOp[op]
 		if got := sortedPropertyNames(params.Properties); !slices.Equal(got, want) || !slices.Equal(params.Required, []string{"pane_id"}) {
@@ -282,7 +283,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		"create_conversation", "create_tab", "split_pane", "prompt_agent", "history",
 		"list_worktrees", "create_worktree", "open_worktree", "resize_pane", "swap_pane", "zoom_pane",
 	}
-	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_writes", "git_change_stats", "search_files"), capabilities)
+	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_models", "trace_writes", "git_change_stats", "search_files"), capabilities)
 
 	// Machine linking names machines by opaque ID only: no SSH target, host,
 	// or path may be added to these objects.

@@ -1,0 +1,31 @@
+import type { AgentTraceItem, AgentTraceModel } from "../../../lib/operations";
+import { t } from "../../../lib/i18n";
+
+/** Only this turn's records; no pane tokens, agent defaults or latest settings. */
+export function turnModels(items: AgentTraceItem[]): AgentTraceModel[] | undefined {
+  if (!items.some(item => item.models !== undefined)) return undefined;
+  const models = new Map<string, AgentTraceModel>();
+  for (const item of items) for (const model of item.models ?? []) {
+    models.set(JSON.stringify([model.model, model.effort, model.source]), model);
+  }
+  return [...models.values()];
+}
+
+export function modelSummary(models: AgentTraceModel[] | undefined): string {
+  if (models === undefined) return "";
+  if (!models.length) return t("work.modelUnknown");
+  if (models.length > 1) return t("work.multipleModels");
+  return [models[0].model, models[0].effort].filter(Boolean).join(" · ");
+}
+
+export function TurnModelDetails({ models }: { models: AgentTraceModel[] }) {
+  return <div className="work-models" aria-label={t("work.modelDetails")}>
+    {!models.length ? <p>{t("work.modelMissing")}</p> : models.map((model, index) => <div key={index} className="work-model-record">
+      <dl>
+        <div><dt>{t("work.model")}</dt><dd>{model.model}</dd></div>
+        <div><dt>Thinking effort</dt><dd>{model.effort || t("work.notRecorded")}</dd></div>
+      </dl>
+      <p>{t(model.source === "codex_context" ? "work.modelCodex" : "work.modelClaude")}</p>
+    </div>)}
+  </div>;
+}

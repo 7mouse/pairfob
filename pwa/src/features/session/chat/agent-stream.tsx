@@ -9,6 +9,7 @@ import type { AgentEmptySpec, DetailsState } from "./agent-chat-stream";
 import { Button, Spinner } from "../../../shared/ui/primitives";
 import { CompactionDivider, PendingCard, ReplyActions, TurnHead, type TraceAnchorData } from "./turn-parts";
 import { NeedsYouCard } from "./needs-you";
+import { turnModels } from "./turn-models";
 import { WorkCard } from "./work-card";
 import { confirmCopyOn } from "../copy-confirm";
 
@@ -156,12 +157,13 @@ function TraceTurn({ turn, state, anchor, kept, onCopy, onTerminal, onAnswered, 
     outcome.detail = state.hasNext ? t("work.continued") : t("work.noReply", { step: stepObject(tools[tools.length - 1]) });
   }
   if (state.partial) outcome.detail = [t("work.partial"), outcome.detail].filter(Boolean).join(" · ");
-  const card = entries.length > 0 || interrupted || (live && !state.pending);
+  const models = turnModels(turn.items);
+  const card = models !== undefined || entries.length > 0 || interrupted || (live && !state.pending);
   return <>
     {turn.user && <TurnHead item={turn.user} anchorData={anchorData(anchor, "user")} />}
     {state.pending && !turn.items.length && <PendingCard {...state.pending} />}
     {card && <WorkCard traceKey={workKey(turn)} entries={entries} outcome={outcome} live={live} follow={state.follow} kept={kept}
-      verified={state.verified} span={turnSpan(turn.user, turn.items)}
+      verified={state.verified} models={models} span={turnSpan(turn.user, turn.items)}
       onOpen={(item, steps) => onOpenStep(item, steps, { key: anchor.key, ordinal: anchor.ordinal })}
       anchor={{ anchor: `${anchor.key}:work`, ordinal: anchor.ordinal, ordinalFromEnd: anchor.ordinalFromEnd }} />}
     {live && waiting && <NeedsYouCard ask={pendingAsk(turn.items)} onTerminal={onTerminal} onAnswered={onAnswered} />}

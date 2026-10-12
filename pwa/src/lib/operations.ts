@@ -23,6 +23,7 @@ export const OPERATION_CAPABILITY_KEYS = [
   "trace_markers",
   "trace_labels",
   "trace_times",
+  "trace_models",
   "trace_writes",
   "git_change_stats",
   "search_files",
@@ -53,6 +54,7 @@ export const NO_OPERATION_CAPABILITIES: OperationCapabilities = {
   trace_markers: false,
   trace_labels: false,
   trace_times: false,
+  trace_models: false,
   trace_writes: false,
   git_change_stats: false,
   search_files: false,
@@ -74,7 +76,11 @@ export function fitOperationPrompt(value: string): { text: string; truncated: bo
   return { text, truncated: text !== value };
 }
 
-/** Whether a raw GetConfig response lets AgentTraceSummary stamp items with their record time. */
+/** Whether the daemon offers the record-local model summary extension. */
+export function advertisesTraceModels(config: unknown): boolean {
+  return isRecord(config) && isRecord(config.capabilities) && config.capabilities.trace_models === true;
+}
+
 export function advertisesTraceTimes(config: unknown): boolean {
   return isRecord(config) && isRecord(config.capabilities) && config.capabilities.trace_times === true;
 }
@@ -197,7 +203,10 @@ export type HistoryPage = {
 export type AgentTraceType = "user" | "thinking" | "tool" | "assistant" | "command" | AgentTraceMarker;
 /** Textless timeline markers, returned only when the client opts in (proto/agent-trace-markers.md). */
 export type AgentTraceMarker = "compaction" | "interrupt";
+export type AgentTraceModel = { model: string; effort?: string; source: "codex_context" | "claude_message" };
 export type AgentTraceItem = {
+  /** Undefined: old daemon. Empty: extension available, no record-local evidence. */
+  models?: readonly AgentTraceModel[];
   type: AgentTraceType;
   text?: string;
   name?: string;
@@ -405,7 +414,7 @@ export function parseRuntimeOperationsConfig(value: unknown): RuntimeOperationsC
 	const rawCapabilities = isRecord(config.capabilities) ? config.capabilities : {};
 	const capabilities = { ...NO_OPERATION_CAPABILITIES };
 	const capabilityKeys = Object.keys(rawCapabilities);
-	const optionalCapabilities = new Set(["agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_writes", "git_change_stats", "search_files"]);
+	const optionalCapabilities = new Set(["agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_models", "trace_writes", "git_change_stats", "search_files"]);
 	const capabilitiesValid = capabilityKeys.every((key) => (OPERATION_CAPABILITY_KEYS as readonly string[]).includes(key))
 		&& OPERATION_CAPABILITY_KEYS.every((key) => typeof rawCapabilities[key] === "boolean"
       || (optionalCapabilities.has(key) && !(key in rawCapabilities)));

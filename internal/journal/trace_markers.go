@@ -13,6 +13,8 @@ const (
 )
 
 type TraceOptions struct {
+	// Models is exclusive to AgentTraceModelSummary; legacy RPC shapes stay frozen.
+	Models  bool
 	Markers bool
 	// Labels adds a one-line label to summary tool items (trace_labels).
 	Labels bool

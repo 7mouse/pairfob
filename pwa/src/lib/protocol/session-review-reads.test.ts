@@ -23,7 +23,7 @@ describe("review reads ask only what the daemon offered (isolated child process)
       throw new Error(`isolated review reads test exited ${exit}\n${stdout}\n${stderr}`);
     }
     // Bun writes the run summary to stderr.
-    expect(stderr).toContain("4 pass");
+    expect(stderr).toContain("5 pass");
     expect(stderr).toContain("0 fail");
   }, 25_000);
 });

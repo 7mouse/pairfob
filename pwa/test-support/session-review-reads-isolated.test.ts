@@ -13,6 +13,7 @@ import { Wire } from "./media-wire-fixture";
 import { fingerprint16 } from "../src/lib/protocol/hello";
 import * as sockets from "../src/lib/protocol/frame-socket";
 import * as handshake from "../src/lib/protocol/session-handshake";
+import type { AgentTracePage } from "../src/lib/operations";
 import type { GitStatus, WorkspaceSearchPage } from "../src/lib/workspace";
 
 let relay: Wire;
@@ -31,6 +32,7 @@ type Live = {
   close(): void;
   getConfig(): Promise<Record<string, unknown>>;
   gitStatus(paneId: string): Promise<GitStatus>;
+  agentTrace(paneId: string): Promise<AgentTracePage>;
   agentTurnWrites(paneId: string): Promise<string[] | null>;
   workspaceSearch(paneId: string, root: string, query: string, limit?: number): Promise<WorkspaceSearchPage>;
 };
@@ -150,4 +152,21 @@ test("a search names its root and its words, and takes only the answer to them",
   // An answer that echoes other words is not this search's.
   relay.reply(asked, { query: "app", truncated: false, items: [] });
   await expect(pending).rejects.toThrow("WorkspaceSearch.query");
+}));
+
+
+test("model summary follows the learned capability and revocation on the real session wire", () => withSession(async (live) => {
+  configs = 0;
+  const model = { model: "gpt-5", effort: "high", source: "codex_context" };
+  const result = { items: [{ type: "assistant", text: "done", models: [model] }], next_cursor: null, truncated: false };
+  await learn(live, { trace_models: true });
+  const read = live.agentTrace("p1");
+  const asked = await request("AgentTraceModelSummary");
+  expect(asked.params).toEqual({ pane_id: "p1", cursor: null, limit: 50 });
+  relay.reply(asked, result);
+  expect((await read).items[0].models).toEqual([model]);
+  await learn(live, {});
+  const plain = live.agentTrace("p1");
+  relay.reply(await request("AgentTraceSummary"), { ...result, items: [{ type: "assistant", text: "legacy" }] });
+  expect((await plain).items[0].models).toBeUndefined();
 }));

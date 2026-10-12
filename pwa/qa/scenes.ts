@@ -1,3 +1,4 @@
+import { modelTrace } from "./model-traces";
 import { PREVIEW_TRACE } from "./preview-files";
 import { isDesk } from "../src/app/viewport";
 import { clearAgentTraceCache } from "../src/lib/agent-trace-cache";
@@ -149,6 +150,12 @@ export const scenes: FixtureScene[] = [
   { name: "chat", description: "Streaming execution trace" },
   { name: "chat-preview", description: "Chat file links and full HTML preview" },
   { name: "chat-complete", description: "Finished execution with Markdown reply" },
+  { name: "chat-models", description: "Two turns keep different model and effort records" },
+  { name: "chat-models-live", description: "Running turn with its own model beside a completed turn" },
+  { name: "chat-models-long", description: "Long model identifier keeps effort visible" },
+  { name: "chat-models-missing", description: "Model extension available but this turn has no records" },
+  { name: "chat-models-claude", description: "Claude message model without effort" },
+  { name: "chat-models-multi", description: "Multiple model configurations in one turn" },
   { name: "chat-draft", description: "Multiline agent prompt draft" },
   { name: "chat-empty", description: "Empty agent history" },
   { name: "chat-loading", description: "Pending agent history" },
@@ -546,6 +553,12 @@ export async function applyScene(name: string, session: FixtureSession): Promise
       replaceAgentsFromSnapshot(idleFocusedSnapshot());
       session.setTrace(PREVIEW_TRACE);
       applyTrace({ agentTraceItems: PREVIEW_TRACE, agentTraceTail: PREVIEW_TRACE.length });
+    }
+    if (name.startsWith("chat-models")) {
+      if (name !== "chat-models-live") replaceAgentsFromSnapshot(idleFocusedSnapshot());
+      const trace = modelTrace(name);
+      session.setTrace(trace);
+      applyTrace({ agentTraceItems: trace, agentTraceTail: trace.length });
     }
     if (name === "chat-complete") {
       replaceAgentsFromSnapshot(idleFocusedSnapshot());

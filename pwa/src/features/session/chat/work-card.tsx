@@ -4,13 +4,14 @@ import {
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../../lib/i18n";
-import type { AgentTraceItem } from "../../../lib/operations";
+import type { AgentTraceItem, AgentTraceModel } from "../../../lib/operations";
 import {
   categoryLabel, formatElapsed, stepCategory, stepObject, stepState, type StepCategory, type TurnOutcome, type TurnTone,
 } from "../../../lib/agent-trace-steps";
 import { Button, Spinner } from "../../../shared/ui/primitives";
 import { daemonNow } from "../../../lib/agent-trace-clock";
 import type { DetailsState } from "./agent-chat-stream";
+import { modelSummary, TurnModelDetails } from "./turn-models";
 import { AgentDetails } from "./agent-details";
 
 const CATEGORY_ICON: Record<StepCategory, LucideIcon> = {
@@ -92,16 +93,17 @@ function useHeldOpen(live: boolean, follow: boolean): boolean {
  * and the ordered steps, each opening its own sheet. Running cards start open,
  * finished ones closed; a reader's own toggle is kept like any other details.
  */
-export function WorkCard({ traceKey, entries, outcome, live, follow = true, kept, verified, span, anchor, onOpen }: {
+export function WorkCard({ traceKey, entries, outcome, live, follow = true, kept, verified, span, models, anchor, onOpen }: {
   traceKey: string; entries: AgentTraceItem[]; outcome: TurnOutcome; live: boolean; follow?: boolean; kept?: DetailsState;
-  verified: boolean; span?: { start?: number; end?: number };
+  verified: boolean; models?: AgentTraceModel[]; span?: { start?: number; end?: number };
   anchor: { anchor: string; ordinal: number; ordinalFromEnd: number }; onOpen: OpenStep;
 }) {
   const [all, setAll] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const open = useHeldOpen(live, follow);
   const elapsed = useElapsed(span?.start, span?.end, live && outcome.tone === "running");
-  const detail = [elapsed, outcome.detail].filter(Boolean).join(" · ");
+  const modelText = modelSummary(models);
+  const detail = [elapsed, modelText, outcome.detail].filter(Boolean).join(" · ");
   const failed = entries.filter((item) => item.type === "tool" && stepState(item, verified) === "error");
   const edits = entries.filter((item) => item.type === "tool" && stepCategory(item) === "edit");
   const filters = entries.length >= FILTER_FROM && (failed.length > 0 || edits.length > 0);
@@ -117,11 +119,19 @@ export function WorkCard({ traceKey, entries, outcome, live, follow = true, kept
       <ToneMark tone={outcome.tone} />
       <span className="work-head-copy">
         <span className="work-title">{outcome.title}</span>
-        {detail ? <span className="work-detail">{detail}</span> : null}
+        {detail ? <span className={`work-detail${modelText ? " has-model" : ""}`} title={detail}>
+          {modelText ? <>
+            {elapsed && <span className="work-meta-fixed">{elapsed}{" · "}</span>}
+            <span className="work-meta-model">{models?.length === 1 ? models[0].model : modelText}</span>
+            {models?.length === 1 && models[0].effort && <span className="work-meta-fixed">{" · "}{models[0].effort}</span>}
+            {outcome.detail && <span className="work-meta-outcome">{" · "}{outcome.detail}</span>}
+          </> : detail}
+        </span> : null}
       </span>
-      {entries.length > 0 && <ChevronRight className="work-chevron" size={16} aria-hidden="true" />}
+      {(entries.length > 0 || models !== undefined) && <ChevronRight className="work-chevron" size={16} aria-hidden="true" />}
     </summary>
-    {entries.length > 0 && <div className="work-body" aria-live="off">
+    {(entries.length > 0 || models !== undefined) && <div className="work-body" aria-live="off">
+      {models !== undefined && <TurnModelDetails models={models} />}
       {filters && <div className="work-filters" role="group" aria-label={t("work.stepsAria")}>
         {chip("all", t("work.filterAll"))}
         {failed.length > 0 && chip("failed", t("work.filterFailed", { n: failed.length }))}

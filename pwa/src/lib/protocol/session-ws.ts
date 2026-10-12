@@ -20,6 +20,7 @@ import {
   parseZoomPaneResult,
   advertisesTraceLabels,
   advertisesTraceTimes,
+  advertisesTraceModels,
   advertisesTraceWrites,
   advertisesChangeStats,
   advertisesTraceMarkers,
@@ -153,7 +154,7 @@ class ReconnectingSession implements LiveSession {
   private readonly relayWarmup: RelayWarmup;
   private unwatchVisibility: () => void = () => undefined;
   private readonly agentTraceRPC = new AgentTraceRPC((op, params) => this.readRPC(op, params),
-    () => this.traceMarkers, () => this.traceLabels, () => this.traceTimes, () => this.traceWrites);
+    () => this.traceMarkers, () => this.traceLabels, () => this.traceTimes, () => this.traceWrites, () => this.traceModels);
   // The Herdr session this connection targets; null is the default socket.
   // It belongs to this connection, so a pooled computer keeps its own choice.
   private herdSessionName: string | null = null;
@@ -170,6 +171,7 @@ class ReconnectingSession implements LiveSession {
   private traceMarkers = false;
   private traceLabels = false;
   private traceTimes = false;
+  private traceModels = false;
   private traceWrites = false;
   /** git_change_stats: GitStatus is asked for line counts and modification times. */
   private changeStats = false;
@@ -205,6 +207,7 @@ class ReconnectingSession implements LiveSession {
         transport.recoveryDiagnostic = session.recovery.context();
         session.transport = transport;
         session.uploadV2 = false;
+        session.traceModels = false;
         session.configRequest++;
       },
       beginSwitch: () => session.beginSwitch(),
@@ -312,6 +315,7 @@ class ReconnectingSession implements LiveSession {
     // restored by a valid reply that is still the latest request on the same
     // transport epoch.
     this.uploadV2 = false;
+    this.traceModels = false;
     const transport = await this.captureTransport();
     if (!transport) throw new ProtocolError("reconnecting", "连接正在恢复");
     try {
@@ -326,6 +330,7 @@ class ReconnectingSession implements LiveSession {
         this.traceMarkers = advertisesTraceMarkers(result);
         this.traceLabels = advertisesTraceLabels(result);
         this.traceTimes = advertisesTraceTimes(result);
+        this.traceModels = advertisesTraceModels(result);
         this.traceWrites = advertisesTraceWrites(result);
         this.changeStats = advertisesChangeStats(result);
       }
@@ -334,7 +339,10 @@ class ReconnectingSession implements LiveSession {
     } catch (error) {
       // A rejected LATEST request fails closed; a stale request's failure does
       // nothing so it can never clobber a newer request's installed result.
-      if (requestToken === this.configRequest) this.uploadV2 = false;
+      if (requestToken === this.configRequest) {
+        this.uploadV2 = false;
+        this.traceModels = false;
+      }
       throw error;
     }
   };
@@ -362,6 +370,7 @@ class ReconnectingSession implements LiveSession {
     this.herdSessionName = name;
     // Capabilities learned from the previous session's GetConfig no longer apply.
     this.uploadV2 = false;
+    this.traceModels = false;
     this.configRequest++;
   };
   revokeDevice = (deviceId: string) => this.trackedMutation("RevokeDevice", { device_id: deviceId });
@@ -491,6 +500,7 @@ class ReconnectingSession implements LiveSession {
     // so their callers never wait for the 8 s deadline after close.
     this.uploadReadiness.failAll(new ProtocolError("disconnected", "会话已关闭，本次上传操作未发送"));
     this.uploadV2 = false;
+    this.traceModels = false;
     this.configRequest++;
     this.reconnectRequested = false;
     this.relayWarmup.cancel();
@@ -684,6 +694,7 @@ class ReconnectingSession implements LiveSession {
   private finishDisconnect(error: ProtocolError): void {
     this.transport = null;
     this.uploadV2 = false;
+    this.traceModels = false;
     this.configRequest++;
     this.direct.dispose();
     if (TERMINAL_CODES.has(error.code) || error.code === "kicked") {
@@ -709,6 +720,7 @@ class ReconnectingSession implements LiveSession {
     this.uploadReadiness.failAll(new ProtocolError("disconnected", "连接正在切换，本次上传操作未发送；请刷新确认后继续"));
     this.deferredDisconnect = null;
     this.uploadV2 = false;
+    this.traceModels = false;
     this.configRequest++;
     return lease;
   }

@@ -16,7 +16,7 @@ import { exactKeys, isRecord } from "./session-message.ts";
 import type { HerdSessionSummary } from "./session-types.ts";
 
 export const HERD_SESSION_SCOPED_OPS: ReadonlySet<string> = new Set([
-  "AgentInspect", "AgentTrace", "AgentTraceDetail", "AgentTraceSummary",
+  "AgentInspect", "AgentTrace", "AgentTraceDetail", "AgentTraceSummary", "AgentTraceModelSummary",
   "ClosePane", "CloseTab", "CloseWorkspace",
   "CreateConversation", "CreateTab", "CreateWorktree",
   "GetConfig", "GitBranches", "GitDiff", "GitStatus", "History",

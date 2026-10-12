@@ -560,3 +560,21 @@
   font-size: var(--text-secondary);
   color: var(--muted);
 }
+
+// Inline summary metadata expands inside the existing execution card.
+.work-models {
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--text-secondary);
+  color: var(--muted);
+}
+.work-models p { margin: 4px 0; line-height: 1.45; }
+.work-model-record + .work-model-record { margin-top: 12px; }
+.work-model-record dl { margin: 0; display: grid; gap: 5px; }
+.work-model-record dl > div { display: flex; flex-wrap: wrap; gap: 4px 16px; justify-content: space-between; }
+.work-model-record dd { margin: 0; color: var(--ink); overflow-wrap: anywhere; min-width: 0; }
+
+.work-detail.has-model { display: flex; }
+.work-meta-fixed { flex: none; white-space: pre; }
+.work-meta-model { flex: 0 1 auto; min-width: 2ch; overflow: hidden; text-overflow: ellipsis; }
+.work-meta-outcome { flex: 0 2 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: pre; }

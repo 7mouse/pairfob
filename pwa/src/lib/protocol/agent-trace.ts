@@ -7,6 +7,7 @@ import {
 } from "../operations";
 import { ProtocolError } from "./errors";
 import { noteDaemonClock } from "../agent-trace-clock";
+import { parseAgentTraceModelSummary } from "./agent-trace-models";
 import { parseTurnWrites } from "./agent-trace-writes";
 
 type ReadRPC = (op: string, params: Record<string, unknown>) => Promise<unknown>;
@@ -18,7 +19,7 @@ export class AgentTraceRPC {
   /** markers / labels / times / writes reflect GetConfig.capabilities.trace_markers / trace_labels / trace_times / trace_writes. */
   constructor(private readonly rpc: ReadRPC, private readonly markers: () => boolean = () => false,
     private readonly labels: () => boolean = () => false, private readonly times: () => boolean = () => false,
-    private readonly writes: () => boolean = () => false) {}
+    private readonly writes: () => boolean = () => false, private readonly models: () => boolean = () => false) {}
 
   /**
    * The files the agent's edit tools wrote since the reader last spoke to it:
@@ -33,10 +34,20 @@ export class AgentTraceRPC {
 
   async read(paneId: string, cursor: string | null = null, limit = 50): Promise<AgentTracePage> {
     const params = { pane_id: paneId, cursor, limit, ...(this.markers() ? { markers: true } : {}) };
+    const summary = { ...params, ...(this.labels() ? { labels: true } : {}), ...(this.times() ? { times: true } : {}) };
+    // A newly advertised extension takes priority even if this connection
+    // previously met a daemon too old to offer summaries at all.
+    if (this.models()) {
+      try {
+        const page = parseAgentTraceModelSummary(await this.rpc("AgentTraceModelSummary", summary));
+        if (page.now !== undefined) noteDaemonClock(page.now);
+        return page;
+      } catch (error) {
+        if (!(error instanceof ProtocolError) || error.code !== "unknown_op") throw error;
+      }
+    }
     if (this.summarySupport !== "no") {
       try {
-        // labels and times exist only on the summary read.
-        const summary = { ...params, ...(this.labels() ? { labels: true } : {}), ...(this.times() ? { times: true } : {}) };
         const page = parseAgentTraceSummaryPage(await this.rpc("AgentTraceSummary", summary));
         if (page.now !== undefined) noteDaemonClock(page.now);
         this.summarySupport = "yes";

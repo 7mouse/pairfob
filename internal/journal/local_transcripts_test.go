@@ -52,7 +52,7 @@ func TestLocalTranscriptsShowNoInjectedContext(t *testing.T) {
 			for _, ev := range scanLocalTranscript(t, path, history) {
 				reportInjected(t, source.name+" history", path, ev)
 			}
-			for _, ev := range scanLocalTranscript(t, path, source.parse) {
+			for _, ev := range scanLocalTranscript(t, path, traceParserWithModels(source.name, source.parse)) {
 				if !turnHead(ev.Type) {
 					continue
 				}

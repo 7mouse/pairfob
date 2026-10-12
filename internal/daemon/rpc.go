@@ -379,6 +379,8 @@ func (e *Engine) dispatch(s *sess, id, op string, params json.RawMessage) {
 		e.rpcAgentTrace(s, id, params)
 	case "AgentTraceSummary":
 		e.rpcAgentTraceSummary(s, id, params)
+	case "AgentTraceModelSummary":
+		e.rpcTraceSummary(s, id, params, true)
 	case "AgentTraceDetail":
 		e.rpcAgentTraceDetail(s, id, params)
 	case "TerminalOpen":

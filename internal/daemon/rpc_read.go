@@ -70,7 +70,8 @@ func (e *Engine) rpcGetConfig(s *sess, id string, params json.RawMessage) {
 		"trace_labels": describeErr == nil && e.Journal != nil,
 		// trace_times: AgentTraceSummary accepts times:true and then may add
 		// each item's transcript record time (epoch ms) as at.
-		"trace_times": describeErr == nil && e.Journal != nil,
+		"trace_times":  describeErr == nil && e.Journal != nil,
+		"trace_models": describeErr == nil && e.Journal != nil,
 		// trace_writes: AgentTraceSummary accepts writes:true and then may add
 		// the files an edit tool wrote to tool items.
 		"trace_writes": describeErr == nil && e.Journal != nil,
@@ -252,6 +253,10 @@ func (e *Engine) rpcAgentTrace(s *sess, id string, params json.RawMessage) {
 }
 
 func (e *Engine) rpcAgentTraceSummary(s *sess, id string, params json.RawMessage) {
+	e.rpcTraceSummary(s, id, params, false)
+}
+
+func (e *Engine) rpcTraceSummary(s *sess, id string, params json.RawMessage, models bool) {
 	var p struct {
 		Session *string `json:"session"`
 		PaneID  string  `json:"pane_id"`
@@ -275,6 +280,7 @@ func (e *Engine) rpcAgentTraceSummary(s *sess, id string, params json.RawMessage
 		limit = *p.Limit
 	}
 	options := journal.TraceOptions{
+		Models:  models,
 		Markers: p.Markers != nil && *p.Markers, Labels: p.Labels != nil && *p.Labels, Times: p.Times != nil && *p.Times,
 		Writes: p.Writes != nil && *p.Writes,
 	}

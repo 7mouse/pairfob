@@ -92,11 +92,11 @@ func (r *Reader) ReadTraceSummaryWith(ref Ref, cursor *string, limit int, option
 	for _, item := range page.Items {
 		if item.Type == "tool" {
 			items = append(items, TraceSummaryItem{
-				Type: item.Type, Name: item.Name, State: traceToolState(item), DetailRef: item.DetailRef, Label: item.Label, Writes: item.Writes, At: item.At,
+				Type: item.Type, Name: item.Name, State: traceToolState(item), DetailRef: item.DetailRef, Label: item.Label, Writes: item.Writes, At: item.At, Models: item.Models,
 			})
 			continue
 		}
-		items = append(items, TraceSummaryItem{Type: item.Type, Text: item.Text, At: item.At})
+		items = append(items, TraceSummaryItem{Type: item.Type, Text: item.Text, At: item.At, Models: item.Models})
 	}
 	fitSummaryExtras(items)
 	return TraceSummaryPage{Items: items, NextCursor: page.NextCursor, Truncated: page.SummaryTruncated}, nil
@@ -108,7 +108,14 @@ func (r *Reader) ReadTraceSummaryWith(ref Ref, cursor *string, limit int, option
 // detail refs match every view; when the extras overflow, the oldest labels go
 // first, then the oldest written paths, then the oldest times.
 func fitSummaryExtras(items []TraceSummaryItem) {
-	if !slices.ContainsFunc(items, func(item TraceSummaryItem) bool { return item.Label != "" || len(item.Writes) > 0 || item.At != 0 }) {
+	for i := range items {
+		if len(items[i].Models) > 32 {
+			items[i].Models = nil
+		}
+	}
+	if !slices.ContainsFunc(items, func(item TraceSummaryItem) bool {
+		return item.Label != "" || len(item.Writes) > 0 || item.At != 0 || len(item.Models) > 0
+	}) {
 		return
 	}
 	total := 0
@@ -116,6 +123,7 @@ func fitSummaryExtras(items []TraceSummaryItem) {
 		total += summaryItemSize(item)
 	}
 	drops := []func(*TraceSummaryItem) bool{
+		func(item *TraceSummaryItem) bool { dropped := len(item.Models) > 0; item.Models = nil; return dropped },
 		func(item *TraceSummaryItem) bool { dropped := item.Label != ""; item.Label = ""; return dropped },
 		func(item *TraceSummaryItem) bool { dropped := len(item.Writes) > 0; item.Writes = nil; return dropped },
 		func(item *TraceSummaryItem) bool { dropped := item.At != 0; item.At = 0; return dropped },
@@ -160,6 +168,9 @@ func (r *Reader) cacheTracePage(key traceCacheKey, source *transcript, page Trac
 func cloneTracePage(page TracePage) TracePage {
 	copyPage := TracePage{
 		Items: append([]Event(nil), page.Items...), Truncated: page.Truncated, SummaryTruncated: page.SummaryTruncated,
+	}
+	for i := range copyPage.Items {
+		copyPage.Items[i].Models = slices.Clone(copyPage.Items[i].Models)
 	}
 	if page.NextCursor != nil {
 		next := *page.NextCursor
@@ -210,7 +221,11 @@ func readTracePage(source *transcript, ref Ref, end, limit int, parse traceParse
 			view = view[newline+1:]
 			alignedStart += newline + 1
 		}
-		window, err = parseTraceWindow(view, alignedStart, limit, parse, options)
+		windowParser := parse
+		if options.Models {
+			windowParser = traceParserWithModels(ref.Agent, parse)
+		}
+		window, err = parseTraceWindow(view, alignedStart, limit, windowParser, options)
 		if err != nil {
 			return TracePage{}, scanned, err
 		}
@@ -249,6 +264,9 @@ func parseTraceWindow(data []byte, base, limit int, parse traceParser, options T
 		position += lineSize
 		if oversized {
 			window.skipped = true
+			if options.Models {
+				parse(nil)
+			}
 			return true
 		}
 		for ordinal, event := range parse(line) {
@@ -284,6 +302,7 @@ func parseTraceWindow(data []byte, base, limit int, parse traceParser, options T
 				last := &window.items[len(window.items)-1]
 				window.pageBytes -= eventSize(last.Event)
 				last.Text += event.Text
+				last.Models = mergeTraceModels(last.Models, event.Models)
 				var clipped bool
 				last.Event, clipped = clipEvent(last.Event, false)
 				last.Event, clipped = clipEventToLimit(last.Event, maxTraceItemsBytes-window.pageBytes, clipped)
