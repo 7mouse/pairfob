@@ -346,7 +346,7 @@ describe("UI accessibility guardrails", () => {
     expect(rule("html, body")).toMatch(/touch-action:\s*pan-x pan-y pinch-zoom/);
     // The browser entry is styles plus one lifecycle call; the bindings live in
     // the boot module that owns the page lifetime.
-    expect(main).toContain('import "./style.scss"');
+    expect(main).toContain('import "./startup.scss"');
     expect(main).toContain("startApplication()");
     expect(boot).toContain("bindLegacyGestureBoundary(document)");
   });

@@ -1,4 +1,5 @@
-const CACHE = "pairfob-shell-v10";
+const CACHE = "pairfob-shell-v11";
+const PREVIOUS_CACHE = "pairfob-shell-v10";
 const PREF = "pairfob-pref";
 const NOTIFY_DIAGNOSTICS = "pairfob-notification-diagnostics-v1";
 const NOTIFY_LOG = "/__pairfob_notification_diagnostics__";
@@ -66,17 +67,41 @@ function shellAssetPaths(html) {
   return [...html.matchAll(/(?:src|href)=["'](\/assets\/[^"'?#]+)["']/g)].map((match) => match[1]);
 }
 
-async function precacheShell() {
-  const cache = await caches.open(CACHE);
-  await cache.addAll(SHELL);
-  const assets = new Set();
-  for (const path of ["/", "/pair"]) {
-    const response = await cache.match(path);
-    if (!response) continue;
-    const html = await response.text();
-    for (const asset of shellAssetPaths(html)) assets.add(asset);
+// Hashed dependency graphs belong to the HTML that named them. Download only
+// its startup closure; visiting a deferred feature caches that feature's closure.
+const chunkDependencies = new Map();
+let graphRead;
+const assetPath = value => typeof value === "string" && /^\/assets\/[A-Za-z0-9_.-]+$/.test(value);
+function readAssetGraph(graph) {
+  if (graph?.schema !== 1 || !Array.isArray(graph.startup) || !graph.startup.every(assetPath)
+    || !graph.chunks || typeof graph.chunks !== "object" || Array.isArray(graph.chunks)) throw new Error("Invalid asset graph");
+  for (const [file, dependencies] of Object.entries(graph.chunks)) {
+    if (!assetPath(file) || !Array.isArray(dependencies) || !dependencies.every(assetPath)
+      || !dependencies.includes(file)) throw new Error("Invalid chunk dependencies");
   }
-  if (assets.size) await cache.addAll([...assets]);
+  for (const [file, dependencies] of Object.entries(graph.chunks)) chunkDependencies.set(file, dependencies);
+  return graph.startup;
+}
+function graphPath(html) {
+  return html.match(/<meta name="pairfob-assets" content="(\/assets\/pwa-assets-[0-9a-f]{16}\.json)"\s*\/>/)?.[1];
+}
+async function restoreAssetGraphs() {
+  if (!graphRead) graphRead = (async () => {
+    const cache = await caches.open(CACHE);
+    for (const request of await cache.keys()) {
+      if (!/\/assets\/pwa-assets-[0-9a-f]{16}\.json$/.test(request.url)) continue;
+      try { readAssetGraph(await (await cache.match(request)).json()); } catch { /* A corrupt graph cannot authorize dependencies. */ }
+    }
+  })();
+  await graphRead;
+}
+async function precacheShell() {
+  for (const path of SHELL) {
+    const response = await fetch(path);
+    if (!response.ok) throw new Error("Shell unavailable");
+    if (path === "/" || path === "/pair") await cacheShellResponse(path, response);
+    else await cacheSuccessful(path, response);
+  }
 }
 
 self.addEventListener("install", (event) => {
@@ -86,7 +111,7 @@ self.addEventListener("install", (event) => {
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys()
-      .then((keys) => Promise.all(keys.filter((key) => key !== CACHE && key !== NOTIFY_DIAGNOSTICS).map((key) => caches.delete(key))))
+      .then((keys) => Promise.all(keys.filter((key) => key.startsWith("pairfob-shell-") && key !== CACHE && key !== PREVIOUS_CACHE).map((key) => caches.delete(key))))
       .then(() => self.clients.claim())
       .then(() => recordNotificationDiagnostic("notify_sw_active")),
   );
@@ -102,20 +127,56 @@ async function cacheSuccessful(request, response) {
 async function cacheShellResponse(request, response) {
   if (!response.ok || response.type !== "basic") return response;
   const cache = await caches.open(CACHE);
-  const assets = shellAssetPaths(await response.clone().text());
-  if (assets.length) await cache.addAll(assets);
+  const html = await response.clone().text();
+  const assets = new Set(shellAssetPaths(html));
+  const graphURL = graphPath(html);
+  if (graphURL) {
+    const graphResponse = await caches.match(graphURL) || await fetch(graphURL);
+    if (!graphResponse.ok || graphResponse.type !== "basic") throw new Error("Asset graph unavailable");
+    for (const file of readAssetGraph(await graphResponse.clone().json())) assets.add(file);
+    await cache.put(graphURL, graphResponse);
+  }
+  // Publish HTML only once all files required to start THAT build are available.
+  await Promise.all([...assets].map(cacheAsset));
   await cache.put(request, response.clone());
   return response;
 }
 
+const assetReads = new Map();
+async function cacheAsset(request) {
+  const key = new URL(typeof request === "string" ? request : request.url, self.location.origin).href;
+  const cache = await caches.open(CACHE);
+  const current = await cache.match(request);
+  if (current) return current;
+  const previous = await caches.match(request);
+  if (previous) {
+    // Own reused bytes before the older generation can be removed on upgrade.
+    await cache.put(request, previous.clone());
+    return previous;
+  }
+  let pending = assetReads.get(key);
+  if (!pending) {
+    pending = fetch(request).then(response => {
+      if (!response.ok || response.type !== "basic") throw new Error("Asset unavailable");
+      return cacheSuccessful(request, response);
+    }).finally(() => assetReads.delete(key));
+    assetReads.set(key, pending);
+  }
+  return (await pending).clone();
+}
+
 async function cacheFirst(request) {
-  const cached = await caches.match(request);
-  if (cached) return cached;
-  return cacheSuccessful(request, await fetch(request));
+  await restoreAssetGraphs();
+  const path = new URL(typeof request === "string" ? request : request.url, self.location.origin).pathname;
+  // Await static imports and CSS together. No dynamic children are prefetched.
+  await Promise.all((chunkDependencies.get(path) || [path]).map(cacheAsset));
+  return cacheAsset(request);
 }
 
 async function shellNetworkFirst(event, request, fallback) {
-  const cached = await caches.match(request) || await caches.match(fallback);
+  const cache = await caches.open(CACHE);
+  const cached = await cache.match(request) || await cache.match(fallback)
+    || await caches.match(request) || await caches.match(fallback);
   // Cache referenced hashed assets before publishing a newer HTML shell, so an
   // offline load never observes a half-updated app version.
   const network = fetch(request).then((response) => cacheShellResponse(request, response));

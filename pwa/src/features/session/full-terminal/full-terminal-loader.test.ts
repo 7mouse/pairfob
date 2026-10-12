@@ -34,7 +34,7 @@ describe("full-terminal xterm preloader", () => {
     // against the extracted implementation body, not a stale host slice.
     expect(openPaneSource).toContain("export async function openPaneWithOwner");
     expect(openPaneSource).not.toContain("preloadFullTerminal");
-    expect(bootSource).toContain('if (currentSessionTransport() === "p2p") preloadFullTerminalXterm()');
+    expect(bootSource).toContain('if (currentSessionTransport() === "p2p") connectedRuntime()?.preloadFullTerminalXterm()');
   });
 
   test("allows a failed preload to be retried by an explicit terminal open", () => {

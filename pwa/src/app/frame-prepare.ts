@@ -1,7 +1,5 @@
-import { currentViewIncarnation } from "../features/session/drafts/compose-drafts";
-import { prepareFullTerminal } from "../features/session/full-terminal/full-terminal";
-import { presentHerdView } from "../pages/home/herd-bridge";
-import { prepareSessionPaint } from "../features/session/guided/view";
+import { currentViewIncarnation } from "../features/session/drafts/state-drafts";
+import { requireConnectedPresentation } from "./presentation";
 import {
   adoptPreparedFrame, displayedSession, notifySessionOwnerPreparer,
   type FrameSnapshot,
@@ -26,8 +24,8 @@ export function prepareFrame(): FrameSnapshot {
   const showsGuided = layout.mode === "pane" || layout.deskChild === "session";
   // Home and its desktop rail subscribe to their feature-owned view and attention.
   // Preparation still consumes attention once, before either route renders.
-  if (showsHerd) presentHerdView();
-  const scroll = showsGuided ? prepareSessionPaint() : null;
+  if (showsHerd) requireConnectedPresentation().presentHerdView();
+  const scroll = showsGuided ? requireConnectedPresentation().prepareSessionPaint() : null;
   const kind = displayedSession(layout);
   const described = kind
     ? { kind, paneId: openPaneId(), incarnation: currentViewIncarnation() }
@@ -39,7 +37,7 @@ export function prepareFrame(): FrameSnapshot {
     // The full-terminal screen is composed declaratively by <App/> via
     // FullTerminalRoute. Preparation (document mode, renderer reset, status,
     // initial view) runs here before React renders; it creates no screen.
-    prepareFullTerminal();
+    requireConnectedPresentation().prepareFullTerminal();
   }
 
   // A preparer may write ordinary shell fields (font, busy) without requesting

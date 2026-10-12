@@ -36,11 +36,11 @@ function isPaletteChord(event: KeyboardEvent): boolean {
     && event.key.toLowerCase() === "k" && macPlatform();
 }
 
-export function bindPaneKeys(signal: AbortSignal, openPalette: () => void = openCommandPalette): void {
-  signal.addEventListener("abort", bindKeyboardZones(document), { once: true });
+export function bindPaneKeys(signal: AbortSignal, openPalette: () => void = openCommandPalette, inputsAlreadyBound = false): void {
+  if (!inputsAlreadyBound) signal.addEventListener("abort", bindKeyboardZones(document), { once: true });
   // Bound first: a key that proves a hardware keyboard is read as one by every
   // listener after it.
-  signal.addEventListener("abort", bindInputMode(document), { once: true });
+  if (!inputsAlreadyBound) signal.addEventListener("abort", bindInputMode(document), { once: true });
   // From boot: a session opened by a tap is remembered as chosen before any key proves a keyboard.
   watchSessionArrivals();
 

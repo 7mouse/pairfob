@@ -1,0 +1,49 @@
+/* Loaded before the first connected composition. Shared overrides retain their original order. */
+@use "./features/agent-quota/styles/quota";
+@use "./features/session/guided/session-shell";
+@use "./features/session/guided/terminal";
+@use "./features/session/guided/key-flight";
+@use "./features/session/full-terminal/full-terminal";
+@use "./features/session/chat/agent-chat";
+@use "./features/session/chat/work-card";
+@use "./styles/attachments";
+@use "./styles/attachment-viewer";
+@use "./features/session/guided/row-actions";
+@use "./features/session/guided/dock";
+@use "./features/session/guided/compose";
+@use "./features/session/guided/dock-dense";
+@use "./app/layout/styles/desk";
+@use "./app/layout/styles/desk-rail";
+@use "./app/layout/styles/desk-empty";
+@use "./styles/switcher";
+@use "./features/computers/styles/computers";
+@use "./features/settings/styles/settings";
+/* Overlay and operation styles left settings.scss. Emitting the four partials in
+   the former section order keeps every other rule in place; the only positions
+   that change are the two operation-modal phone overrides, which move into the
+   feature sheet where they out-specify the generic rules they cross. */
+@use "./shared/ui/styles/overlay";
+@use "./shared/ui/styles/menu-controls";
+@use "./shared/ui/styles/dialogs";
+@use "./shared/ui/styles/popover";
+@use "./shared/ui/styles/desk-dialog";
+@use "./shared/ui/styles/column-divider";
+@use "./features/session/keypad/quick-command-editor";
+@use "./features/operations/styles/operations";
+@use "./features/operations/styles/create-sheet";
+@use "./features/session/guided/pane-sheet";
+@use "./features/settings/styles/daemon-update";
+@use "./features/workspace/workspace";
+@use "./features/workspace/workspace-media";
+@use "./features/workspace/file-icons";
+@use "./features/workspace/workspace-pending";
+@use "./features/workspace/workspace-inspector";
+@use "./features/command-palette/command-palette";
+@use "./features/board/styles/board";
+@use "./features/board/styles/board-canvas";
+@use "./features/board/styles/pane-menu";
+@use "./features/board/styles/board-chrome";
+@use "./features/board/styles/board-overlays";
+/* One rule for every scroller above, so it follows them. */
+@use "./styles/scrollbars";
+@use "./styles/motion";

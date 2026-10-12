@@ -108,6 +108,43 @@ promising savings.
 
 ## Releases
 
+### PWA performance and asset continuity
+
+`bun run build` in `pwa/` emits a hashed dependency graph alongside the app.
+The service worker caches the startup dependency closure, then each visited
+feature's static dependencies and CSS. It publishes a new cached HTML shell
+only after that shell's startup assets are available. Unvisited features still
+require connectivity; downloading the connected UI precedes consuming a
+one-use pairing ticket.
+Browsers can retain a failed module import until navigation. An interrupted
+feature download therefore asks for an explicit page refresh instead of an
+automatic reload loop; saved credentials remain in place.
+
+`bun run perf:budget` checks the complete static startup graph against gzip
+budgets of 250,000 bytes of JavaScript and 25,000 bytes of CSS. The web gate
+runs this check. Use `--report=<path>` to retain its per-asset measurements.
+Local `performance` marks with the `pairfob:` prefix expose boot, connected
+module readiness, session establishment and first session data/completed terminal write;
+they contain no session content and are not uploaded. Compare cold and warm
+loads separately, and do not substitute laboratory interaction samples for
+field INP or physical-device acceptance.
+
+Before packing a release on a fresh checkout, capture the currently hosted
+assets and use that snapshot as the previous generation:
+
+```sh
+bun scripts/snapshot-pwa-assets.ts https://pairfob.com /tmp/pairfob-hosted-assets
+PAIRFOB_PREVIOUS_ASSETS=/tmp/pairfob-hosted-assets PAIRFOB_PACK_DL=1 ./scripts/verify.sh
+```
+
+Packing retains two prior generations of hashed assets, so existing tabs can
+still download their deferred features after deployment. Without the explicit
+snapshot, packing uses the existing `public-dist/` as its previous generation.
+Retained files are checked for missing dependencies and hash-name collisions;
+do not deploy a fresh pack without a trustworthy previous generation. The
+internal Vite manifest remains in `pwa/dist/` for measurement and is excluded
+from the public tree.
+
 Cross-compile downloadable binaries with `./scripts/release.sh` (SemVer from
 `git tag vX.Y.Z`). Pack the origin (including `/dl/` when `PAIRFOB_PACK_DL=1`)
 with `scripts/pack-origin-assets.sh`.

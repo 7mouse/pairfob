@@ -54,6 +54,7 @@ function resetDomains(): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("./connected-loader")).loadConnectedRuntime();
   phases = [];
   container = document.createElement("div");
   document.body.append(container);

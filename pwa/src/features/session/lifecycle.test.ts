@@ -60,7 +60,7 @@ describe("session lifecycle source contracts", () => {
     expect(desk).not.toContain("registerSessionView");
     expect(desk).not.toContain("bindSessionOwnerFromLive");
     // App's desk composition mounts the real session children declaratively.
-    const app = source("../../app/App.tsx");
+    const app = source("../../app/connected-pages.tsx");
     const deskChild = app.slice(app.indexOf("function deskChild"));
     expect(deskChild).toContain("AgentChatPane");
     expect(deskChild).toContain("SessionPane");
@@ -74,7 +74,7 @@ describe("session lifecycle source contracts", () => {
     // seam: bootstrap installs the real registerSessionView as the owner
     // preparer, frame preparation notifies it before adopting the frame, and
     // App composes the phone chat route declaratively from that prepared frame.
-    const app = source("../../app/App.tsx");
+    const app = source("../../app/connected-pages.tsx");
     const chatCase = app.slice(app.indexOf('case "chat"'));
     expect(chatCase).toContain("<AgentChatPane includeBack handlers={handlers} />");
     expect(chatCase).not.toContain("registerSessionView");
@@ -82,7 +82,7 @@ describe("session lifecycle source contracts", () => {
     expect(chatCase).not.toContain("createRoot");
     // The registered owner port is wired by production bootstrap, outside React.
     const bootstrap = source("../../app/bootstrap.ts");
-    expect(bootstrap).toContain("registerSessionOwnerPreparer(registerSessionView)");
+    expect(bootstrap).toContain("registerSessionOwnerPreparer(runtime.registerSessionView)");
     // Preparation notifies the registered view before the adopted frame is
     // published and React composes the (phone or desk) session child.
     const prepare = source("../../app/frame-prepare.ts");
@@ -117,7 +117,7 @@ describe("session lifecycle source contracts", () => {
     expect(fullTerminal).toBeGreaterThan(-1);
     expect(desk).toBeGreaterThan(-1);
     expect(desk).toBeLessThan(fullTerminal);
-    const app = source("../../app/App.tsx");
+    const app = source("../../app/connected-pages.tsx");
     const pageFor = app.slice(app.indexOf("export function pageFor"));
     // full-terminal is the last case; slice to the end of pageFor.
     const terminalCase = pageFor.slice(pageFor.indexOf('case "full-terminal"'));

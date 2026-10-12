@@ -41,7 +41,7 @@ import {
   type SessionConnector,
   type SessionListener,
 } from "../computers/session-pool";
-import { credentialIsBurned, phaseAfterComputers, sortComputers } from "../../lib/computer-catalog";
+import { credentialIsBurned, phaseAfterComputers } from "../../lib/computer-catalog";
 import { t } from "../../lib/i18n";
 import { FRIENDLY_ERROR, messageOf, sessionEventNotice } from "../../lib/notices";
 import type { NetworkMode } from "../../lib/network-mode";
@@ -50,17 +50,18 @@ import type { LiveSession, ReconnectReason } from "../../lib/protocol/session-ty
 import {
   bumpLiveView,
   cancelEstablish,
-  catalogRequestIsCurrent,
   establishAttemptIsCurrent,
   herdSwitchIsCurrent,
   liveView,
-  nextCatalogRequest,
   nextEstablishAttempt,
   nextHerdSwitch,
 } from "./generations";
 import type { LifecyclePorts } from "./ports";
 import { retireHerdView, retireLiveDomains, type RetirementPorts } from "./retirement";
 import { pauseAttachmentTransfers } from "../session/attachments/attachments-store";
+import { markAppPerformance } from "../../lib/performance-marks";
+import { reloadComputers } from "./catalog-load";
+export { reloadComputers, type ReloadCatalogOptions } from "./catalog-load";
 
 export type LifecycleContext = {
   pool: ComputerSessions;
@@ -85,39 +86,6 @@ function invalidateReads(ports: LifecyclePorts): void {
   bumpLiveView();
   ports.resetPaneReads();
   ports.setRefreshIdle();
-}
-
-export type ReloadCatalogOptions = {
-  /** An establish that lost to a newer one drops its catalog completion. */
-  attempt?: number;
-  /**
-   * Caller-owned acceptance (Core boot-generation contract): captured before
-   * the read, tested after the awaited catalog read and before any canonical
-   * write. Returning false drops the stale completion without a rollback.
-   */
-  shouldApply?: () => boolean;
-};
-
-/**
- * Load the daemon catalog into the computers domain.
- *
- * Overlapping reloads never race: the request generation is captured before
- * the read and checked before any write, so a stale catalog completion cannot
- * overwrite the latest one.
- */
-export async function reloadComputers(
-  ports: LifecyclePorts,
-  options: ReloadCatalogOptions = {},
-): Promise<void> {
-  const request = nextCatalogRequest();
-  const catalog = await ports.loadCatalog(ports.origin());
-  if (!catalogRequestIsCurrent(request)) return;
-  if (options.attempt !== undefined && !stillThisAttempt(options.attempt)) return;
-  if (options.shouldApply && !options.shouldApply()) return;
-  batch(() => {
-    setLastUsedDaemon(catalog.lastUsedDaemonId);
-    setComputers(sortComputers(catalog.credentials, catalog.lastUsedDaemonId));
-  });
 }
 
 /**
@@ -261,6 +229,7 @@ export async function establish(
   ctx: LifecycleContext,
 ): Promise<void> {
   const attempt = nextEstablishAttempt();
+  markAppPerformance("session-establish-start");
   // Plain destination identity captured once. A caller mutating `pair` while
   // any await below is pending cannot retarget this attempt to another daemon.
   const destination: PairResult = {
@@ -341,6 +310,7 @@ export async function establish(
     setScreen("home");
   });
   ctx.ports.track("pwa_live");
+  markAppPerformance("session-established");
   if (!ctx.ports.documentVisible()) ctx.ports.showStatus(t("live.hidden"));
   else ctx.ports.clearNotice();
   ctx.ports.commitView();

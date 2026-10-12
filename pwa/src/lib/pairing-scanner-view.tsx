@@ -10,7 +10,8 @@ import { useQuietFocus } from "../shared/ui/overlay/quiet-focus";
 import { SheetContent } from "../shared/ui/overlay/sheet-content";
 import { bindSheetDrag } from "../shared/ui/overlay/sheet-drag";
 
-export class PairingScanError extends Error {}
+import { PairingScanError } from "./pairing-scan-error";
+export { PairingScanError } from "./pairing-scan-error";
 
 /** A decoded pairing, the reader asking to type the code instead, or a failure to open. */
 type ScanOutcome = { pairing: FragmentPairing } | { typeCode: true } | { failure: unknown };

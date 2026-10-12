@@ -79,6 +79,7 @@ function restoreForeignExtras(): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("./connected-loader")).loadConnectedRuntime();
   setLang("zh");
   resetHerdAttention();
   clearNotice();

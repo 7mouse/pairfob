@@ -52,9 +52,19 @@ for path in icon.svg mask-icon.svg apple-touch-icon.png; do
   fi
 done
 
+# Keep old tabs able to load their own hashed feature chunks after a deployment.
+# Release callers can supply a frozen snapshot of the currently hosted assets;
+# local repeat packs otherwise retain the previous packed build.
+asset_staging="$(mktemp -d)"
+trap 'rm -rf "$asset_staging"' EXIT
+bun "$ROOT/scripts/retain-pwa-assets.ts" "${PAIRFOB_PREVIOUS_ASSETS:-$DEST}" "$PWA" "$asset_staging"
 rm -rf "$DEST"
 mkdir -p "$DEST/css" "$DEST/pair"
 cp -R "$PWA/." "$DEST/"
+cp -R "$asset_staging/assets/." "$DEST/assets/"
+# The internal Vite manifest is build evidence. Only the validated, hashed
+# public dependency graph belongs to the service worker.
+rm -rf "$DEST/.vite"
 # One document serves both locales; home-i18n.js swaps the copy client side.
 # English holds the bare path because that is the head crawlers and unfurlers read.
 cp "$SITE/index.html" "$DEST/index.html"

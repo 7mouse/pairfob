@@ -5,22 +5,11 @@ import { detectLang, initI18n, langPref, setLang, t } from "../lib/i18n";
 import { messageOf } from "../lib/notices";
 import { loadOriginConfig, originConfigErrorIsRecoverable, probeOrigin } from "../lib/origin-config";
 import { track } from "../lib/telemetry";
-import { registerSessionView } from "../features/session/register";
-import { preloadFullTerminalXterm } from "../features/session/full-terminal/full-terminal-loader";
-import { handleFullTerminalVisibility } from "../features/session/full-terminal/full-terminal";
-import { initSwipeBack } from "../features/session/pane-actions";
-import { restoreAgentReadingPosition } from "../features/session/chat/agent-chat-controller";
-import { revealCaretRow, stickBottom } from "../features/session/guided/term";
-import { resumeComputer } from "../features/computers/actions";
-import {
-  reconnectLiveSessions,
-  recoverVisibleSession,
-  reloadComputers,
-  retireAgentTraceRefreshes,
-  setLiveNetworkAvailable,
-  startPolling,
-  stopPolling,
-} from "../features/connection/controller";
+import { connectedRuntime, loadConnectedRuntime, subscribeConnectedRuntime } from "./connected-loader";
+import { reloadComputers as reloadCatalog } from "../features/connection/catalog-load";
+import { loadCatalog } from "../lib/credentials";
+import { bindInputMode } from "./input-mode";
+import { bindKeyboardZones } from "../lib/dom";
 import { applyOriginPairingPolicy, beginPairing } from "../features/pairing/actions";
 import { commitApp } from "./commit";
 import { registerSessionOwnerPreparer, sessionOwnerPreparer } from "./frame";
@@ -46,13 +35,13 @@ import { isAgentChat, isFullTerminal, paneFollow } from "../features/session/ses
 import { resetTransitionState, takeTransition, withTransition } from "./transition";
 import { bindVisualViewport, releaseVisualViewport, DESK_QUERY, ROOMY_QUERY, WIDE_QUERY } from "./viewport";
 import { bindBootRecovery } from "./boot-actions";
-import { bindPaneKeys } from "./pane-keys";
 import { createReachability, type Reachability } from "./reachability";
 import { forgetSavedComputerCount } from "../lib/credentials";
 import type { OriginConfig } from "../lib/origin-config";
 import { recordConnectionDiagnostic } from "../lib/protocol/connection-diagnostics";
 import { bindOverlayOrigin } from "../shared/ui/overlay/origin";
 import { bindNotificationLinks } from "./notification-links";
+import { markAppPerformance, resetAppPerformance } from "../lib/performance-marks";
 
 /**
  * Browser boot and lifecycle.
@@ -94,6 +83,7 @@ function clearBootRetry(): void {
  */
 function retryBlockedBoot(): void {
   if (!running || currentPhase() !== "boot" || !connectionStore.get().bootBlocked
+    || connectionStore.get().bootBlocked === "assets"
     || document.visibilityState === "hidden") return;
   void boot(bootGeneration);
 }
@@ -118,7 +108,7 @@ function pairDespiteSavedComputers(): void {
  */
 function holdBoot(block: BootBlock, generation: number): void {
   setBootBlocked(block);
-  if (document.visibilityState !== "hidden") {
+  if (block !== "assets" && document.visibilityState !== "hidden") {
     bootRetryTimer = window.setTimeout(() => {
       bootRetryTimer = null;
       if (generation === bootGeneration) retryBlockedBoot();
@@ -156,6 +146,8 @@ function commitBootView(): void {
 
 export function startApplication(): () => void {
   if (running) return running;
+  resetAppPerformance();
+  markAppPerformance("boot-start");
   const generation = ++bootGeneration;
   const page = new AbortController();
   const { signal } = page;
@@ -188,6 +180,8 @@ export function startApplication(): () => void {
   try {
     hydrateApplicationState();
     initI18n();
+    // Start the control-plane read before React's first synchronous composition.
+    const configRead = readOriginConfig();
     bindLanguageChange(signal);
     capturePairingFragment();
     bindNotificationLinks(signal);
@@ -195,7 +189,7 @@ export function startApplication(): () => void {
     // first commit: every prepared session composition (phone chat, desk chat,
     // guided, complete terminal) then adopts its owner before React renders.
     // A caller that already injected a preparer (fixture, controller) keeps it.
-    if (!sessionOwnerPreparer()) registerSessionOwnerPreparer(registerSessionView);
+    if (!sessionOwnerPreparer() && connectedRuntime()) registerSessionOwnerPreparer(connectedRuntime()!.registerSessionView);
     mountApp();
     if (running !== stop) return stop;
     bindNetworkLifecycle(signal);
@@ -221,25 +215,32 @@ export function startApplication(): () => void {
       if (currentPhase() === "live" && currentScreen() === "pane" && !isFullTerminal()) {
         schedulePageRaf(() => {
           if (isAgentChat()) {
-            restoreAgentReadingPosition();
+            connectedRuntime()?.restoreAgentReadingPosition();
             return;
           }
-          if (paneFollow()) stickBottom();
+          if (paneFollow()) connectedRuntime()?.stickBottom();
         });
       }
     }, (open) => {
       if (!open || currentPhase() !== "live" || currentScreen() !== "pane" || isFullTerminal() || isAgentChat()) return;
-      schedulePageRaf(revealCaretRow);
+      schedulePageRaf(() => connectedRuntime()?.revealCaretRow());
     }));
     releases.push(bindLegacyGestureBoundary(document));
     releases.push(bindRippleSurface(document));
-    bindPaneKeys(signal);
+    releases.push(bindKeyboardZones(document), bindInputMode(document));
+    releases.push(subscribeConnectedRuntime(runtime => {
+      if (signal.aborted || running !== stop) return;
+      if (!sessionOwnerPreparer()) registerSessionOwnerPreparer(runtime.registerSessionView);
+      runtime.setLiveNetworkAvailable(networkOnline());
+      if (signal.aborted || running !== stop) return;
+      runtime.bindPaneKeys(signal, undefined, true);
+      releases.push(runtime.initSwipeBack());
+    }));
     // Menus present by what opened them (mouse, finger or key), so the page
     // keeps the latest press for the overlay layer to read.
     releases.push(bindOverlayOrigin(document));
-    releases.push(initSwipeBack());
     registerServiceWorkerAfterLoad(signal);
-    void boot(generation);
+    void boot(generation, configRead);
     return stop;
   } catch (error) {
     stop();
@@ -268,9 +269,9 @@ function applyNetworkAvailability(available: boolean): void {
   recordConnectionDiagnostic({ event: "network_lifecycle", phase: currentPhase(),
     hidden: document.visibilityState === "hidden", reason: available ? "online" : "offline" });
   const changed = setNetworkOnline(available);
-  setLiveNetworkAvailable(available);
+  connectedRuntime()?.setLiveNetworkAvailable(available);
   if (!available) {
-    stopPolling();
+    connectedRuntime()?.stopPolling();
     if (currentPhase() === "live") showStatus(t("net.offline"), true);
     commitBootView();
     return;
@@ -280,12 +281,12 @@ function applyNetworkAvailability(available: boolean): void {
     if (bootBlockedByNetwork && currentPhase() === "connect") void boot(bootGeneration);
     return;
   }
-  if (currentSessionTransport() === "p2p") preloadFullTerminalXterm();
+  if (currentSessionTransport() === "p2p") connectedRuntime()?.preloadFullTerminalXterm();
   if (changed) showStatus(t("net.restored"));
-  if (!changed) reconnectLiveSessions("probe");
+  if (!changed) connectedRuntime()?.reconnectLiveSessions("probe");
   if (liveSession()?.isConnected()) {
-    startPolling();
-    void recoverVisibleSession();
+    connectedRuntime()?.startPolling();
+    void connectedRuntime()?.recoverVisibleSession();
   }
   commitBootView();
 }
@@ -307,12 +308,12 @@ function bindNetworkLifecycle(signal: AbortSignal): void {
   }, { once: true });
 
   document.addEventListener("visibilitychange", () => {
-    handleFullTerminalVisibility(document.visibilityState === "hidden");
+    connectedRuntime()?.handleFullTerminalVisibility(document.visibilityState === "hidden");
     if (document.visibilityState === "hidden") {
       clearBootRetry();
       owner.pause();
-      retireAgentTraceRefreshes();
-      stopPolling();
+      connectedRuntime()?.retireAgentTraceRefreshes();
+      connectedRuntime()?.stopPolling();
     } else owner.report();
   }, { signal });
 
@@ -323,7 +324,7 @@ function bindNetworkLifecycle(signal: AbortSignal): void {
     ?? (navigator as Navigator & { mozConnection?: EventTarget }).mozConnection
     ?? (navigator as Navigator & { webkitConnection?: EventTarget }).webkitConnection;
   connection?.addEventListener("change", () => {
-    if (currentPhase() === "live" && networkOnline()) reconnectLiveSessions("path");
+    if (currentPhase() === "live" && networkOnline()) connectedRuntime()?.reconnectLiveSessions("path");
   }, { signal } as AddEventListenerOptions);
 
   window.addEventListener("pageshow", () => {
@@ -345,7 +346,7 @@ function bindResponsiveLayout(signal: AbortSignal): void {
   }
 }
 
-async function boot(generation: number): Promise<void> {
+async function boot(generation: number, firstConfigRead?: Promise<ConfigRead>): Promise<void> {
   if (generation !== bootGeneration) return;
   clearBootRetry();
   setBootBlocked(null);
@@ -356,9 +357,9 @@ async function boot(generation: number): Promise<void> {
   // The catalog is local: read it beside the origin config, so a network
   // failure can never hide saved computers behind the pairing page. The config
   // read always runs: it, not the browser's offline hint, decides reachability.
-  const configRead = readOriginConfig();
+  const configRead = firstConfigRead ?? readOriginConfig();
   try {
-    await reloadComputers(() => generation === bootGeneration);
+    await reloadCatalog({ loadCatalog, origin: () => location.origin }, { shouldApply: () => generation === bootGeneration });
     if (generation !== bootGeneration) return;
   } catch {
     if (generation !== bootGeneration) return;
@@ -369,6 +370,17 @@ async function boot(generation: number): Promise<void> {
     return;
   }
   const saved = computers().length > 0;
+  if (saved) {
+    try {
+      await loadConnectedRuntime();
+      if (generation !== bootGeneration) return;
+    } catch (error) {
+      if (generation !== bootGeneration) return;
+      showError(messageOf(error), true);
+      holdBoot("assets", generation);
+      return;
+    }
+  }
   const read = await configRead;
   if (generation !== bootGeneration) return;
   if (!read.ok) {
@@ -402,7 +414,7 @@ async function boot(generation: number): Promise<void> {
   if (!networkOnline()) {
     recordStaleOfflineHint();
     setNetworkOnline(true);
-    setLiveNetworkAvailable(true);
+    connectedRuntime()?.setLiveNetworkAvailable(true);
   }
   applyOriginConfig(read.config);
   bootRetryDelay = 1500;
@@ -445,7 +457,7 @@ async function boot(generation: number): Promise<void> {
     return;
   }
   trackBoot({ result: "ok", extra: "resume" });
-  await resumeComputer(pair);
+  await connectedRuntime()!.resumeComputer(pair);
   if (generation !== bootGeneration) return;
 }
 

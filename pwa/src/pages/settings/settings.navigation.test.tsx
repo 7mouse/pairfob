@@ -129,6 +129,7 @@ beforeEach(async () => {
   checkpoint.computers = computersStore.get().computers;
   restoreDashboard = captureDashboardProjection();
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
   globalThis.fetch = (async () => new Response("1.1.0")) as typeof fetch;
   registerSessionOwnerPreparer(registerSessionView);

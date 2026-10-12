@@ -14,7 +14,8 @@ import { batch, type DomainView } from "../../shared/model/domain-store";
 import type { ConnectionRecord } from "../connection/connection-store";
 import type { ComputersRecord } from "../computers/catalog-store";
 import type { PairingRecord } from "./form-store";
-import { cancelAddComputer, resumeComputer } from "../../features/computers/actions";
+import { cancelAddComputer } from "../computers/cancel-add";
+import { prepareSessionPresentation, sessionPresentationIsReady } from "../connection/presentation-ready";
 import { FRIENDLY_ERROR, messageOf } from "../../lib/notices";
 import { t } from "../../lib/i18n";
 import { fragmentUsableOnOrigin, parseCodeAndLocator, parsePairingCode, resolveHandPairing } from "../../lib/pairing-input";
@@ -182,6 +183,13 @@ export async function beginPairing(rawCode: string): Promise<void> {
   track("pwa_pairing_start", { extra: scanned ? "qr" : "manual" });
   let reached: PairStepKey = "channel";
   try {
+    // Finish downloading the receiving UI before consuming a one-use pairing
+    // ticket. Cancellation during a slow/offline module read opens no transport.
+    if (!sessionPresentationIsReady()) {
+      await prepareSessionPresentation();
+      if (work !== currentWork()) return;
+    }
+    if (abort.signal.aborted) throw new ProtocolError("pairing_cancelled", t("err.pairing_cancelled"));
     let relay = wsURL();
     let attach: PairInput = scanned ? { pair_ref: scanned.pairRef } : {};
     if (scanned?.daemonId) {
@@ -210,6 +218,8 @@ export async function beginPairing(rawCode: string): Promise<void> {
     });
     if (work !== currentWork()) return;
     await saveCredential(pair);
+    if (work !== currentWork()) return;
+    const { resumeComputer } = await import("../computers/actions");
     if (work !== currentWork()) return;
     batch(() => {
       setPairAwaitingApproval(false);
@@ -372,7 +382,7 @@ export async function pastePairCode(): Promise<void> {
 export async function scanPairCode(): Promise<void> {
   const work = currentWork();
   try {
-    const result = await scanPairingCode(location.origin);
+    const result = await scanPairingCode(location.origin, () => work === currentWork());
     if (!result || work !== currentWork()) return;
     // "Enter the code instead" from the scanner: the scanner has closed, so
     // the code sheet replaces it rather than stacking on it.

@@ -112,6 +112,7 @@ async function addNote(row: HTMLElement, body: string): Promise<void> {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   setLang("zh");
   resetTransitionState();
   setOperationBusy(false);

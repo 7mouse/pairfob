@@ -29,6 +29,7 @@ function seed(instance = "agent-1", terminal = "term-1") {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   savedCredential = credential();
   foreign.capture();
   requestDescriptor = Object.getOwnPropertyDescriptor(navigator, "wakeLock");

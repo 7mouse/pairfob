@@ -1,5 +1,5 @@
 import "./tailwind.css";
-import "./style.scss";
+import "./startup.scss";
 import { startApplication } from "./app/bootstrap";
 
 /**

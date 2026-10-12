@@ -64,6 +64,7 @@ function mountLiveOn(screen: "settings" | "quota"): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
   registerSessionOwnerPreparer(registerSessionView);
   resetTransitionState();

@@ -140,6 +140,7 @@ function boot(): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   resetTransitionState();
   registerSessionOwnerPreparer(registerSessionView);
   act(() => { clearNotice(); mountApp(); });

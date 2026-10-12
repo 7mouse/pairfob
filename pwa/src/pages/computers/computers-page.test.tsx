@@ -98,6 +98,7 @@ beforeEach(async () => {
   checkpoint.screen = navigationStore.get().screen;
   checkpoint.computers = computersStore.get().computers;
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
   registerSessionOwnerPreparer(registerSessionView);
   resetTransitionState();

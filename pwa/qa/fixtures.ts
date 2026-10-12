@@ -4,6 +4,7 @@ import { bindRippleSurface } from "../src/lib/dom";
 import { bindLegacyGestureBoundary } from "../src/lib/gesture-boundary";
 import { commitView } from "../src/app/host";
 import { mountApp, unmountApp, isAppMounted } from "../src/app/mount";
+import { loadConnectedRuntime } from "../src/app/connected-loader";
 import { registerSessionOwnerPreparer, sessionOwnerPreparer } from "../src/app/frame";
 import { registerSessionView } from "../src/features/session/register";
 import { bindVisualViewport, applyVisualViewport, DESK_QUERY, ROOMY_QUERY, WIDE_QUERY } from "../src/app/viewport";
@@ -56,6 +57,7 @@ function rect(element: Element): FixtureRect {
 const isReactElement = (element: Element) => Object.keys(element).some((key) => key.startsWith("__reactFiber$"));
 
 export async function createFixtureAPI(language: "zh" | "en", initialScene: string): Promise<FixtureAPI> {
+  await loadConnectedRuntime();
   let currentScene = initialScene;
   let ready = false;
   let preparing = false;

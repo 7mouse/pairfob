@@ -115,6 +115,7 @@ function observeCommits(): {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   setLang("zh");
   visible("visible");
   vibrations.length = 0;

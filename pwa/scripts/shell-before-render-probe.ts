@@ -43,6 +43,9 @@ mock.module(`${pwaRoot}/src/pages/boot/index.tsx`, () => ({
   BootScreen: MeasuringBoot, BootShell: MeasuringBoot, UnreachableShell: MeasuringBoot, UnreachableDesk: MeasuringBoot,
 }));
 
+mock.module(`${pwaRoot}/src/pages/boot/boot-screen.tsx`, () => ({ BootScreen: MeasuringBoot }));
+mock.module(`${pwaRoot}/src/pages/boot/reading-frame.tsx`, () => ({ ReadingFrame: MeasuringBoot }));
+
 const { mountApp, unmountApp, isAppMounted } = await import("../src/app/mount");
 const { getAppFrame } = await import("../src/app/frame");
 const { setPhase } = await import("../src/features/connection/connection-store");

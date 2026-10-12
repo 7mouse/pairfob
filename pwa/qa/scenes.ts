@@ -6,7 +6,7 @@ import { clearAllDiffNotes } from "../src/lib/diff-notes";
 import { t } from "../src/lib/i18n";
 import { NO_OPERATION_CAPABILITIES } from "../src/lib/operations";
 import { applyOriginConfig, clearNotificationTarget, clearPairingFragment, noteRelayRtt, setNetworkMode,
-  setNetworkOnline, setPhase, setSessionTransport, setConnectFailure, setRetryingUnreachable } from "../src/features/connection/connection-store";
+  setNetworkOnline, setPhase, setSessionTransport, setConnectFailure, setRetryingUnreachable, setBootBlocked } from "../src/features/connection/connection-store";
 import { setConnectionRecordSource } from "../src/features/connection/connection-path";
 import { applyRuntimeIdentity, resetRuntime, applyDeviceList, setPushEnabled, setPushSubscribed,
   setDevicesError, setPushConfigError, beginSettingsRead, setIdentityPending } from "../src/features/connection/runtime-store";
@@ -65,6 +65,7 @@ import { paneScreen, wideScreen } from "./terminal-screens";
 
 export const scenes: FixtureScene[] = [
   { name: "boot", description: "Initial credential loading" },
+  { name: "boot-assets", description: "Interrupted feature download: explicit refresh without forgetting saved computers" },
   { name: "resuming", description: "Saved computer reconnecting" },
   { name: "resuming-slow", description: "Reconnect past 8 s: pairfob.com reached, waiting on the computer" },
   { name: "resuming-slow-relay", description: "Reconnect past 8 s: still waiting on pairfob.com" },
@@ -300,6 +301,7 @@ export function resetFixtureBaseline(session: FixtureSession): void {
   setConnectionRecordSource(null);
   setConnectFailure("");
   setRetryingUnreachable(false);
+  setBootBlocked(null);
   setPhase("live");
   setScreen("home");
   setComputersFrom("home");
@@ -364,6 +366,7 @@ export function resetFixtureBaseline(session: FixtureSession): void {
 export async function applyScene(name: string, session: FixtureSession): Promise<void> {
   if (!scenes.some((scene) => scene.name === name)) throw new Error(`Unknown QA scene: ${name}`);
   if (name === "boot" || name === "resuming") { setPhase(name); return; }
+  if (name === "boot-assets") { setPhase("boot"); setBootBlocked("assets"); return; }
   if (name.startsWith("resuming-slow")) {
     // The fixture clock is frozen, so the recorded attempt simply started 9 s earlier.
     const started = FIXED_NOW - 9_000;

@@ -86,6 +86,7 @@ beforeEach(async () => {
   checkpoint.origin = { protocol: connectionStore.get().originProtocol, p2p: connectionStore.get().p2pEnabled };
   checkpoint.notice = noticesStore.get().notice;
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
   registerSessionOwnerPreparer(registerSessionView);
   setLang("zh");

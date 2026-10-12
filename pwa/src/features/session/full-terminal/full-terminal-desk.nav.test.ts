@@ -192,6 +192,7 @@ let baselineLang: ReturnType<typeof lang> = "zh";
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   resetTransitionState();
   resetComposeDrafts();
   baselineLang = lang();

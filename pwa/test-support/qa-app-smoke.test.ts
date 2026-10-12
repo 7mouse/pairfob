@@ -19,8 +19,8 @@ import { act } from "react";
  * (no WebGL/PTY): the open/frame/close lifecycle is production code. The two
  * `shellOnly` scenes deliberately render the standalone FullTerminalScreen
  * shell fixture without an engine. Coverage is reported honestly:
- * 112 scenes render through the stable App (including the 5 mock-engine
- * terminals), 2 shellOnly scenes render the QA shell fixture — all 114 catalog
+ * 113 scenes render through the stable App (including the 5 mock-engine
+ * terminals), 2 shellOnly scenes render the QA shell fixture — all 115 catalog
  * scenes are exercised here; the browser matrix remains the full visual
  * contract.
  *
@@ -113,6 +113,7 @@ let domReady = false;
 
 beforeAll(async () => {
   await resetBoardTestDOM();
+  await (await import("../src/app/connected-loader")).loadConnectedRuntime();
   happy.happyDOM.setWindowSize({ width: 390, height: 844 });
   installEnvironment();
   // Bun and HappyDOM have separate global/window fetch; the browser fixture has one.
@@ -195,7 +196,7 @@ function assertPaneRoot(expectedPane: string): void {
 }
 
 test("every QA scene id + untitled built", () => {
-  expect(scenes.length).toBe(114);
+  expect(scenes.length).toBe(115);
   const seen = new Set<string>();
   for (const scene of scenes) {
     expect(seen.has(scene.name)).toBeFalse();
@@ -204,7 +205,7 @@ test("every QA scene id + untitled built", () => {
   }
 });
 
-test("every scene renders: 112 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
+test("every scene renders: 113 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
   expect(domReady).toBeTrue();
   const failures: string[] = [];
   const appRendered: string[] = [];
@@ -259,8 +260,8 @@ test("every scene renders: 112 through the stable App (incl. mock-engine termina
   }
   expect(failures).toEqual([]);
   expect(shellRendered).toEqual(["terminal-loading", "terminal-error"]);
-  expect(appRendered).toHaveLength(112);
-  expect(appRendered.length + shellRendered.length).toBe(114);
+  expect(appRendered).toHaveLength(113);
+  expect(appRendered.length + shellRendered.length).toBe(115);
 }, 180_000);
 
 test("attention QA scenes show all statuses and runtime replacement without filter pills", async () => {
@@ -736,6 +737,6 @@ test("scene names and descriptions are documented for the window.qa surface", ()
   const names = scenes.map((scene) => scene.name);
   expect(names).toContain("terminal-loading");
   expect(names).toContain("terminal-error");
-  expect(names.length).toBe(114);
+  expect(names.length).toBe(115);
   for (const scene of scenes) expect(scene.description).toBeTruthy();
 });

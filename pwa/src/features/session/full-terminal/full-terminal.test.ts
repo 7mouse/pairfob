@@ -10,7 +10,7 @@ const view = await Bun.file(new URL("../guided/session-pane.tsx", import.meta.ur
 // no longer the chain that leaves full-terminal (asserted as negatives below).
 const pane = await Bun.file(new URL("../pane-actions.ts", import.meta.url)).text();
 const paneActions = pane;
-const appSource = await Bun.file(new URL("../../../app/App.tsx", import.meta.url)).text();
+const appSource = await Bun.file(new URL("../../../app/connected-pages.tsx", import.meta.url)).text();
 const framePrepare = await Bun.file(new URL("../../../app/frame-prepare.ts", import.meta.url)).text();
 const swipe = await Bun.file(new URL("../guided/pane-swipe.ts", import.meta.url)).text();
 

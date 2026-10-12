@@ -171,6 +171,7 @@ async function waitUntil(predicate: () => boolean, label: string): Promise<void>
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
   resetTransitionState();
   resetComposeDrafts();

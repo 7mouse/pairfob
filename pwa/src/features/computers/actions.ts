@@ -145,30 +145,7 @@ export function beginAddComputer(): void {
   });
 }
 
-export function cancelAddComputer(): void {
-  retirePairingWork();
-  abortPairingInput();
-  batch(() => {
-    clearPairingFragment();
-    setAddingComputer(false);
-    clearNotice();
-  });
-  // Abort and notice publication can retire the session. Read the owner after
-  // those side effects, not from a boolean captured before abort.
-  if (liveSession() !== null) {
-    batch(() => {
-      setPhase("live");
-      setScreen("computers");
-    });
-    startPolling();
-    void refreshFromSession();
-    return;
-  }
-  batch(() => {
-    setPhase(computers().length ? "pick" : "connect");
-    setScreen("home");
-  });
-}
+export { cancelAddComputer } from "./cancel-add";
 
 export async function switchComputer(daemonId: string): Promise<void> {
   const current = phase();

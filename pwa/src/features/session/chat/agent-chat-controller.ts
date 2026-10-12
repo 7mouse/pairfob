@@ -1,5 +1,6 @@
 import { createPromptProgress } from "./prompt-progress";
 import { capabilityEnabled, operationBusy } from "../../operations/capabilities-store";
+import { markAppPerformance } from "../../../lib/performance-marks";
 import {
   applyTrace,
   applyTracePage as adoptTracePage,
@@ -478,6 +479,7 @@ async function performAgentTraceRefresh(older = false): Promise<boolean> {
       });
       if (retiredTrace(request, ownerVersion, session, paneId)) return false;
       changed = applied || changed;
+      markAppPerformance("first-session-data");
       pulls += 1;
       rememberTrace(paneId);
       if (applied || pulls === 1) {

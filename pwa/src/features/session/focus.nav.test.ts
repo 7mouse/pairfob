@@ -107,6 +107,7 @@ let restorePointer: (() => void) | null = null;
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   resetTransitionState();
   resetComposeDrafts();
   registerSessionOwnerPreparer(registerSessionView);

@@ -23,7 +23,7 @@ export type Phase = "boot" | "connect" | "pairing" | "resuming" | "live" | "pick
  * the catalog could not be read, the origin config could not be read, or the
  * browser reports no network. None of these is a request to pair again.
  */
-export type BootBlock = "storage" | "origin" | "offline";
+export type BootBlock = "storage" | "origin" | "offline" | "assets";
 
 export type ConnectionRecord = {
   phase: Phase;

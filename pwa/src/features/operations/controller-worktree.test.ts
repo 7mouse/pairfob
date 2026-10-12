@@ -79,6 +79,7 @@ function boot(): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
   setLang("zh");
   registerSessionOwnerPreparer(registerSessionView);

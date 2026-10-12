@@ -153,6 +153,7 @@ async function boot(live: LiveSession = liveFixture()): Promise<LiveSession> {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   setLang("zh");
   resetTransitionState();
   setOperationBusy(false);

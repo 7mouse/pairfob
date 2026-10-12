@@ -185,6 +185,7 @@ async function startCreate(): Promise<{ task: Promise<void> }> {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../src/app/connected-loader")).loadConnectedRuntime();
   setLang("zh");
   resetComposeDrafts();
   resetTransitionState();

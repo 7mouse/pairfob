@@ -1,4 +1,3 @@
-import { init, parse } from 'es-module-lexer';
 import { installPreviewFetch } from './preview-fetch';
 import { dataURL, PREVIEW_ORIGIN, type PreviewResource } from './preview-resources';
 
@@ -54,6 +53,7 @@ export async function preparePreviewDocument(source: string, base: string, read:
     return text;
   };
   const moduleText = async (text: string, from: string): Promise<string> => {
+    const { init, parse } = await import("es-module-lexer");
     await init;
     const [refs] = parse(text);
     for (const ref of [...refs].reverse()) {

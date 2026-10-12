@@ -37,6 +37,7 @@ const originalFetch = globalThis.fetch;
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
   globalThis.fetch = (async () => new Response("2.0.0")) as typeof fetch;
   registerSessionOwnerPreparer(registerSessionView);

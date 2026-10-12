@@ -26,6 +26,7 @@ const app = appRoot();
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   setLang("zh");
   resetTransitionState();
   registerSessionOwnerPreparer(registerSessionView);

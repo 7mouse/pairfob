@@ -16,7 +16,10 @@ step "PWA tests" bun test src
 step "PWA QA" bun run test:qa
 step "PWA types" bun run typecheck
 step "PWA QA types" bun run typecheck:qa
+step "PWA performance tooling" bun run test:performance
+step "PWA asset retention" bun test "$ROOT/scripts/retain-pwa-assets.test.ts"
 step "PWA build" bun run build
+step "PWA startup budget" bun run perf:budget
 step "origin pack (includes docs build)" bash "$ROOT/scripts/pack-origin-assets.sh"
 test -f "$ROOT/workers/pairfob-origin/public-dist/install.sh"
 test -f "$ROOT/workers/pairfob-origin/public-dist/doc/index.html"

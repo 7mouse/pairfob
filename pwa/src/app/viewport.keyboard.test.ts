@@ -60,7 +60,7 @@ describe("the row being typed into stays visible", () => {
     const main = await Bun.file(new URL("./bootstrap.ts", import.meta.url)).text();
     const term = await Bun.file(new URL("../features/session/guided/term.ts", import.meta.url)).text();
     expect(main).toContain("if (!open ||");
-    expect(main).toContain("schedulePageRaf(revealCaretRow)");
+    expect(main).toContain("schedulePageRaf(() => connectedRuntime()?.revealCaretRow())");
     const reveal = term.slice(term.indexOf("export function revealCaretRow"));
     expect(reveal).toContain("if (wanted <= term.scrollTop) return;");
     expect(reveal).toContain("row * 2");

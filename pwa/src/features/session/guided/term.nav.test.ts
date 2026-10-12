@@ -81,6 +81,7 @@ function click(label: string): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   resetTransitionState();
   resetComposeDrafts();
   registerSessionOwnerPreparer(registerSessionView);

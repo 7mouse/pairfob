@@ -1,6 +1,5 @@
 import { computers, currentDaemonId } from "../features/computers/catalog-store";
-import { switchComputer } from "../features/computers/actions";
-import { refreshFromSession } from "../features/connection/controller";
+import { loadConnectedRuntime } from "./connected-loader";
 import {
   captureNotificationTarget, clearNotificationTarget, connectionStore,
   networkOnline, notificationGeneration, notificationTarget, phase,
@@ -18,9 +17,19 @@ type NotificationPorts = {
 };
 
 /** Page lifetime owns warm links; boot still owns cold links and credential loading. */
-export function bindNotificationLinks(signal: AbortSignal, ports: NotificationPorts = {
-  switchComputer, refresh: refreshFromSession,
-}): void {
+export function bindNotificationLinks(signal: AbortSignal, ports?: NotificationPorts): void {
+  const dispatch: NotificationPorts = ports ?? {
+    async switchComputer(daemonId) {
+      const generation = notificationGeneration();
+      const runtime = await loadConnectedRuntime();
+      if (!signal.aborted && generation === notificationGeneration()) await runtime.switchComputer(daemonId);
+    },
+    async refresh() {
+      const generation = notificationGeneration();
+      const runtime = await loadConnectedRuntime();
+      if (!signal.aborted && generation === notificationGeneration()) await runtime.refreshFromSession();
+    },
+  };
   let scheduled = false;
   let busy = false;
   let attempted = notificationGeneration();
@@ -61,11 +70,11 @@ export function bindNotificationLinks(signal: AbortSignal, ports: NotificationPo
       } else if (current !== "live" || currentDaemonId() !== target.daemonId) {
         diagnose("notify_dispatch", "switch_computer", generation);
         // Establishment obtains a fresh snapshot and consumes the pending link.
-        await ports.switchComputer(target.daemonId);
+        await dispatch.switchComputer(target.daemonId);
       } else {
         diagnose("notify_dispatch", "refresh", generation);
         // Snapshot consumption also returns named Herdr sessions to default.
-        await ports.refresh();
+        await dispatch.refresh();
       }
     } catch (error) {
       diagnose("notify_error", "error", generation);

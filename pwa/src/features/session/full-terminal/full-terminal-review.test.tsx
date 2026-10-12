@@ -138,6 +138,7 @@ function pointer(button: HTMLElement): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   resetTransitionState();
   resetComposeDrafts();
   setLang("zh");

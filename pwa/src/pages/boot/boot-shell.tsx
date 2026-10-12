@@ -5,6 +5,7 @@ import { resumeComputer } from "../../features/computers/actions";
 import { computers, credential } from "../../features/computers/catalog-store";
 import { connectionWait, SLOW_CONNECT_MS, type PathHop } from "../../features/connection/connection-path";
 import { phase as currentPhase, retryingUnreachable } from "../../features/connection/connection-store";
+import { ReadingFrame } from "./reading-frame";
 import { HerdSkeleton } from "../../features/dashboard/components/herd-skeleton";
 import { MenuChoice, showActionSheet } from "../../shared/ui/overlay";
 import { Button, StatusDot } from "../../shared/ui/primitives";
@@ -28,6 +29,7 @@ export function BootShell() {
   const { bootBlocked } = useConnection();
   if (bootBlocked) return <div className="page herd-page boot-shell"><BootRecovery block={bootBlocked} /></div>;
   const reading = currentPhase() === "boot";
+  if (reading) return <ReadingFrame />;
   return !reading && retryingUnreachable() ? <UnreachableShell retrying /> : <BootFrame reading={reading} />;
 }
 

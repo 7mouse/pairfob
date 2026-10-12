@@ -49,13 +49,14 @@ test("the shipped worker serves the freshly primed shell when navigation exceeds
     match: async (request: Request | string) => cached.get(key(request))?.clone(),
     put: async (request: Request | string, response: Response) => { cached.set(key(request), response); },
     addAll: async () => undefined,
+    keys: async () => [...cached.keys()].map(url => new Request(url)),
   };
   let handler!: (event: { request: Request; respondWith: (response: Promise<Response>) => void; waitUntil: (work: Promise<unknown>) => void }) => void;
   let slow = false;
   let finishNetwork!: (response: Response) => void;
-  const upstream = async (request: Request) => {
+  const upstream = async (request: Request | string) => {
     if (slow) return new Promise<Response>(resolve => { finishNetwork = resolve; });
-    const response = new URL(request.url).pathname === "/pair" ? html() : new Response("asset");
+    const response = new URL(key(request)).pathname === "/pair" ? html() : new Response("asset");
     Object.defineProperty(response, "type", { value: "basic" });
     return response;
   };

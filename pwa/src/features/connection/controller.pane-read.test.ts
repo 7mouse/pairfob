@@ -154,6 +154,7 @@ function flipToDone(): void {
 describe("desk pane reads repaint the installed App once", () => {
   beforeEach(async () => {
     await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
     happy.happyDOM.setWindowSize({ width: 1280, height: 800 });
     resetGenerationsForTests();
     registerSessionOwnerPreparer(registerSessionView);

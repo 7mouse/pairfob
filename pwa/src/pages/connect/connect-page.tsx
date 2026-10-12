@@ -3,7 +3,7 @@ import { useCallback, useLayoutEffect, useRef, useSyncExternalStore } from "reac
 import { useComputers } from "../../features/computers/hooks";
 import { useConnection } from "../../features/connection/hooks";
 import { usePairing } from "../../features/pairing/hooks";
-import { cancelAddComputer } from "../../features/computers/actions";
+import { cancelAddComputer } from "../../features/computers/cancel-add";
 import {
   connectPageInput, cancelPairing, disposePairingPageTransport, onPairSubmit, pastePairCode,
   scanPairCode, setManualPairOpen, setPairCode, retirePairingWork,
@@ -18,6 +18,7 @@ import { isRoomy, ROOMY_QUERY } from "../../app/viewport";
 import { appRoot } from "../../app/dom-root";
 import { langRevision, subscribeLang, t } from "../../lib/i18n";
 import { showHelp } from "../../shared/ui/overlay";
+import { markAppPerformance } from "../../lib/performance-marks";
 
 /**
  * Connect/pairing page composition.
@@ -103,6 +104,7 @@ function showPairfobInstall(): void {
 export function ConnectScreen() {
   const { view } = useConnectView();
   usePairingPageOwner();
+  useLayoutEffect(() => { if (!view.busy) markAppPerformance("connect-interactive"); }, [view.busy]);
   // Where the code is typed on the page, the keyboard lands on its field: on
   // load, and again when a handshake hands the page back. A touch screen gets
   // no focus it did not ask for; the code sheet focuses its own field.

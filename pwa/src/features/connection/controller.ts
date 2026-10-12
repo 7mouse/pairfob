@@ -1,3 +1,5 @@
+import { bindCatalogSessionRestoration } from "../computers/cancel-add";
+import { markAppPerformance } from "../../lib/performance-marks";
 import { bindInactiveNetworkPreference } from "../settings/network-preference";
 import { acceptDaemonVersion, markDaemonConfigIncompatible } from "../settings/daemon-update";
 import { t } from "../../lib/i18n";
@@ -434,6 +436,7 @@ async function performPaneRead(owner: PaneReadOwner, startedAt: number): Promise
     if (!paneReadOwnerIsCurrent(owner) || currentScreen() !== "pane") return null;
     const nextText = typeof read?.text === "string" ? read.text : "";
     const nextHash = typeof read?.hash === "string" ? read.hash : "";
+    markAppPerformance("first-session-data");
     const same = nextHash !== "" && nextHash === sessionStore.get().paneHash && nextText === sessionStore.get().paneText;
     applyPaneRead(nextText, nextHash);
     const acknowledged = acknowledgePaneCompletion(paneId);
@@ -541,3 +544,6 @@ export function stopPolling(): void {
   recoveryLane = null;
   livePolling.stop();
 }
+
+// A pairing-page cancel can restore the already installed live owner synchronously.
+bindCatalogSessionRestoration(() => { startPolling(); void refreshFromSession(); });

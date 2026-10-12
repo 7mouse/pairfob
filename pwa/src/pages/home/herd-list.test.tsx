@@ -122,6 +122,7 @@ function reactOwned(element: Element): boolean {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   foreign.capture();
   captureForeignExtras();
   Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });

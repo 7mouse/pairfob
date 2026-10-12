@@ -37,6 +37,7 @@ async function settle(work?: () => void) {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("./connected-loader")).loadConnectedRuntime();
   previousLang = lang();
   previousMode = defaultTermMode();
   onlineDescriptor = Object.getOwnPropertyDescriptor(navigator, "onLine");

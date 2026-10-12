@@ -68,6 +68,7 @@ async function mount(): Promise<HTMLElement> {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
   happy.happyDOM.setWindowSize({ width: 1440, height: 900 });
   registerSessionOwnerPreparer(registerSessionView);

@@ -250,6 +250,12 @@ function staticAssetHeaders(path: string, ok: boolean, contentType: string | nul
   if (isPairAppPath(path)) {
     return { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store, no-transform" };
   }
+  // Build-generated, content-addressed assets can be reused across reloads.
+  // Never make an HTML fallback or an unsuccessful response immutable.
+  if (/^\/assets\/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]{8,}\.(?:js|css|json|wasm|png|svg|webp|woff2?)$/.test(path)
+    && contentType && !contentType.toLowerCase().includes("text/html")) {
+    return { "Cache-Control": "public, max-age=31536000, immutable" };
+  }
   // Marketing and docs have no Wasm; `/pair` keeps the PWA-specific policy above.
   if (isMarketingDocument(path) || isDocPath(path)) {
     const headers: Record<string, string> = { "Content-Security-Policy": CSP_SITE };

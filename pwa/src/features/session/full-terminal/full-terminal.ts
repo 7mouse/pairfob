@@ -7,6 +7,7 @@ import type { Terminal } from "@xterm/xterm";
 import { agentTitle } from "../../../lib/dashboard";
 import { copy, t, type LocalizedText } from "../../../lib/i18n";
 import { canInterruptAgent } from "../../connection/runtime-status";
+import { markAppPerformance } from "../../../lib/performance-marks";
 import {
   ProtocolError,
   TerminalFrameAssembler,
@@ -706,6 +707,7 @@ export function handleFullTerminalEvent(event: SessionEvent): boolean {
           if (terminal === writer && bridgeVersion === writeVersion) {
             pendingWriteBytes = Math.max(0, pendingWriteBytes - frame.data.byteLength);
             fullTerminalPerf.writeCompleted(performance.now() - writeStartedAt, commandMarker);
+            markAppPerformance("first-terminal-write");
             terminalRecovery?.firstFrame();
           }
         });

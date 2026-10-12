@@ -107,6 +107,7 @@ async function boot(live: LiveSession = liveFixture()): Promise<void> {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   resetTransitionState();
   clearWorkspacePendingReveal();
   resetWorkspaceNavigationSeam();

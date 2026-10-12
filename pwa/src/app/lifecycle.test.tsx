@@ -77,6 +77,7 @@ function resetLifecycleDomains(): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("./connected-loader")).loadConnectedRuntime();
   happy.happyDOM.setWindowSize({ width: 390, height: 844 });
   registerSessionOwnerPreparer(null);
   resetLifecycleDomains();

@@ -163,6 +163,7 @@ async function waitUntil(predicate: () => boolean, label: string): Promise<void>
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   resetTransitionState();
   resetComposeDrafts();
   registerSessionOwnerPreparer(registerSessionView);

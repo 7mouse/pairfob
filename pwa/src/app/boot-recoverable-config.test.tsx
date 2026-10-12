@@ -191,6 +191,7 @@ function dispatchRecoveryEvents(): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("./connected-loader")).loadConnectedRuntime();
   registerSessionOwnerPreparer(null);
   originalOnline = Object.getOwnPropertyDescriptor(navigator, "onLine");
   originalIndexedDB = Object.getOwnPropertyDescriptor(globalThis, "indexedDB");

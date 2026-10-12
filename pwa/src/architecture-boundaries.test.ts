@@ -100,6 +100,7 @@ const layers: LayerPolicy[] = [
     prohibitedModules: applicationModules,
     prohibitedRoots: ["ui/", "pages/", "app/"],
     exclude: [
+      "features/connection/catalog-load",
       "features/connection/controller",
       "features/connection/generations",
       "features/connection/lifecycle",
@@ -134,7 +135,7 @@ const layers: LayerPolicy[] = [
     allowedModules: [],
     prohibitedModules: applicationModules,
     prohibitedRoots: ["ui/", "pages/", "app/"],
-    exclude: ["features/computers/actions"],
+    exclude: ["features/computers/actions", "features/computers/cancel-add"],
   },
   {
     // Computers picker. Opaque seams are the domain layer, live/state reached
@@ -302,6 +303,7 @@ describe("architecture layer boundaries", () => {
     ]);
     expect(connectedAdapters("features/agent-quota")).toEqual(["features/agent-quota/actions"]);
     expect(connectedAdapters("features/connection")).toEqual([
+      "features/connection/catalog-load",
       "features/connection/controller",
       "features/connection/generations",
       "features/connection/lifecycle",
@@ -314,7 +316,7 @@ describe("architecture layer boundaries", () => {
       "features/connection/session-events",
       "features/connection/snapshot",
     ]);
-    expect(connectedAdapters("features/computers")).toEqual(["features/computers/actions"]);
+    expect(connectedAdapters("features/computers")).toEqual(["features/computers/actions", "features/computers/cancel-add"]);
     expect(connectedAdapters("features/pairing")).toEqual(["features/pairing/actions"]);
     expect(connectedAdapters("features/settings")).toEqual([
       "features/settings/actions",
