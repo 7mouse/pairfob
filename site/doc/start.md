@@ -1,13 +1,13 @@
 ---
 title: Get started
-description: Install Herdr and pairfob once, then continue from another device.
+description: Install pairfob once (it installs Herdr if missing), then continue from another device.
 ---
 
 # Get started
 
 This project's official instance is `https://pairfob.com`. Herdr must be able to run on the computer. macOS and Linux are supported; Windows is not yet.
 
-Four steps: install Herdr → install Pairfob → pair → open a session.
+Four steps: check prerequisites → install Pairfob (and Herdr if missing) → pair → open a session.
 
 ## What you need
 
@@ -18,7 +18,9 @@ Four steps: install Herdr → install Pairfob → pair → open a session.
 | `curl` | The install script downloads the binary |
 | A browser on another device | Phone, tablet, or another computer |
 
-## 1. Herdr is installed on the computer
+## 1. Check the computer
+
+Keep the macOS or Linux computer awake and online while using your phone. Herdr 0.8 or newer is required, but you do not need to install it separately: the installer in step 2 asks before installing pinned Herdr 0.8.2 if it is missing. It does not upgrade an existing Herdr installation. Without a terminal to ask in (no TTY, or `--non-interactive`), it does not install Herdr; run `curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr` instead.
 
 Pairfob does not replace Herdr. Agents still run here, but Herdr does not need to be open before Pairfob starts. When `pairfob` launches and finds Herdr offline, it starts it. Running `herdr` later attaches to that same server, so the sessions already opened from the phone are not copies.
 
@@ -30,7 +32,7 @@ If automatic startup fails, the phone explicitly says Herdr is not running. Run 
 curl -fsSL https://pairfob.com/install.sh | sh
 ```
 
-This downloads `pairfob`, enrolls with the official instance at `https://pairfob.com`, and installs a user-level login service.
+This downloads `pairfob`, checks Herdr and starts it if needed, enrolls with the official instance at `https://pairfob.com`, and installs a user-level login service.
 
 The service starts after you log in, not at power-on. Sleeping with the lid closed, or logging out, stops it until you return to that same session.
 
@@ -59,6 +61,8 @@ After the other side proves the code, press **Enter** once in the computer termi
 Details and errors: [Pairing](/pair).
 
 ## 4. Open a session
+
+If you have no sessions yet, open Herdr on the computer and start Codex, Claude, or another agent in your project.
 
 Herdr sessions appear in the Pairfob list. Tapping a card opens that session on the computer, not a copy.
 

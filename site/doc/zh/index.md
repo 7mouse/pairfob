@@ -84,8 +84,8 @@ pageClass: pf-intro
 ## 最短路径
 
 <ol class="pf-track">
-<li><p>电脑上装好 Herdr；pairfob 启动时会拉起它</p></li>
-<li><p><a href="./install">安装</a> <code>pairfob</code>：<code>curl -fsSL https://pairfob.com/install.sh | sh</code></p></li>
+<li><p>macOS 或 Linux 电脑保持唤醒并联网；agent 在这里的 Herdr 0.8+ 里运行</p></li>
+<li><p><a href="./install">安装</a> <code>pairfob</code>：<code>curl -fsSL https://pairfob.com/install.sh | sh</code>；缺少 Herdr 时，安装脚本会先询问再安装</p></li>
 <li><p>电脑执行 <code>pairfob pair</code>，另一台设备打开 <a href="/pair">pairfob.com/pair</a></p></li>
 <li><p>手机扫码后，在电脑终端按一次 Enter 确认</p></li>
 </ol>
