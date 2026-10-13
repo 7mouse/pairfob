@@ -54,7 +54,6 @@ function fileSnapshot(revealFile: boolean): WorkspaceSnapshot {
     notesEpoch: 0,
     revealNav: false,
     revealFile,
-    revealDiff: false,
   };
 }
 

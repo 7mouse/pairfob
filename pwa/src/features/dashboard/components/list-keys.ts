@@ -45,7 +45,8 @@ const STOP = `${HEADING}, ${ROW}`;
 /** A stop's own controls. A row's actions behind a swipe are out of reach and not among them. */
 const INNER = ".card-actions:not([aria-hidden='true']) .card-action, .group-mark, .group-tool";
 
-const shown = (control: Element) => control.closest("[hidden]") === null;
+/** Not in a folded group, and not a row kept only for its exit: both are `inert`. */
+const shown = (control: Element) => control.closest("[hidden], [inert]") === null;
 
 function stopsOf(list: Element): HTMLElement[] {
   return [...list.querySelectorAll<HTMLElement>(STOP)].filter(shown);
@@ -201,7 +202,7 @@ export function bindListKeys(rail: HTMLElement): () => void {
   }, { signal });
 
   const drawn = typeof MutationObserver === "undefined" ? null : new MutationObserver(settle);
-  drawn?.observe(rail, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "aria-pressed", "disabled"] });
+  drawn?.observe(rail, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden", "inert", "aria-pressed", "disabled"] });
   settle();
   return () => {
     lifetime.abort();

@@ -6,7 +6,7 @@ import { useMemo } from "react";
 import { highlightSource, type SyntaxToken } from "../../lib/syntax-highlight";
 import { t } from "../../lib/i18n";
 import type { GitChangeKind } from "../../lib/workspace";
-import { Button } from "../../shared/ui/primitives";
+import { Button, Swap } from "../../shared/ui/primitives";
 import { loadWorkspaceFile, refreshWorkspace } from "./actions";
 import { openDetailMenu } from "./detail-menu";
 import { viewWorkspaceChanges } from "./file-actions";
@@ -45,7 +45,7 @@ function sourceLines(path: string, content: string): SyntaxToken[][] {
 export function DetailIdentity({ path }: { path: string }) {
   return <span className="workspace-detail-ident">
     <FileIcon kind="file" path={path} />
-    <strong className="workspace-detail-name">{path}</strong>
+    <Swap as="strong" on={path} className="workspace-detail-name">{path}</Swap>
   </span>;
 }
 

@@ -42,7 +42,6 @@ export type WorkspaceModel = {
   media: WorkspaceMediaView;
   revealNav: boolean;
   revealFile: boolean;
-  revealDiff: boolean;
 };
 
 type DeepReadonly<T> = T extends (...args: never) => unknown ? T
@@ -79,7 +78,6 @@ export type WorkspaceSnapshot = Readonly<{
   notesEpoch: number;
   revealNav: boolean;
   revealFile: boolean;
-  revealDiff: boolean;
 }>;
 
 export const WORKSPACE_PENDING_DELAY_MS = 180;
@@ -111,7 +109,6 @@ export function emptyWorkspaceModel(): WorkspaceModel {
     media: emptyMediaView(),
     revealNav: false,
     revealFile: false,
-    revealDiff: false,
   };
 }
 

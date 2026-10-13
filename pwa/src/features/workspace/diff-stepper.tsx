@@ -1,6 +1,6 @@
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { t } from "../../lib/i18n";
-import { Button } from "../../shared/ui/primitives";
+import { Button, Swap } from "../../shared/ui/primitives";
 import { stepWorkspaceDiff, workspaceDiffStep } from "./actions";
 import type { WorkspaceSnapshot } from "./model";
 import { useKeyHint } from "./workspace-keys";
@@ -18,15 +18,15 @@ export function DiffStepper({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   if (!snapshot.status) return null;
   const step = workspaceDiffStep();
   if (step.total < 1) return null;
+  const where = t("workspace.stepPosition", { index: step.index + 1, total: step.total });
   return <nav className="workspace-stepper" aria-label={t("workspace.changes")}>
     <Button className="icon-btn workspace-step" aria-label={t("workspace.prevChangeLabel")} title={prevKey.title(t("workspace.prevChangeLabel"))}
       aria-keyshortcuts={prevKey.keys}
       disabled={!step.prev || snapshot.loading} onClick={() => stepWorkspaceDiff(-1)}>
       <ChevronLeft size={18} aria-hidden="true" />
     </Button>
-    {step.index >= 0 && <span className="workspace-step-where" aria-live="polite">
-      {t("workspace.stepPosition", { index: step.index + 1, total: step.total })}
-    </span>}
+    {/* The count marks its own change; the element that announces it stays, so it is announced. */}
+    {step.index >= 0 && <span className="workspace-step-where" aria-live="polite"><Swap on={where}>{where}</Swap></span>}
     <Button className="icon-btn workspace-step" aria-label={t("workspace.nextChangeLabel")} title={nextKey.title(t("workspace.nextChangeLabel"))}
       aria-keyshortcuts={nextKey.keys}
       disabled={!step.next || snapshot.loading} onClick={() => stepWorkspaceDiff(1)}>

@@ -135,6 +135,98 @@ describe("fitting the field to its draft", () => {
   });
 });
 
+describe("a draft that is gone gives its lines back over a moment", () => {
+  afterEach(() => {
+    document.documentElement.style.removeProperty("--vv-height");
+    for (const el of document.querySelectorAll("body > textarea, body > .full-terminal-pad")) el.remove();
+  });
+
+  type Move = { frames: Keyframe[]; duration: number; cancelled: boolean };
+
+  /** A field `height` px tall holding one line of content, in `host`, that records the moves played on it. */
+  async function tallField(height: number, host: HTMLElement = document.body): Promise<{ el: HTMLTextAreaElement; moves: Move[]; drawn: (px: number) => void }> {
+    await resetBoardTestDOM();
+    document.documentElement.style.setProperty("--vv-height", "900px");
+    const el = document.createElement("textarea");
+    document.body.append(host === document.body ? el : host);
+    if (host !== document.body) host.append(el);
+    let box = height;
+    const moves: Move[] = [];
+    Object.defineProperties(el, {
+      scrollHeight: { configurable: true, get: () => 41 },
+      clientHeight: { configurable: true, get: () => box - 2 },
+      offsetHeight: { configurable: true, get: () => box },
+      animate: {
+        configurable: true,
+        value: (frames: Keyframe[], options: KeyframeAnimationOptions) => {
+          const move: Move = { frames, duration: Number(options.duration), cancelled: false };
+          moves.push(move);
+          return { addEventListener: () => undefined, cancel: () => { move.cancelled = true; } };
+        },
+      },
+    });
+    return { el, moves, drawn: (px) => { box = px; } };
+  }
+
+  test("an emptied field eases from the height it had to its one line, over an element's duration", async () => {
+    const { el, moves } = await tallField(85);
+    fitComposeHeight(el);
+    // The inline height is final at once: what reads the field's size reads where it is going.
+    expect(el.style.height).toBe(`${COMPOSE_MIN_PX}px`);
+    expect(moves).toEqual([{ frames: [{ height: "85px" }, { height: `${COMPOSE_MIN_PX}px` }], duration: 180, cancelled: false }]);
+  });
+
+  test("a field that still holds a draft changes height on the frame the draft changes", async () => {
+    const { el, moves } = await tallField(85);
+    el.value = "one line left";
+    fitComposeHeight(el);
+    expect(el.style.height).toBe(`${COMPOSE_MIN_PX}px`);
+    expect(moves).toEqual([]);
+  });
+
+  test("the same empty field measured again plays nothing", async () => {
+    const { el, moves, drawn } = await tallField(COMPOSE_MIN_PX);
+    fitComposeHeight(el);
+    drawn(COMPOSE_MIN_PX);
+    fitComposeHeight(el);
+    expect(moves).toEqual([]);
+  });
+
+  test("the complete terminal's field never eases: its height is the computer's rows", async () => {
+    const pad = document.createElement("div");
+    pad.className = "full-terminal-pad";
+    const { el, moves } = await tallField(85, pad);
+    fitComposeHeight(el);
+    expect(el.style.height).toBe(`${COMPOSE_MIN_PX}px`);
+    expect(moves).toEqual([]);
+  });
+
+  test("a fit that arrives mid-collapse takes the move off before it measures, and goes on from where the box was drawn", async () => {
+    const { el, moves, drawn } = await tallField(85);
+    fitComposeHeight(el);
+    // Half way down when the next fit comes.
+    drawn(66);
+    fitComposeHeight(el);
+    expect(moves[0].cancelled).toBeTrue();
+    expect(moves[1].frames).toEqual([{ height: "66px" }, { height: `${COMPOSE_MIN_PX}px` }]);
+  });
+
+  test("a reader who asked for less motion gets the drop at once", async () => {
+    const { el, moves } = await tallField(85);
+    const real = window.matchMedia;
+    window.matchMedia = ((query: string) => ({ matches: query.includes("prefers-reduced-motion") })) as typeof window.matchMedia;
+    (globalThis as { matchMedia?: unknown }).matchMedia = window.matchMedia;
+    try {
+      fitComposeHeight(el);
+    } finally {
+      window.matchMedia = real;
+      (globalThis as { matchMedia?: unknown }).matchMedia = real;
+    }
+    expect(el.style.height).toBe(`${COMPOSE_MIN_PX}px`);
+    expect(moves).toEqual([]);
+  });
+});
+
 describe("a field shortened under its draft keeps the caret's line in view", () => {
   // Six 21px lines over 10px of padding: 145px of content in a field cut to 104.
   const field = { paddingTop: 10, paddingBottom: 10, clientHeight: 104, scrollHeight: 145 };

@@ -16,6 +16,9 @@ import { toggleTermSelect } from "./term";
  * A short landscape screen has no end to spare: the buffer is a few rows tall
  * and the scroll rail lies in a row of its own under it. There the hint takes
  * the room beside the rail, where it covers neither a line nor a button.
+ *
+ * When the mode ends the pane keeps the hint for an exit's length (`leaving`):
+ * it goes back the way it came, inert, while the buffer's ring fades with it.
  */
 export type HintEnd = "top" | "bottom";
 
@@ -59,7 +62,7 @@ function measureRailRoom(stage: Element): RailRoom | null {
   return roomBesideRail(stage.getBoundingClientRect(), term.getBoundingClientRect(), rail.getBoundingClientRect());
 }
 
-export function SelectHint() {
+export function SelectHint({ leaving = false }: { leaving?: boolean } = {}) {
   const root = useRef<HTMLDivElement>(null);
   const [end, setEnd] = useState<HintEnd>("top");
   const [rail, setRail] = useState<RailRoom | null>(null);
@@ -100,7 +103,7 @@ export function SelectHint() {
   const room = rail
     ? { "--select-hint-start": `${rail.start}px`, "--select-hint-end": `${rail.end}px` } as CSSProperties
     : undefined;
-  return <div ref={root} className={`select-hint${where}`} style={room} role="status">
+  return <div ref={root} className={`select-hint${where}${leaving ? " is-leaving" : ""}`} style={room} role="status" inert={leaving}>
     <span className="select-hint-label"><b>{t("rowbar.selecting")}</b> · {t("rowbar.selectingHint")}</span>
     <Button className="select-done" onClick={() => toggleTermSelect(false)}>{t("rowbar.done")}</Button>
   </div>;

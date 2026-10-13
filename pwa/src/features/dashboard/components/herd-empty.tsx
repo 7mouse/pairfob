@@ -1,7 +1,7 @@
-import { ChevronRight, CircleAlert, Folder, Plus, RefreshCw, SlidersHorizontal, Terminal } from "lucide-react";
-import { useState } from "react";
+import { Check, ChevronRight, CircleAlert, Folder, Plus, RefreshCw, SlidersHorizontal, Terminal } from "lucide-react";
 import { t } from "../../../lib/i18n";
-import { Button } from "../../../shared/ui/primitives";
+import { useCopied } from "../../../shared/react/use-copied";
+import { Button, CopyAck } from "../../../shared/ui/primitives";
 import type { HerdActions } from "../actions";
 import type { HerdEmptyAction, HerdEmptyView } from "../model/herd-view";
 import { HerdSkeleton } from "./herd-skeleton";
@@ -98,21 +98,25 @@ function EmptyActions({ empty, actions }: { empty: HerdEmptyView; actions: HerdA
   );
 }
 
-/** A command to run on the computer; the copy result replaces the button label for a moment. */
+/**
+ * A command to run on the computer. The copy result shows on the button for a
+ * moment, in the room the button already has, so the command beside it is
+ * never cut differently.
+ */
 export function CommandLine({ command, label }: { command: string; label?: string }) {
-  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
+  const [copied, confirm] = useCopied<"copied" | "failed">();
   const copy = () => {
     // Called inside the tap: some browsers only allow clipboard writes there.
     const write = navigator.clipboard?.writeText(command) ?? Promise.reject(new Error("no clipboard"));
-    void write.then(() => setState("copied"), () => setState("failed"));
-    window.setTimeout(() => setState("idle"), 1600);
+    void write.then(() => confirm("copied"), () => confirm("failed"));
   };
   return (
     <div className="herd-empty-command">
       {label ? <span className="herd-empty-command-label">{label}</span> : null}
       <code>{command}</code>
       <Button className="text-link herd-empty-copy" onClick={copy} aria-label={t("empty.copyAria", { command })}>
-        {state === "copied" ? t("empty.copied") : state === "failed" ? t("empty.copyFailed") : t("empty.copy")}
+        <CopyAck state={copied ?? "idle"} idle={t("empty.copy")}
+          copied={<><Check size={13} aria-hidden="true" />{t("empty.copied")}</>} failed={t("empty.copyFailed")} />
       </Button>
     </div>
   );

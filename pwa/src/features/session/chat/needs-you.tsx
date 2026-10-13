@@ -7,7 +7,9 @@ import { ProtocolError } from "../../../lib/protocol/errors";
 import { messageOf } from "../../../lib/notices";
 import { liveSession } from "../../computers/catalog-store";
 import { useSession } from "../hooks";
-import { Button, Spinner } from "../../../shared/ui/primitives";
+import { Button, Fold, Spinner } from "../../../shared/ui/primitives";
+import { usePresence } from "../../../shared/react/use-presence";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 
 /** Must match the daemon's guarded read (internal/daemon/rpc_input.go guardedPaneReadLines). */
 const GUARDED_LINES = 80;
@@ -46,9 +48,13 @@ type Phase = "reading" | "ready" | "sending" | "sent";
  * screen shows no list. A numbered choice is answered here: the keys go with
  * the screen's hash and question, so the daemon refuses them if the prompt
  * changed since the reader saw it. Nothing retries; any failure only re-reads.
+ *
+ * `raised`: the agent stopped while the reader was watching this turn. The card
+ * rises in and takes the one sweep a row on the session list takes when it
+ * starts waiting. A card drawn for an agent already waiting is still.
  */
-export function NeedsYouCard({ ask, onTerminal, onAnswered }: {
-  ask: PendingAsk | null; onTerminal?: () => void; onAnswered?: () => void;
+export function NeedsYouCard({ ask, raised = false, onTerminal, onAnswered }: {
+  ask: PendingAsk | null; raised?: boolean; onTerminal?: () => void; onAnswered?: () => void;
 }) {
   const paneId = useSession().paneId;
   const titleId = useId();
@@ -58,6 +64,10 @@ export function NeedsYouCard({ ask, onTerminal, onAnswered }: {
   const [phase, setPhase] = useState<Phase>("reading");
   const [choice, setChoice] = useState<number | null>(null);
   const [note, setNote] = useState<{ text: string; warn: boolean } | null>(null);
+  // The line shuts over its last words, then they go.
+  const lastNote = useRef(note);
+  if (note) lastNote.current = note;
+  const said = usePresence(note !== null, MOTION_MS.panel).mounted ? note ?? lastNote.current : null;
   const live = useRef({ mounted: true, phase: "reading" as Phase, hash: "", answered: "", stale: 0, timers: [] as number[] });
   live.current.phase = phase;
   useEffect(() => () => {
@@ -131,7 +141,7 @@ export function NeedsYouCard({ ask, onTerminal, onAnswered }: {
 
   const busy = phase === "sending" || phase === "sent";
   const excerpt = !dialog && screen ? screenExcerpt(screen.text) : [];
-  return <section ref={card} className="needs-card" aria-labelledby={titleId}>
+  return <section ref={card} className={`needs-card${raised ? " rise-in is-raised" : ""}`} aria-labelledby={titleId}>
     <p className="needs-title" id={titleId}><TriangleAlert size={16} aria-hidden="true" />{t("needs.title")}</p>
     {dialog ? <>
       {dialog.context.length > 0 && <pre className="needs-screen" aria-label={t("needs.screenAria")}>{dialog.context.join("\n")}</pre>}
@@ -149,12 +159,18 @@ export function NeedsYouCard({ ask, onTerminal, onAnswered }: {
         : !ask && phase !== "reading" ? <p className="needs-generic">{t("needs.generic")}</p> : null}
     </>}
     {phase === "reading" && !screen && <p className="needs-note"><Spinner />{t("needs.reading")}</p>}
-    {note && <p className={`needs-note${note.warn ? " is-warn" : ""}`} role={note.warn ? "alert" : "status"}>{note.text}</p>}
-    <div className="needs-actions">
-      {dialog && <Button className="btn btn-primary btn-small needs-send" disabled={choice === null || busy || !screen?.hash}
-        onClick={() => void send()}>{phase === "sending" ? t("needs.sending") : t("needs.send")}</Button>}
-      {onTerminal && <Button className={`btn btn-small needs-go${dialog ? "" : " btn-primary"}`} onClick={onTerminal}>
-        <SquareTerminal size={15} aria-hidden="true" />{t("needs.go")}</Button>}
+    <div className="needs-foot">
+      {/* Only ever the outcome of something done here, so each one is new: its line folds open under the
+          answer, and keyed by what it says a second one fades in. */}
+      <Fold open={note !== null} className="needs-fold">
+        {said && <p key={said.text} className={`needs-note needs-outcome${said.warn ? " is-warn" : ""}`} role={said.warn ? "alert" : "status"}>{said.text}</p>}
+      </Fold>
+      <div className="needs-actions">
+        {dialog && <Button className="btn btn-primary btn-small needs-send" disabled={choice === null || busy || !screen?.hash}
+          onClick={() => void send()}>{phase === "sending" ? t("needs.sending") : t("needs.send")}</Button>}
+        {onTerminal && <Button className={`btn btn-small needs-go${dialog ? "" : " btn-primary"}`} onClick={onTerminal}>
+          <SquareTerminal size={15} aria-hidden="true" />{t("needs.go")}</Button>}
+      </div>
     </div>
   </section>;
 }

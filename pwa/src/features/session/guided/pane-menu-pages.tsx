@@ -47,21 +47,24 @@ function useKindChoice(sourceKind?: string) {
   const [lastKind] = useState(() => loadLastAgentKind(kinds));
   const [kind, setKind] = useState(() => defaultAgentKind(kinds, lastKind, sourceKind));
   const [picking, setPicking] = useState(false);
+  // The form that returns from the list comes back as a page popped, once.
+  const [back, setBack] = useState(false);
+  const leavePicker = () => { setPicking(false); setBack(true); };
   // Escape takes back the list first, then the page it stands in for.
-  useEscapeStep(picking, () => setPicking(false));
+  useEscapeStep(picking, leavePicker);
   const grid = <>
     <AgentKindGrid kinds={kinds} memory={memory} selected={kind} lastKind={lastKind} onSelect={setKind} onShowAll={() => setPicking(true)} />
     {!kinds.length ? <p className="create-hint">{t("create.noKinds")}</p> : null}
   </>;
   const picker = picking ? <PanePage key="picker" tall>
-    <AgentKindPickerPanel kinds={kinds} memory={memory} selected={kind} onBack={() => setPicking(false)}
-      onPick={(next) => { setKind(next); setPicking(false); }} onPinsChange={setMemory} />
+    <AgentKindPickerPanel kinds={kinds} memory={memory} selected={kind} onBack={leavePicker}
+      onPick={(next) => { setKind(next); leavePicker(); }} onPinsChange={setMemory} />
   </PanePage> : null;
-  return { kind, grid, picker };
+  return { kind, grid, picker, formClass: `create-sheet-body pane-create${back ? " is-back" : ""}` };
 }
 
 export function NewTabPage({ modal, agent }: { modal: ActionSheetController; agent: AgentCard }) {
-  const { kind, grid, picker } = useKindChoice();
+  const { kind, grid, picker, formClass } = useKindChoice();
   const [label, setLabel] = useState("");
   const run = useSheetRun(modal);
   const reason = useOperationGate();
@@ -78,7 +81,7 @@ export function NewTabPage({ modal, agent }: { modal: ActionSheetController; age
   const onEnter = usePageEnter(submit);
   if (picker) return picker;
   return <PanePage key="form">
-    <div ref={run.form} className="create-sheet-body pane-create" onKeyDown={onEnter}>
+    <div ref={run.form} className={formClass} onKeyDown={onEnter}>
       <fieldset className="pane-fieldset" disabled={run.pending}>
         <h3 className="create-label">{t("create.where")}</h3>
         <div className="pane-where">
@@ -101,7 +104,7 @@ export function NewTabPage({ modal, agent }: { modal: ActionSheetController; age
 }
 
 export function SplitPage({ modal, agent }: { modal: ActionSheetController; agent: AgentCard }) {
-  const { kind, grid, picker } = useKindChoice(agent.agent);
+  const { kind, grid, picker, formClass } = useKindChoice(agent.agent);
   const [direction, setDirection] = useState<SplitDirection>("right");
   const run = useSheetRun(modal);
   const reason = useOperationGate();
@@ -116,7 +119,7 @@ export function SplitPage({ modal, agent }: { modal: ActionSheetController; agen
   const onEnter = usePageEnter(submit);
   if (picker) return picker;
   return <PanePage key="form">
-    <div ref={run.form} className="create-sheet-body pane-create" onKeyDown={onEnter}>
+    <div ref={run.form} className={formClass} onKeyDown={onEnter}>
       <fieldset className="pane-fieldset" disabled={run.pending}>
         <h3 className="create-label">{t("pm.splitWhere")} <span className="create-optional">{t("pm.splitWhereHint")}</span></h3>
         <SplitPreview agent={agent} direction={direction} onDirection={setDirection} />

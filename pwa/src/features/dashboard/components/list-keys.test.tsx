@@ -228,10 +228,11 @@ describe("the arrows", () => {
       await keys(step);
       walk.push(focused());
     }
+    // Under a mouse the tools are drawn before the marks, and the keys follow what is drawn.
     expect(walk).toEqual([
-      t("list.markBlockedAria", { count: "1" }), t("list.markDoneAria", { count: "1" }),
       t("list.newTabIn", { workspace: "alpha" }), t("list.workspaceMenu", { workspace: "alpha" }),
-      t("list.workspaceMenu", { workspace: "alpha" }), t("list.newTabIn", { workspace: "alpha" }),
+      t("list.markBlockedAria", { count: "1" }), t("list.markDoneAria", { count: "1" }),
+      t("list.markDoneAria", { count: "1" }), t("list.markBlockedAria", { count: "1" }),
     ]);
     expect(calls).toEqual([]);
     act(() => row("a2").focus());

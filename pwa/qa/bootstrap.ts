@@ -11,7 +11,9 @@ if (!/^\/src\/[a-zA-Z0-9/_-]+\.scss$/.test(style)) throw new Error("Invalid QA s
 
 await import("/src/tailwind.css");
 await import(/* @vite-ignore */ style);
-installStablePaint();
+// `motion=1` leaves animation and transitions running, for looking at motion itself;
+// every other use keeps the frozen paint the saved captures were taken with.
+if (query.get("motion") !== "1") installStablePaint();
 
 const { createFixtureAPI } = await import("./fixtures");
 window.qa = await createFixtureAPI(language, scene);

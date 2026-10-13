@@ -19,6 +19,8 @@
  * camera keys (0 fit, ⌘/Ctrl ± zoom) live here with the camera, and every
  * camera written here is bounded so the board cannot leave its viewport
  * (`settleCamera`); when the viewport's box changes the camera follows it.
+ * Only the keys travel to their camera (`travelCamera`): whatever a hand is
+ * moving is painted where the hand is.
  */
 import type { TabLayout } from "../../../lib/layout";
 import type { LayoutDirection } from "../../../lib/operations";
@@ -35,6 +37,7 @@ import {
   cameraWithinViewport,
   fitCameraToViewport,
   settleCamera,
+  travelCamera,
   viewportCenter,
   wheelPanWithinViewport,
   zoomCameraAtPoint,
@@ -182,6 +185,11 @@ export function bindBoardCanvasGestures(
     if (next) writeCamera(next);
   }
 
+  /** A camera key is one press, like the toolbar's buttons: the stage travels (`travelCamera`). */
+  function travelTo(camera: BoardCamera | null): void {
+    if (camera) travelCamera(stage, camera, (next) => ports.writeCamera(next));
+  }
+
   /** Move and zoom the board with the two fingers as they are now. */
   function pinchStep(): void {
     pinchMoved.clear();
@@ -327,7 +335,8 @@ export function bindBoardCanvasGestures(
       const { session, paneId, tile } = lift;
       lift = null;
       const result = session.finish();
-      if (result.target && result.direction) void ports.commitSwap?.(paneId, result.direction);
+      // The tile waits over its target until the swap is over, whichever way it ends.
+      if (result.target && result.direction) void Promise.resolve(ports.commitSwap?.(paneId, result.direction)).finally(result.putDown);
       else if (!result.moved && tile.isConnected) ports.openMenu?.(paneId, origin, tile);
       event.preventDefault();
       return;
@@ -419,13 +428,13 @@ export function bindBoardCanvasGestures(
     if (retired || event.defaultPrevented || event.altKey) return;
     const modified = event.metaKey || event.ctrlKey;
     if (!modified && !event.shiftKey && event.key === "0") {
-      writeCamera(fitCameraToViewport(viewport, layout));
+      travelTo(fitCameraToViewport(viewport, layout));
     } else if (modified && (event.key === "=" || event.key === "+")) {
       const center = viewportCenter(viewport);
-      zoomAt(center.x, center.y, ports.readCamera().scale * KEY_ZOOM_FACTOR);
+      travelTo(zoomCameraAtPoint(ports.readCamera(), viewport, center.x, center.y, ports.readCamera().scale * KEY_ZOOM_FACTOR));
     } else if (modified && event.key === "-") {
       const center = viewportCenter(viewport);
-      zoomAt(center.x, center.y, ports.readCamera().scale / KEY_ZOOM_FACTOR);
+      travelTo(zoomCameraAtPoint(ports.readCamera(), viewport, center.x, center.y, ports.readCamera().scale / KEY_ZOOM_FACTOR));
     } else {
       return;
     }

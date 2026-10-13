@@ -672,7 +672,9 @@ test("an empty list says why in the main column at desk width, and on the phone 
         const main = document.querySelector("#app.desk .main .desk-empty")!;
         expect(`${name}: ${main.querySelector("h2.empty-title")?.textContent}`).toBe(`${name}: ${title}`);
         expect(main.querySelector(".empty-sub")?.textContent).toBeTruthy();
-        expect([...main.querySelectorAll("button")].map((button) => `${button.textContent?.replace("⌘K", "")}${button.disabled ? "!" : ""}`)).toEqual(buttons);
+        // A copy button holds its confirmation too; it says the wording that is showing.
+        const says = (button: Element) => (button.querySelector('.copy-ack-face[aria-hidden="false"]') ?? button).textContent?.replace("⌘K", "");
+        expect([...main.querySelectorAll("button")].map((button) => `${says(button)}${button.disabled ? "!" : ""}`)).toEqual(buttons);
         // A session can be started from here only on a computer that is simply empty.
         expect(main.querySelectorAll(".btn-primary:not(:disabled)")).toHaveLength(name === "home-empty" ? 1 : 0);
         expect(document.querySelector(".rail .herd-empty.is-beside")?.textContent ?? null).toBe(note);

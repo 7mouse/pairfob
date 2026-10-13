@@ -19,7 +19,11 @@ const { attachLiveSession } = await import("../../computers/catalog-store.ts");
 const { applySnapshot } = await import("../../dashboard/catalog-store.ts");
 import { happy as happyDom } from "../../../../test-support/dom";
 
+const { flushSync } = await import("react-dom");
+
 const app = appRoot();
+/** The card's head says whether its steps are open. */
+const expanded = (card: Element): boolean => card.querySelector(".work-head")?.getAttribute("aria-expanded") === "true";
 
 const SEED_ITEMS = [
   { type: "user" as const, text: "inspect this" },
@@ -70,10 +74,10 @@ beforeEach(async () => {
 describe("agent-chat keeps expanded steps while older pages load", () => {
   test("an open step card survives prepended history", async () => await act(async () => {
     bootIdleChat();
-    const card = app.querySelector("details.work-card");
-    if (!(card instanceof happy.HTMLDetailsElement)) throw new Error("missing step card");
-    card.open = true;
-    expect(app.querySelector("details.work-card")?.hasAttribute("open")).toBe(true);
+    const card = app.querySelector(".work-card");
+    if (!(card instanceof happy.HTMLElement)) throw new Error("missing step card");
+    flushSync(() => card.querySelector<HTMLButtonElement>("button.work-head")!.click());
+    expect(expanded(app.querySelector(".work-card")!)).toBe(true);
 
     applyTrace({
       agentTraceItems: [
@@ -84,16 +88,16 @@ describe("agent-chat keeps expanded steps while older pages load", () => {
     });
     expect(patchAgentChat({ older: true, top: 0, height: 40 })).toBe(true);
 
-    const next = app.querySelector("details.work-card");
-    if (!(next instanceof happy.HTMLDetailsElement)) throw new Error("step card vanished");
-    expect(next.open).toBe(true);
+    const next = app.querySelector(".work-card");
+    if (!(next instanceof happy.HTMLElement)) throw new Error("step card vanished");
+    expect(expanded(next)).toBe(true);
   }));
 
   test("a finished turn collapses its card and keeps the markdown reply visible", async () => await act(async () => {
     bootIdleChat();
-    const card = app.querySelector("details.work-card");
-    if (!(card instanceof happy.HTMLDetailsElement)) throw new Error("missing step card");
-    expect(card.open).toBe(false);
+    const card = app.querySelector(".work-card");
+    if (!(card instanceof happy.HTMLElement)) throw new Error("missing step card");
+    expect(expanded(card)).toBe(false);
     expect(card.querySelector(".work-title")?.textContent).toBeTruthy();
     expect(app.querySelector(".agent-md strong")?.textContent).toBe("fine");
   }));
@@ -105,9 +109,9 @@ describe("agent-chat keeps expanded steps while older pages load", () => {
       panes: [{ pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "working" }],
     }));
     expect(patchAgentChat({ follow: true })).toBe(true);
-    const live = app.querySelector("details.work-card");
-    if (!(live instanceof happy.HTMLDetailsElement)) throw new Error("missing live card");
-    expect(live.open).toBe(true);
+    const live = app.querySelector(".work-card");
+    if (!(live instanceof happy.HTMLElement)) throw new Error("missing live card");
+    expect(expanded(live)).toBe(true);
     // Live, or unconfirmed when this harness has no connection; never done.
     expect(["work-card is-running", "work-card is-stale"]).toContain(live.className);
 
@@ -116,9 +120,9 @@ describe("agent-chat keeps expanded steps while older pages load", () => {
       panes: [{ pane_id: "p1", workspace_id: "w1", agent: "codex", agent_status: "idle" }],
     }));
     expect(patchAgentChat({ follow: true })).toBe(true);
-    const done = app.querySelector("details.work-card");
-    if (!(done instanceof happy.HTMLDetailsElement)) throw new Error("missing done card");
-    expect(done.open).toBe(false);
+    const done = app.querySelector(".work-card");
+    if (!(done instanceof happy.HTMLElement)) throw new Error("missing done card");
+    expect(expanded(done)).toBe(false);
     expect(app.querySelector(".agent-md strong")?.textContent).toBe("fine");
   }));
 });

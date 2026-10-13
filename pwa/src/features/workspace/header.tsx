@@ -1,7 +1,7 @@
 import { ChevronDown, Ellipsis, GitBranch, RefreshCw } from "lucide-react";
 import { t } from "../../lib/i18n";
 import { workspaceBreadcrumbs } from "../../lib/workspace";
-import { BackButton, Button } from "../../shared/ui/primitives";
+import { BackButton, Button, Swap } from "../../shared/ui/primitives";
 import { refreshWorkspace } from "./actions";
 import { workspaceBackAction } from "./back";
 import { openDetailMenu } from "./detail-menu";
@@ -104,12 +104,13 @@ function FolderTitle({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   </Button>;
 }
 
+/** The open file's name over its folder. From one file to the next both mark the change (`Swap`). */
 function DetailTitle({ snapshot }: { snapshot: WorkspaceSnapshot }) {
   const path = snapshot.file?.path || snapshot.diff?.path || snapshot.detailPath;
   const cut = path.lastIndexOf("/");
   return <div className="workspace-title workspace-detail-title">
-    <strong className="workspace-name">{cut >= 0 ? path.slice(cut + 1) : path}</strong>
-    <span className="workspace-root">{cut >= 0 ? path.slice(0, cut) : t("workspace.repoRoot")}</span>
+    <Swap as="strong" on={path} className="workspace-name">{cut >= 0 ? path.slice(cut + 1) : path}</Swap>
+    <Swap on={path} className="workspace-root">{cut >= 0 ? path.slice(0, cut) : t("workspace.repoRoot")}</Swap>
   </div>;
 }
 

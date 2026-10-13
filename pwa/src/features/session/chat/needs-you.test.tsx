@@ -91,6 +91,9 @@ test("after an answer the same screen stays locked; a new prompt opens again", a
   hash = "b".repeat(64);
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 2600)); });
   expect(appRoot().querySelector(".needs-question")?.textContent).toBe("$ git push --force");
+  // Its line shuts, out of reach at once, and its words go when it has shut.
+  expect(appRoot().querySelector(".needs-fold")?.classList.contains("is-shut")).toBeTrue();
+  await act(async () => { await new Promise((resolve) => setTimeout(resolve, 320)); });
   expect(appRoot().textContent).not.toContain(t("needs.sent"));
   expect(sends).toBe(1);
 });

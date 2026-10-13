@@ -2,7 +2,7 @@ import { Check, ChevronsDownUp, Copy, Paperclip, SquareTerminal } from "lucide-r
 import { useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../../lib/i18n";
 import type { AgentTraceItem } from "../../../lib/operations";
-import { Button, Spinner } from "../../../shared/ui/primitives";
+import { Button, CopyAck, Spinner, Swap } from "../../../shared/ui/primitives";
 import { useCopied } from "../copy-confirm";
 
 export type TraceAnchorData = { "data-trace-anchor": string; "data-trace-ordinal": number; "data-trace-ordinal-end": number };
@@ -25,7 +25,7 @@ export function splitAttachments(text: string): { body: string; files: string[] 
 /** Prompts longer than this many lines fold behind "Show all". */
 const PROMPT_LINES = 8;
 
-function PromptBubble({ text, anchorData }: { text: string; anchorData: TraceAnchorData }) {
+function PromptBubble({ text, anchorData, arriving }: { text: string; anchorData: TraceAnchorData; arriving: boolean }) {
   const { body, files } = splitAttachments(text);
   const textRef = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
@@ -36,7 +36,7 @@ function PromptBubble({ text, anchorData }: { text: string; anchorData: TraceAnc
     const line = parseFloat(node.ownerDocument.defaultView?.getComputedStyle(node).lineHeight ?? "") || 21;
     setLong(node.scrollHeight > line * PROMPT_LINES + 2);
   }, [body]);
-  return <article className="agent-user" {...anchorData}>
+  return <article className={`agent-user${arriving ? " rise-in" : ""}`} {...anchorData}>
     {body && <div ref={textRef} className={`agent-user-text${long && !open ? " is-clamped" : ""}`}>{body}</div>}
     {long && <Button className="agent-user-more" aria-expanded={open} onClick={() => setOpen(!open)}>
       {t(open ? "prompt.collapse" : "prompt.expand")}</Button>}
@@ -45,36 +45,49 @@ function PromptBubble({ text, anchorData }: { text: string; anchorData: TraceAnc
   </article>;
 }
 
-export function TurnHead({ item, anchorData }: { item: AgentTraceItem; anchorData: TraceAnchorData }) {
+/**
+ * What opened the turn. `arriving` is the stream's word that the reader sent it
+ * just now: it rises into the transcript. Any other paint of it is still.
+ */
+export function TurnHead({ item, anchorData, arriving = false }: { item: AgentTraceItem; anchorData: TraceAnchorData; arriving?: boolean }) {
   const text = item.text || "";
   if (item.type === "command") {
-    return <article className="agent-command" {...anchorData} aria-label={t("trace.commandAria", { cmd: text })}>
+    return <article className={`agent-command${arriving ? " rise-in" : ""}`} {...anchorData} aria-label={t("trace.commandAria", { cmd: text })}>
       <SquareTerminal className="agent-command-icon" size={13} aria-hidden="true" />
       <code className="agent-command-text">{text}</code>
     </article>;
   }
-  return <PromptBubble text={text} anchorData={anchorData} />;
+  return <PromptBubble text={text} anchorData={anchorData} arriving={arriving} />;
 }
 
-export function ReplyActions({ text, onCopy }: { text: string; onCopy?: (text: string) => unknown }) {
+/** The reply's own actions. `arriving`: the turn ended in front of the reader, so they come in once the card has folded. */
+export function ReplyActions({ text, onCopy, arriving = false }: { text: string; onCopy?: (text: string) => unknown; arriving?: boolean }) {
   const [copied, confirm] = useCopied();
   if (!onCopy || !text) return null;
   const copy = (): void => {
     void Promise.resolve(onCopy(text)).then((done) => { if (done === true) confirm("done"); });
   };
-  return <div className="agent-reply-actions">
-    <Button className="agent-reply-copy" data-copied={copied ? "" : undefined}
-      aria-label={t(copied ? "chat.copiedReply" : "chat.copyReplyAria")} onClick={copy}>
-      {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-      {t(copied ? "reply.copied" : "reply.copy")}</Button>
+  return <div className={`agent-reply-actions${arriving ? " is-arriving" : ""}`}>
+    <Button className="agent-reply-copy" aria-label={t(copied ? "chat.copiedReply" : "chat.copyReplyAria")} onClick={copy}>
+      <CopyAck state={copied ? "copied" : "idle"}
+        idle={<><Copy size={14} aria-hidden="true" />{t("reply.copy")}</>}
+        copied={<><Check size={14} aria-hidden="true" />{t("reply.copied")}</>} />
+    </Button>
   </div>;
 }
 
-/** Delivery state for a prompt the transcript has not recorded yet. */
-export function PendingCard({ message, attention, settled }: { message: string; attention: boolean; settled: boolean }) {
-  return <div className={`pending-card${attention ? " is-attention" : ""}`} role="status" aria-live="polite" data-prompt-progress="">
+/**
+ * Delivery state for a prompt the transcript has not recorded yet. It follows
+ * its bubble in when the prompt was sent just now (`arriving`), and its words
+ * swap as the delivery advances.
+ */
+export function PendingCard({ message, attention, settled, arriving = false }: {
+  message: string; attention: boolean; settled: boolean; arriving?: boolean;
+}) {
+  return <div className={`pending-card${attention ? " is-attention" : ""}${arriving ? " rise-in is-following" : ""}`}
+    role="status" aria-live="polite" data-prompt-progress="">
     {!settled && !attention && <Spinner />}
-    <span>{message}</span>
+    <Swap on={message}>{message}</Swap>
   </div>;
 }
 

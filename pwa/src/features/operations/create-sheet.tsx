@@ -1,5 +1,5 @@
 import { Pencil, Plus } from "lucide-react";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { t } from "../../lib/i18n";
 import { OPERATION_INPUT_LIMITS } from "../../lib/operations";
 import { SheetFrame } from "../../shared/ui/overlay/action-sheet";
@@ -9,7 +9,8 @@ import { focusRefused } from "../../shared/ui/overlay/form-focus";
 import { DeskCancel, presentModal, type ModalController } from "../../shared/ui/overlay/modal";
 import { deskInput } from "../../shared/ui/overlay/popover";
 import { SheetFooter } from "../../shared/ui/overlay/sheet-content";
-import { AgentAvatar, Button } from "../../shared/ui/primitives";
+import { AgentAvatar, Button, Fold } from "../../shared/ui/primitives";
+import { SheetSwap } from "./sheet-swap";
 import { AgentKindGrid, kindName } from "./agent-kind-grid";
 import { AgentKindPickerPanel } from "./agent-kind-picker";
 import type { CreateMemory } from "./create-memory";
@@ -41,6 +42,16 @@ export type CreateRequest =
   | { kind: "conversation"; cwd: string; agentKind: string; label: string }
   | { kind: "worktree"; cwd: string; branch: string; base: string; label: string };
 
+/**
+ * A block of the form that opens and shuts by height, so choosing another way
+ * to start grows the sheet instead of jumping it. What it holds stays mounted
+ * and, shut, out of reach. `.create-fold` keeps room inside for the focus ring
+ * of the controls it clips.
+ */
+function FormFold({ open, children }: { open: boolean; children: ReactNode }) {
+  return <Fold className="create-fold" open={open}><div className="create-fold-in">{children}</div></Fold>;
+}
+
 function CreateSheetBody({ modal, input }: { modal: ModalController<CreateRequest>; input: CreateSheetInput }) {
   const canNew = input.canCreateWorkspace;
   const firstWorkspace = input.canCreateTab ? input.workspaces[0]?.id : undefined;
@@ -66,11 +77,20 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
     setError(message);
     setRefused(last => ({ field: otherPath === null ? "dir" : "path", count: last.count + 1 }));
   };
-  // The full list replaces the form in place (not a pushed sheet page), so the
-  // form keeps everything already chosen while the reader browses.
+  // The full list replaces the form in place (not a pushed sheet page: the
+  // sheet unmounts its root while a page is up), so the form keeps everything
+  // already chosen while the reader browses. It still travels as a page does:
+  // the list comes in from the right, the form comes back from the left, and
+  // the card eases between their heights (`SheetSwap`).
   const [picking, setPicking] = useState(false);
+  const [back, setBack] = useState(false);
+  const leavePicker = () => { setPicking(false); setBack(true); };
   // Escape takes back the list first, then the sheet.
-  useEscapeStep(picking, () => setPicking(false));
+  useEscapeStep(picking, leavePicker);
+  // "Another directory" is pressed to type one: that press, and nothing else, puts the reader in the field.
+  const pathField = useRef<HTMLInputElement>(null);
+  const [typing, setTyping] = useState(0);
+  useLayoutEffect(() => { if (typing) pathField.current?.focus(); }, [typing]);
   const isNew = where === NEW_WORKSPACE;
   // Start on the chosen place, not on whichever chip happens to come first.
   const initialWhere = useRef(where).current;
@@ -80,6 +100,11 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   const openHere = isNew && !worktree ? input.workspaces.find((item) => item.path && item.path === path) : undefined;
   const recentDirs = memory.dirs.filter((item) => !input.workspaces.some((space) => space.path === item));
   const openDirs = input.workspaces.filter((item) => item.path);
+  // What a line last said stays in it while it shuts.
+  const shownPath = useRef("");
+  if (!isNew && workspace?.path) shownPath.current = workspace.path;
+  const shownOpen = useRef(openHere);
+  if (openHere) shownOpen.current = openHere;
 
   // An already-open directory becomes a tab there (see submit), so say that.
   const summary = worktree ? t("create.summaryWt", { dir: path || "…" })
@@ -112,8 +137,10 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   const submitOnEnter = useDeskEnter(submit);
 
   if (picking) {
-    return <AgentKindPickerPanel kinds={input.kinds} memory={memory} selected={kind} onBack={() => setPicking(false)}
-      onPick={(next) => { setKind(next); setPicking(false); }} onPinsChange={setMemory} />;
+    return <SheetSwap key="picker">
+      <AgentKindPickerPanel kinds={input.kinds} memory={memory} selected={kind} onBack={leavePicker}
+        onPick={(next) => { setKind(next); leavePicker(); }} onPinsChange={setMemory} />
+    </SheetSwap>;
   }
 
   const recents = memory.recents.filter((combo) => input.canCreateTab && input.workspaces.some((space) => space.id === combo.workspaceId)
@@ -128,8 +155,8 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
     </Button>
   );
 
-  return (
-    <div ref={root} className="create-sheet-body" onKeyDown={submitOnEnter}>
+  const form = (
+    <div ref={root} className={`create-sheet-body${back ? " is-back" : ""}`} onKeyDown={submitOnEnter}>
       {recents.length ? <>
         <h3 className="create-label">{t("create.recent")}</h3>
         <div className="create-scroll">
@@ -164,32 +191,32 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
             onClick={() => { setWhere(space.id); setError(""); }}>{space.label}</Button>
         )) : null}
       </div>
-      {!isNew && workspace?.path ? <p className="create-path">{workspace.path}</p> : null}
+      <Fold open={!isNew && !!workspace?.path}><p className="create-path">{shownPath.current}</p></Fold>
 
-      {isNew ? <>
+      <FormFold open={isNew}>
         <div className="create-dirs" data-field="dir">
           {recentDirs.length ? <p className="create-dir-group">{t("create.dirRecent")}</p> : null}
           {recentDirs.map((value) => dirRow(value, false))}
           {openDirs.length ? <p className="create-dir-group">{t("create.dirOpen")}</p> : null}
           {openDirs.map((space) => dirRow(space.path, true))}
           <Button className={`menu-item create-dir${otherPath !== null ? " is-selected" : ""}`} aria-expanded={otherPath !== null}
-            onClick={() => setOtherPath(otherPath ?? "")}>
+            onClick={() => { setOtherPath(otherPath ?? ""); setTyping(count => count + 1); }}>
             <Pencil size={16} aria-hidden="true" />
             <span className="create-dir-path">{t("create.dirOther")}</span>
           </Button>
-          {otherPath !== null ? (
-            <input className="create-input is-mono" type="text" name="path" value={otherPath} autoFocus
+          <Fold open={otherPath !== null}>
+            <input ref={pathField} className="create-input is-mono" type="text" name="path" value={otherPath ?? ""}
               placeholder={t("create.pathPlaceholder")} aria-label={t("create.dirOther")} maxLength={OPERATION_INPUT_LIMITS.cwd}
               autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false}
               onChange={(event) => { setOtherPath(event.currentTarget.value); setError(""); }} />
-          ) : null}
+          </Fold>
         </div>
-        {openHere ? (
+        <FormFold open={!!openHere}>
           <p className="create-hint">
-            {t("create.alreadyOpen", { name: openHere.label })}{" "}
-            <Button className="text-link" onClick={() => setWhere(openHere.id)}>{t("create.useOpen")}</Button>
+            {t("create.alreadyOpen", { name: shownOpen.current?.label ?? "" })}{" "}
+            <Button className="text-link" onClick={() => { if (openHere) setWhere(openHere.id); }}>{t("create.useOpen")}</Button>
           </p>
-        ) : null}
+        </FormFold>
         {input.canCreateWorktree ? <>
           <h3 className="create-label">{t("create.start")}</h3>
           <div className="seg create-seg" role="radiogroup" aria-label={t("create.start")}>
@@ -198,7 +225,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
             <button type="button" className={`seg-item${start === "worktree" ? " on" : ""}`} role="radio" aria-checked={start === "worktree"}
               onClick={() => setStart("worktree")}>{t("create.startWorktree")}</button>
           </div>
-          {worktree ? <>
+          <FormFold open={worktree}>
             <label className="create-field">{t("create.branch")}
               <input className="create-input is-mono" type="text" value={branch} placeholder={t("create.branchHint")}
                 maxLength={OPERATION_INPUT_LIMITS.branch} autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false}
@@ -209,15 +236,17 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
                 maxLength={OPERATION_INPUT_LIMITS.base} autoComplete="off" autoCapitalize="off" autoCorrect="off" spellCheck={false}
                 onChange={(event) => setBase(event.currentTarget.value)} />
             </label>
-          </> : null}
+          </FormFold>
         </> : null}
-      </> : null}
+      </FormFold>
 
       <h3 className="create-label">{t("create.what")}</h3>
-      {worktree ? <p className="create-hint">{t("create.worktreeTerminal")}</p> : (
+      {/* A worktree opens with a terminal: the note takes the grid's place, each folding the other way. */}
+      <Fold open={worktree}><p className="create-hint">{t("create.worktreeTerminal")}</p></Fold>
+      <FormFold open={!worktree}>
         <AgentKindGrid kinds={input.kinds} memory={memory} selected={kind} lastKind={input.lastKind}
-          onSelect={setKind} onShowAll={() => setPicking(true)} />
-      )}
+          onSelect={setKind} onShowAll={() => { setPicking(true); setBack(false); }} />
+      </FormFold>
       {!input.kinds.length && !worktree ? <p className="create-hint">{t("create.noKinds")}</p> : null}
 
       <label className="create-field">
@@ -237,6 +266,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
       </SheetFooter>
     </div>
   );
+  return <SheetSwap key="form">{form}</SheetSwap>;
 }
 
 /** The one create sheet every entry opens. Resolves to what to create, or null. */

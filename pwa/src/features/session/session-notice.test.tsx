@@ -104,6 +104,57 @@ describe("where a session puts its notice", () => {
   });
 });
 
+describe("a floating notice that is over", () => {
+  const exitOver = () => act(() => new Promise<void>((done) => setTimeout(done, 160)));
+
+  test("stays for its exit with the words it had, marked as leaving, and then goes", async () => {
+    act(() => renderReact(<Pane value={{ text: "已停止", tone: "status" }} />));
+    const floating = anchor();
+    const line = notice();
+    expect(floating?.className).toBe("session-notice");
+    act(() => renderReact(<Pane value={null} />));
+    expectSameNode(anchor(), floating);
+    expectSameNode(notice(), line);
+    expect(anchor()?.className).toBe("session-notice is-leaving");
+    expect(notice()?.textContent).toBe("已停止");
+    await exitOver();
+    expect([...pane().children].map((child) => child.className)).toEqual(["chrome", "term-stage"]);
+  });
+
+  test("one replaced by another is the same line with new words, not an exit and an entrance", () => {
+    act(() => renderReact(<Pane value={{ text: "正在重命名…", tone: "status", persistent: true }} />));
+    const floating = anchor();
+    act(() => renderReact(<Pane value={{ text: "已重命名", tone: "status" }} />));
+    expectSameNode(anchor(), floating);
+    expect(anchor()?.className).toBe("session-notice");
+  });
+
+  test("one that comes back during the exit is simply there again", async () => {
+    act(() => renderReact(<Pane value={{ text: "已停止", tone: "status" }} />));
+    act(() => renderReact(<Pane value={null} />));
+    act(() => renderReact(<Pane value={{ text: "仍在运行", tone: "status" }} />));
+    expect(anchor()?.className).toBe("session-notice");
+    await exitOver();
+    expect(notice()?.textContent).toBe("仍在运行");
+  });
+
+  test("a notice in the page goes at once, and the float it replaced does not come back to leave", async () => {
+    act(() => renderReact(<Pane value={{ text: "已停止", tone: "status" }} />));
+    act(() => renderReact(<Pane value={{ text: "发送未确认", tone: "error", persistent: true }} />));
+    expect(anchor()).toBeNull();
+    expect(notice()?.parentElement === pane()).toBeTrue();
+    act(() => renderReact(<Pane value={null} />));
+    expect(notice()).toBeNull();
+    expect(anchor()).toBeNull();
+  });
+
+  test("the exit is the entrance played back at an exit's pace, and none when motion is reduced", () => {
+    expect(rule(shell, ".session-notice.is-leaving > .notice")).toMatch(/animation:\s*session-notice-out var\(--dur-1\) var\(--ease\) forwards;/);
+    expect(shell).toMatch(/@keyframes session-notice-out \{\s*to \{ opacity: 0; transform: translateY\(-4px\); \}/);
+    expect(shell).toMatch(/@media \(prefers-reduced-motion: reduce\) \{[^}]*\}\s*\.session-notice\.is-leaving > \.notice \{ animation: none; \}/);
+  });
+});
+
 describe("the notice domain tells the two kinds apart", () => {
   test("a timed notice carries no mark; one raised to stay is marked persistent", () => {
     showStatus("已停止");

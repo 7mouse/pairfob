@@ -4,6 +4,7 @@
 @use "./workspace-detail";
 @use "./workspace-diff";
 @use "./workspace-overview";
+@use "./workspace-thumb";
 
 .workspace-shell {
   position: fixed;
@@ -147,9 +148,48 @@
 .workspace-shell.detail .workspace-nav { display: none; }
 .workspace-shell.detail .workspace-main { display: flex; }
 
+/* --- One pane at a time: the step between the list and what it opened -----------------
+   Below 900px the reader's own step from the list into a file or a diff, and
+   back, travels as a change of screen does (`screen-from-right` over
+   `screen-behind`, app/layout/styles/transitions): the detail arrives from the
+   right while the list steps back, and leaves the way it came. The shell is
+   marked only for a step the reader took (`detail-travel`): a screen that opens
+   on its detail and a poll draw the panes where they stand, and from 900px the
+   two are side by side and nothing here applies. The pane on its way out is
+   laid over the body, out of the flow, so the one that stays keeps its box; it
+   is `inert` meanwhile.
+   ------------------------------------------------------------------------------ */
+@media (max-width: 899.98px) {
+  .workspace-body { position: relative; }
+  .workspace-shell.is-detail-arriving .workspace-nav,
+  .workspace-shell.is-detail-leaving .workspace-main {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    pointer-events: none;
+  }
+  .workspace-shell.is-detail-arriving .workspace-nav { animation: screen-behind var(--dur-4) var(--ease) both; }
+  .workspace-shell.is-detail-arriving .workspace-main { z-index: 1; animation: screen-from-right var(--dur-4) var(--ease); }
+  .workspace-shell.is-detail-leaving .workspace-nav { animation: screen-forward var(--dur-4) var(--ease); }
+  .workspace-shell.is-detail-leaving .workspace-main { z-index: 1; animation: screen-to-right var(--dur-4) var(--ease) both; }
+  /* The header is one bar over both panes: what it now says comes in with the pane it names. */
+  .workspace-shell:is(.is-detail-arriving, .is-detail-leaving) .workspace-chrome > :not(.back) { animation: workspace-reveal var(--dur-2) var(--ease); }
+}
+/* No travel: the pane that leaves is gone at once, and the one that arrives fades in. */
+@media (max-width: 899.98px) and (prefers-reduced-motion: reduce) {
+  .workspace-shell.is-detail-arriving .workspace-nav,
+  .workspace-shell.is-detail-leaving .workspace-main { display: none; animation: none; }
+  .workspace-shell.is-detail-arriving .workspace-main,
+  .workspace-shell.is-detail-leaving .workspace-nav { animation: workspace-reveal var(--dur-2) var(--ease); }
+}
+
 /* --- Tabs: a segmented control ------------------------------------------------- */
 
 .workspace-tabs {
+  /* The room around the tabs and between them, for the mark that slides to the chosen one (`workspace-thumb`). */
+  --thumb-pad: 3px;
+  --thumb-gap: 3px;
+  --thumb-radius: var(--r-sm);
   display: grid;
   grid-auto-columns: minmax(0, 1fr);
   grid-auto-flow: column;
@@ -160,6 +200,7 @@
   background: var(--surface);
   flex: none;
 }
+.workspace-tabs::before { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04); }
 
 .workspace-tab {
   display: inline-flex;
@@ -171,14 +212,11 @@
   color: var(--muted);
   font-size: var(--text-body);
   font-weight: 650;
-  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+  /* In step with the mark arriving under it. */
+  transition: color var(--dur-2) var(--ease);
 }
 
-.workspace-tab.on {
-  background: var(--surface-2);
-  color: var(--ink);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
-}
+.workspace-tab.on { color: var(--ink); }
 
 /* 36px of ink, 44px of target: a finger's hit area reaches into the strip's
    own padding and margin, and stops short of the header and the list. */
@@ -299,8 +337,9 @@
 @media (min-width: 900px) {
   .workspace-body { display: grid; grid-template-columns: var(--workspace-list-w) minmax(0, 1fr); }
   .workspace-nav { display: flex !important; border-right: 1px solid var(--line); }
-  /* Beside the detail the segmented control is as wide as its two names, as in settings, not the column. */
-  .workspace-tabs { align-self: flex-start; grid-auto-columns: auto; }
+  /* Beside the detail the segmented control is as wide as its two names, as in settings, not the column:
+     each tab as wide as the wider name, so the mark between them keeps one size. */
+  .workspace-tabs { align-self: flex-start; }
   .workspace-tab { padding: 0 18px; }
   .workspace-main { display: flex !important; }
   .workspace-chrome { padding-right: 16px; padding-left: 16px; }

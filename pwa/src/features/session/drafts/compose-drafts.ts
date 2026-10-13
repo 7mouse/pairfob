@@ -36,7 +36,7 @@ import {
   writeStoredDraft,
 } from "./state-drafts";
 
-import { nextTransition, transitionFor } from "../../../app/transition";
+import { nextTransition, queuedKind, transitionFor } from "../../../app/transition";
 import type { Screen } from "../../../app/navigation-store";
 
 export type PromptRequestOwner = {
@@ -130,14 +130,39 @@ export function bumpViewIncarnation(): number {
   return bumpStoredViewIncarnation();
 }
 
+/**
+ * True for the turn in which the pane's view was parked. Whoever parks it is
+ * taking the reader off the pane (to the list, the files, the board, another
+ * pane), and puts the mode away in the same turn.
+ */
+let leavingPaneView = false;
+
 /** Park the visible draft, then advance the view so in-flight UI is no longer live. */
 export function parkComposeView(): void {
   captureComposeDraft();
   bumpViewIncarnation();
   bindSessionOwnerFromLive();
+  leavingPaneView = true;
+  queueMicrotask(() => { leavingPaneView = false; });
+}
+
+/**
+ * 对话, 控制 and 终端 are three views of one session under one header. Moving
+ * between them replaces the whole pane, which read as landing on another page;
+ * the view that arrives fades in instead (the arrival fade a sideways move
+ * between screens already has: opacity only, so the complete terminal is at its
+ * final size from its first frame).
+ *
+ * A mode put away on the way out of the pane is not a switch: that navigation
+ * declares its own transition, or none, and the choice stands.
+ */
+export function declareViewSwitch(): void {
+  if (leavingPaneView || currentScreen() !== "pane" || queuedKind() !== "none") return;
+  nextTransition("view");
 }
 
 export function switchComposeView(mutate: () => void): void {
+  declareViewSwitch();
   captureComposeDraft();
   bumpViewIncarnation();
   batch(() => {

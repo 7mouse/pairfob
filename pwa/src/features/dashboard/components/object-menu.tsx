@@ -16,7 +16,7 @@ export type ObjectMenuRunner = (kind: ObjectMenuKind, agent: AgentCard) => void 
  * list to answer, with the row the reader is on or its first.
  */
 function listHome(paneId: string): HTMLElement | null {
-  const rows = [...document.querySelectorAll<HTMLElement>(".herd-list .card-main[data-pane-id]")].filter(row => !row.closest("[hidden]"));
+  const rows = [...document.querySelectorAll<HTMLElement>(".herd-list .card-main[data-pane-id]")].filter(row => !row.closest("[hidden], [inert]"));
   return rows.find(row => row.dataset.paneId === paneId) ?? rows.find(row => row.getAttribute("aria-pressed") === "true") ?? rows[0] ?? null;
 }
 

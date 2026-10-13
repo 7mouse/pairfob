@@ -50,3 +50,34 @@ describe("list touch targets", () => {
     expect(reach).toBeLessThanOrEqual(padding);
   });
 });
+
+describe("list motion", () => {
+  test("a fold in the list clips only while it moves or is shut: at rest a row's focus ring passes its edge", () => {
+    const rest = rules(".fold.herd-group-fold:not(.is-folding) > .fold-body");
+    expect(rest).toMatch(/overflow:\s*visible/);
+    expect(rules(".fold.herd-row:not(.is-entering):not(.is-leaving) > .fold-body")).toBe(rest);
+    // The kit's own rule is the clip, and nothing here restates it.
+    expect(rules(".fold > .fold-body")).toMatch(/overflow:\s*hidden/);
+  });
+
+  test("a closed session's row fades first and gives up its height after", () => {
+    // The fold's two transitions, in the kit's order: height, then opacity.
+    expect(rules(".fold")).toMatch(/transition:\s*grid-template-rows var\(--dur-3\) var\(--ease\), opacity var\(--dur-2\) var\(--ease\)/);
+    expect(rules(".fold.herd-row.is-leaving")).toMatch(/transition-delay:\s*var\(--dur-2\), 0s/);
+  });
+
+  test("a new session's row takes the change sweep once it is open, and shows it only while it runs", () => {
+    const sweep = rules(".herd-row.is-entering .card::after");
+    expect(sweep).toMatch(/animation:\s*card-sweep 420ms var\(--ease\)/);
+    expect(sweep).toMatch(/animation-name:\s*card-sweep, card-sweep-shown/);
+    expect(sweep).toMatch(/animation-delay:\s*var\(--dur-3\)/);
+    expect(sweep).toMatch(/animation-fill-mode:\s*none/);
+    expect(sweep).toMatch(/opacity:\s*0/);
+  });
+
+  test("a list that can no longer be confirmed dims over a moment, and comes back the same way", () => {
+    expect(rules(".card")).toMatch(/transition:\s*opacity var\(--dur-3\) var\(--ease\)/);
+    expect(rules(".card.unverifiable")).toMatch(/opacity:\s*0\.66/);
+    expect(rules(".host-title .dot")).toMatch(/transition:\s*background-color var\(--dur-2\) var\(--ease\)/);
+  });
+});

@@ -18,6 +18,16 @@ import { DIFF_BATCH_LINES } from "./diff";
 import { setSplitChosen } from "./diff-layout";
 import { clearWorkspacePendingReveal, enterWorkspace, loadGitDiff, workspaceModel } from "./index";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
+/** The line a note's form or card stands under: what comes before everything the note keeps there. */
+const lineOver = (piece: Element | null | undefined): Element | null => {
+  let before = piece?.closest(".diff-note-fold")?.previousElementSibling ?? null;
+  while (before?.matches(".diff-note-fold")) before = before.previousElementSibling;
+  return before;
+};
+
 /**
  * A diff as it is laid out for reading: hunks under heads that say where in
  * the file they are and fold, the unchanged stretch between them, a long patch
@@ -213,7 +223,7 @@ describe("hunks", () => {
     await boot(390, true);
     await openDiff();
     await press(one(".diff-add .diff-comment-btn"));
-    const field = one<HTMLTextAreaElement>("form.diff-note-inline textarea");
+    const field = one<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`);
     await act(async () => {
       field.focus();
       Object.getOwnPropertyDescriptor(happy.HTMLTextAreaElement.prototype, "value")!.set!.call(field, "why true");
@@ -221,13 +231,13 @@ describe("hunks", () => {
     });
     const head = () => all<HTMLButtonElement>(".workspace-hunk-toggle")[0];
     await press(head());
-    expect(document.querySelector("form.diff-note-inline")).toBeNull();
+    expect(document.querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(head().getAttribute("aria-expanded")).toBe("false");
     // The words wait inside, and the folded head counts them.
     expect(head().querySelector(".workspace-hunk-notes")?.textContent).toBe("1");
     expect(head().getAttribute("aria-label")).toContain("1 条批注");
     await press(head());
-    expect(one(".workspace-diff-note.is-draft").textContent).toContain("why true");
+    expect(one(`${UNDER} .workspace-diff-note.is-draft`).textContent).toContain("why true");
   });
 });
 
@@ -324,7 +334,7 @@ describe("words and sides", () => {
     expect(pins.slice(0, 3)).toEqual(["worktree:new:3:src/app.ts", "worktree:old:4:src/app.ts", "worktree:new:4:src/app.ts"]);
     // A note opens under the row, whichever half was pressed.
     await press(one<HTMLElement>(".diff-split-row .diff-split-cell"));
-    expect(one("form.diff-note-inline").previousElementSibling?.classList.contains("diff-split-row")).toBeTrue();
+    expect(lineOver(one(`${UNDER} form.diff-note-inline`))?.classList.contains("diff-split-row")).toBeTrue();
   });
 
   test("below 1200px the choice is neither offered nor applied", async () => {

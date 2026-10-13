@@ -104,8 +104,11 @@ test("Escape and the card's own close hand focus back to the pad button that ope
       else sheet().querySelector<HTMLButtonElement>(leave === "close" ? ".desk-close" : ".desk-cancel")!.click();
       await new Promise<void>(resolve => setTimeout(resolve, 0));
     });
-    expect(document.querySelector("dialog.quick-command-sheet")).toBeNull();
+    // Closed at once, with focus handed back. A card may stay in the tree for its exit, closed and out of reach.
+    expect(document.querySelector("dialog.quick-command-sheet[open]")).toBeNull();
     expectSameNode(document.activeElement, pad.button);
+    await act(() => new Promise<void>(resolve => setTimeout(resolve, 160)));
+    expect(document.querySelector("dialog.quick-command-sheet")).toBeNull();
   }
   pad.remove();
 });

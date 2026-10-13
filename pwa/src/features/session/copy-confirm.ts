@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { COPIED_MS } from "../../shared/react/use-copied";
 
 /**
  * A copy in the session is confirmed on the control that was pressed.
@@ -11,44 +11,49 @@ import { useCallback, useEffect, useState } from "react";
  * looking, and nothing else moves. Each press confirms itself again.
  */
 
-/** How long a pressed control reads as copied before it is itself again. */
-export const COPIED_MS = 1600;
-
-/**
- * The copied state of one control: `confirm(what)` starts it (again, when it is
- * already showing) and it ends by itself after `ms`.
- */
-export function useCopied<What extends string = "done">(ms = COPIED_MS): [copied: What | null, confirm: (what: What) => void] {
-  // A new object for every press, so a second press restarts the wait.
-  const [shown, setShown] = useState<{ what: What } | null>(null);
-  useEffect(() => {
-    if (!shown) return;
-    const timer = window.setTimeout(() => setShown(null), ms);
-    return () => window.clearTimeout(timer);
-  }, [shown, ms]);
-  const confirm = useCallback((what: What) => setShown({ what }), []);
-  return [shown?.what ?? null, confirm];
-}
+export { COPIED_MS, useCopied } from "../../shared/react/use-copied";
 
 const reverting = new WeakMap<HTMLElement, number>();
 
+function show(cell: HTMLElement, state: "idle" | "copied"): void {
+  cell.dataset.state = state;
+  for (const face of cell.children) face.setAttribute("aria-hidden", String(!face.classList.contains(`is-${state}`)));
+}
+
 /**
- * The same for a button outside React (a code block's own, added to sanitized
- * HTML): its label reads `copied` for `ms`, at the width it already had so the
- * line beside it does not reflow, and `announce` is what a screen reader hears.
+ * The two faces of a copy button outside React (a code block's own, added to
+ * sanitized HTML): the markup `CopyAck` renders, so the same rules draw it. The
+ * button is as wide as the wider label from the start, and the line beside it
+ * is laid out once.
+ */
+export function layCopyFaces(button: HTMLElement, label: string, copied: string): HTMLElement {
+  const cell = button.ownerDocument.createElement("span");
+  cell.className = "copy-ack";
+  for (const [name, text] of [["is-idle", label], ["is-copied", copied]]) {
+    const face = button.ownerDocument.createElement("span");
+    face.className = `copy-ack-face ${name}`;
+    face.textContent = text;
+    cell.append(face);
+  }
+  show(cell, "idle");
+  button.replaceChildren(cell);
+  return cell;
+}
+
+/**
+ * Confirm a copy on such a button: it shows `copied` for `ms` in the place of
+ * `label`, and `announce` is what a screen reader hears. A button that was not
+ * laid out with its faces gets them here.
  */
 export function confirmCopyOn(button: HTMLElement, label: string, copied: string, announce: string, ms = COPIED_MS): void {
   const pending = reverting.get(button);
   if (pending !== undefined) window.clearTimeout(pending);
-  else button.style.minWidth = `${button.offsetWidth}px`;
-  button.dataset.copied = "";
-  button.textContent = copied;
+  const cell = button.querySelector<HTMLElement>(".copy-ack") ?? layCopyFaces(button, label, copied);
+  show(cell, "copied");
   button.setAttribute("aria-label", announce);
   reverting.set(button, window.setTimeout(() => {
     reverting.delete(button);
-    delete button.dataset.copied;
-    button.textContent = label;
+    show(cell, "idle");
     button.removeAttribute("aria-label");
-    button.style.minWidth = "";
   }, ms));
 }

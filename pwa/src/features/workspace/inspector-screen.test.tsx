@@ -277,7 +277,7 @@ describe("a send is confirmed once", () => {
   async function writeNote(surface: string): Promise<void> {
     await press(`${surface} .workspace-diff-line.diff-add`);
     // The same form under the line, in the column and on the screen.
-    const field = find<HTMLTextAreaElement>(`${surface} form.diff-note-inline textarea`);
+    const field = find<HTMLTextAreaElement>(`${surface} .diff-note-fold:not(.is-shut) form.diff-note-inline textarea`);
     await act(async () => {
       field.value = "why true";
       field.dispatchEvent(new window.Event("input", { bubbles: true }));
@@ -295,7 +295,8 @@ describe("a send is confirmed once", () => {
 
     expect(find("aside.inspector .workspace-notes-bar.is-sent").textContent).toContain("1 条批注已发给 Agent");
     expect(visibleNotice()).toBeNull();
-    expect(appRoot().querySelector(".main .notice")).toBeNull();
+    // A floating notice that is over is kept for its exit (`session-notice`): no banner is one that is not on its way out.
+    expect([...appRoot().querySelectorAll(".main .notice")].filter((notice) => !notice.closest(".is-leaving"))).toHaveLength(0);
   });
 
   test("on the screen the banner stays with the receipt, as on the phone", async () => {

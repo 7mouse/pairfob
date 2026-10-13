@@ -4,7 +4,7 @@ import { Button } from "../../shared/ui/primitives";
 import { refreshWorkspace } from "./actions";
 import { guardBackPress } from "./back-press";
 import { ChangesSummary } from "./header";
-import { closeWorkspaceInspector, expandWorkspaceInspector } from "./inspector";
+import { leaveWorkspaceInspector, expandWorkspaceInspector } from "./inspector";
 import type { WorkspaceSnapshot } from "./model";
 import { openRepoMenu } from "./repo-menu";
 import { INSPECTOR_TAB_ORDER } from "./tab-order";
@@ -42,7 +42,7 @@ export function InspectorHead({ snapshot, onBranches }: { snapshot: WorkspaceSna
       <Button className="icon-btn inspector-close" aria-label={t("inspector.close")} title={t("inspector.close")}
         onClick={(event) => {
           guardBackPress(event);
-          closeWorkspaceInspector();
+          leaveWorkspaceInspector();
         }}>
         <X size={18} aria-hidden="true" />
       </Button>

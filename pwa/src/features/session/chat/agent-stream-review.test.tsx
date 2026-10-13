@@ -34,14 +34,14 @@ afterEach(() => {
   selectPane("");
 });
 
-function toggle(card: HTMLDetailsElement, open: boolean): void {
-  act(() => {
-    card.open = open;
-  });
+/** The card's head says whether its steps are open, and a press on it turns them. */
+const expanded = (card: Element): boolean => card.querySelector(".work-head")?.getAttribute("aria-expanded") === "true";
+function toggle(card: HTMLElement, open: boolean): void {
+  if (expanded(card) !== open) act(() => card.querySelector<HTMLButtonElement>("button.work-head")!.click());
 }
 function current(): HTMLElement { return appRoot().querySelector<HTMLElement>(".agent-stream")!; }
-function card(prompt: string, nth = 0): HTMLDetailsElement {
-  const found = [...appRoot().querySelectorAll<HTMLDetailsElement>("details.work-card")]
+function card(prompt: string, nth = 0): HTMLElement {
+  const found = [...appRoot().querySelectorAll<HTMLElement>(".work-card")]
     .filter(node => node.previousElementSibling?.textContent === prompt);
   if (!found[nth]) throw new Error(`Missing card after ${prompt}`);
   return found[nth];
@@ -64,7 +64,7 @@ test("a different turn does not inherit the preceding card's manual expansion", 
   paint(replacement, false);
   const next = card("Inspect this");
   expect(next.dataset.key === oldKey).toBeFalse();
-  expect(next.open).toBeFalse();
+  expect(expanded(next)).toBeFalse();
   expect(next.dataset.user).toBeUndefined();
 });
 
@@ -78,7 +78,7 @@ test("prepending a repeated prompt preserves only the matching card choice", () 
   toggle(card("Again", 1), true);
   const prepended = [...turn("Tool Older"), ...initial];
   paint(prepended, false);
-  expect([0, 1, 2].map(index => card("Again", index).open)).toEqual([false, false, true]);
+  expect([0, 1, 2].map(index => expanded(card("Again", index)))).toEqual([false, false, true]);
 });
 
 test("prepending a distinct turn restores an open card through its captured stable key", () => {
@@ -87,18 +87,18 @@ test("prepending a distinct turn restores an open card through its captured stab
   paint(initial, false);
   toggle(card("Inspect this"), true);
   paint([{ type: "user", text: "Older" }, { type: "assistant", text: "Old answer" }, ...initial], false);
-  expect(card("Inspect this").open).toBeTrue();
+  expect(expanded(card("Inspect this"))).toBeTrue();
 });
 
 test("a queued lazy-open notification is cancelled when its details unmount before the microtask", async () => {
   const requests: string[] = [];
-  renderReact(<AgentDetails traceKey="pending" className="agent-step" auto
-    onOpen={source => requests.push(source)}><summary>Pending</summary></AgentDetails>);
+  renderReact(<AgentDetails traceKey="pending" className="agent-step" auto headClassName="agent-step-head" head="Pending"
+    onOpen={source => requests.push(source)}><p>Body</p></AgentDetails>);
   // The details really mounted (auto keeps it open) before the same-task
   // retirement; the queued lazy-open microtask is what the unmount cancels.
-  const details = appRoot().querySelector<HTMLDetailsElement>(".agent-step");
+  const details = appRoot().querySelector<HTMLElement>(".agent-step");
   expect(details).not.toBeNull();
-  expect(details!.open).toBeTrue();
+  expect(details!.querySelector(".agent-step-head")?.getAttribute("aria-expanded")).toBe("true");
   unmountReact();
   await drain();
   expect(requests).toEqual([]);
@@ -111,8 +111,8 @@ function streamShape(stream: HTMLElement) {
     outer: [...stream.querySelector(".agent-stream-inner")!.children].map(node => ({
       tag: node.tagName, class: node.className, text: node.textContent, role: node.getAttribute("role"),
     })),
-    details: [...stream.querySelectorAll<HTMLDetailsElement>("details")].map(card => ({
-      key: card.dataset.key, class: card.className, open: card.open, auto: card.dataset.autoOpen,
+    details: [...stream.querySelectorAll<HTMLElement>("[data-key]")].map(card => ({
+      key: card.dataset.key, class: card.className, open: expanded(card), auto: card.dataset.autoOpen,
     })),
   };
 }
@@ -141,16 +141,16 @@ test("ordered mixed blocks keep source order inside the card and the reply outsi
   expect(outer()).toEqual(["agent-trace-limit", "agent-user", "work-card is-neutral", "agent-assistant agent-assistant-final"]);
   // Thinking, the interim note and the tool stay in source order inside the card.
   expect(steps()).toEqual(["work-step is-think", "work-step work-note", "work-step is-read is-ended"]);
-  const done = current().querySelector<HTMLDetailsElement>("details.work-card")!;
+  const done = current().querySelector<HTMLElement>(".work-card")!;
   expect(done.dataset.key).toBe("w:u:12:Inspect this:s:thinking:::Read:");
-  expect(done.open).toBeFalse();
+  expect(expanded(done)).toBeFalse();
   expect(current().querySelector(".agent-assistant-final")?.textContent).toBe("Final one\nFinal two\n");
   act(unmountReact);
   act(() => renderReact(<AgentStream items={mixed} working empty={empty} truncated />));
   // While the turn runs the card is open and the trailing text is the latest note under it.
   expect(outer()).toEqual(["agent-trace-limit", "agent-user", "work-card is-running", "agent-assistant agent-assistant-intermediate"]);
-  const live = current().querySelector<HTMLDetailsElement>("details.work-card")!;
-  expect([live.open, live.dataset.autoOpen]).toEqual([true, "1"]);
+  const live = current().querySelector<HTMLElement>(".work-card")!;
+  expect([expanded(live), live.dataset.autoOpen]).toEqual([true, "1"]);
   expect(current().querySelector(".agent-reply-copy")).toBeNull();
 });
 

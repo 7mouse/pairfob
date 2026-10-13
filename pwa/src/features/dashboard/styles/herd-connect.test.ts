@@ -42,3 +42,35 @@ describe("small links under a finger", () => {
     expect(declared(block, ".main-unreachable .conn-retry-add::before")).toMatch(/inset:\s*0 -4px/);
   });
 });
+
+/**
+ * The route's moves hang on a state class changing on an element that stays,
+ * so drawing the card again (it counts seconds) moves nothing.
+ */
+describe("the route's moves", () => {
+  test("a link that comes through is drawn across from the device's side; one that is lost shows at once", () => {
+    const line = declared(css, ".conn-link::before");
+    expect(line).toMatch(/transform:\s*scaleX\(0\)/);
+    expect(line).toMatch(/transform-origin:\s*0 50%/);
+    expect(line).not.toMatch(/transition/);
+    expect(declared(css, ".conn-link.is-ok::before")).toMatch(/transform:\s*none;\s*transition:\s*transform var\(--dur-4\) var\(--ease\)/);
+    // The line is the through state's only paint: the link itself has no ground then.
+    expect(declared(css, ".conn-link.is-ok")).toBe("");
+  });
+
+  test("a node going idle dims over the element duration, and its result is an element that can arrive", () => {
+    expect(declared(css, ".conn-node")).toMatch(/transition:\s*opacity var\(--dur-2\) var\(--ease\)/);
+    expect(declared(css, ".conn-node-badge")).toMatch(/position:\s*absolute/);
+    expect(declared(css, ".conn-node.is-ok .conn-node-badge::before")).toMatch(/content:\s*"✓"/);
+    expect(declared(css, ".conn-node.is-fail .conn-node-badge::before")).toMatch(/content:\s*"✕"/);
+    expect(css).not.toMatch(/\.conn-node-icon::after/);
+  });
+
+  test("the retry button's mark has one box and its label one cell for both wordings", () => {
+    const mark = declared(css, ".conn-retry-mark");
+    expect([px(mark, "width"), px(mark, "height")]).toEqual([18, 18]);
+    expect(declared(css, ".conn-retry-label")).toMatch(/display:\s*inline-grid/);
+    expect(declared(css, ".conn-retry-label::after")).toMatch(/grid-area:\s*1\s*\/\s*1/);
+    expect(declared(css, ".conn-retry-label::after")).toMatch(/content:\s*attr\(data-reserve\);\s*visibility:\s*hidden/);
+  });
+});

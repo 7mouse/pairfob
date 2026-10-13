@@ -1,7 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { INSPECTOR_COLUMN_ID } from "../../app/layout/inspector-width";
 import { t } from "../../lib/i18n";
 import { ensureBranches, useWorkspace, type WorkspaceSnapshot } from "../../features/workspace";
+import { takeInspectorEntrance } from "../../features/workspace/inspector";
+import { inspectorLeaving, inspectorStore } from "../../features/workspace/inspector-store";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
 import { BranchSheet } from "../../features/workspace/branches";
 import { WorkspaceBrowser } from "../../features/workspace/browser";
 import { escapeFromColumn } from "../../features/workspace/escape";
@@ -29,10 +32,24 @@ function InspectorContent({ snapshot }: { snapshot: WorkspaceSnapshot }) {
  * itself (`tabIndex`), which is where the keyboard rests when nothing inside
  * it has it: see `useInspectorFocus`. Esc pressed in it closes what is on top:
  * the open file or diff, then the column (`escape`).
+ *
+ * The column takes its width in one step: the session beside it may be the
+ * complete terminal, which is resized once. Opened by the reader, its content
+ * then walks in from the edge it opened at (`is-entering`, desk.scss), for as
+ * long as that takes: content drawn anew later, for another session, is still.
+ * Closed by the reader, the content goes first (`is-leaving`) and the column
+ * gives its room back after, again in one step.
  */
 export function WorkspaceInspector() {
   const snapshot = useWorkspace();
   const column = useRef<HTMLElement>(null);
+  const [entering, setEntering] = useState(takeInspectorEntrance);
+  useEffect(() => {
+    if (!entering) return;
+    const timer = window.setTimeout(() => setEntering(false), MOTION_MS.panel);
+    return () => window.clearTimeout(timer);
+  }, [entering]);
+  const leaving = useSyncExternalStore(inspectorStore.subscribe, inspectorLeaving);
   useInspectorFocus(column, snapshot.paneId);
   // The branch sheet belongs to the session it was opened for: another session's column never shows it.
   const [branchesOf, setBranchesOf] = useState<string | null>(null);
@@ -46,7 +63,7 @@ export function WorkspaceInspector() {
     // Asked for one session, answered under another: the sheet is not for this one.
     if (branches && shownPane.current === paneId) setBranchesOf(paneId);
   }, [paneId]);
-  return <aside ref={column} id={INSPECTOR_COLUMN_ID} className="inspector workspace-inspector" aria-label={t("inspector.label")} tabIndex={-1}
+  return <aside ref={column} id={INSPECTOR_COLUMN_ID} className={`inspector workspace-inspector${leaving ? " is-leaving" : entering ? " is-entering" : ""}`} aria-label={t("inspector.label")} tabIndex={-1}
     onKeyDown={(event) => {
       escapeFromColumn(event);
       keysFromColumn(event);

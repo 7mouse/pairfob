@@ -140,6 +140,10 @@
 .herd-empty-command-label { flex: none; }
 .herd-empty-copy { position: relative; flex: none; margin-left: auto; min-height: 36px; padding: 0 6px; }
 
+/* The link ends the row: its words stay at the row's edge while the cell behind
+   them is as wide as the longest thing it says. */
+.herd-empty-copy .copy-ack { justify-items: end; }
+
 /* Drawn 36px tall so the command's row keeps its height; the target reaches
    5px further on each side, into that row's own 8px of padding. */
 .herd-empty-copy::after {

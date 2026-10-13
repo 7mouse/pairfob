@@ -4,13 +4,25 @@
  * The only place that measures a viewport and turns a pure camera transition
  * into a style write. Reading the camera and persisting the next one stay with
  * the caller, so this module never touches application state.
+ *
+ * A camera reaches the screen in one of two ways. `settleCamera` writes it at
+ * once: everything a hand is moving (a pan, two fingers, a wheel) and
+ * everything that only keeps the board in place (the first fit, a resized
+ * box). `travelCamera` is for a camera asked for with one press (a zoom
+ * button, the fit, a double click, a camera key): the stage travels there,
+ * and every frame is a whole camera, so the seams, the title bars and the
+ * panes' clear room stay in step with the scale on the way. Any camera written
+ * meanwhile ends the travel where it is and wins.
  */
 import { BOARD_CELL_H, fitBoardCamera, type TabLayout } from "../../../lib/layout";
+import { MOTION_EASE_POINTS, MOTION_MS, motionMs } from "../../../shared/ui/dom/motion";
 import {
   boardStageSize,
+  cameraBetween,
   cameraInView,
   cameraTransform,
   fitCamera,
+  sameCameraView,
   stageTallerThanView,
   wheelPanY,
   zoomCameraAt,
@@ -21,7 +33,51 @@ import {
 export const BOARD_TITLE_MIN_PX = 14;
 export const BOARD_TITLE_MAX_PX = 24;
 
+/** The camera each stage shows now, which is where a travel starts from. */
+const shown = new WeakMap<HTMLElement, BoardCamera>();
+/** A stage on its way to a camera, and the frame that takes the next step. */
+const travels = new WeakMap<HTMLElement, { to: BoardCamera; frame: number }>();
+
+function endTravel(stage: HTMLElement): void {
+  const travel = travels.get(stage);
+  if (!travel) return;
+  cancelAnimationFrame(travel.frame);
+  travels.delete(stage);
+}
+
+/**
+ * `--ease` as a function of time, 0 to 1, for a camera stepped frame by frame.
+ * Solved by halving, which is exact enough for a frame and cannot diverge.
+ */
+const [EASE_X1, EASE_Y1, EASE_X2, EASE_Y2] = MOTION_EASE_POINTS;
+export function easedShare(time: number): number {
+  if (time <= 0) return 0;
+  if (time >= 1) return 1;
+  const at = (t: number, a: number, b: number) => 3 * (1 - t) * (1 - t) * t * a + 3 * (1 - t) * t * t * b + t * t * t;
+  let low = 0;
+  let high = 1;
+  for (let step = 0; step < 24; step++) {
+    const middle = (low + high) / 2;
+    if (at(middle, EASE_X1, EASE_X2) < time) low = middle;
+    else high = middle;
+  }
+  return at((low + high) / 2, EASE_Y1, EASE_Y2);
+}
+
+/**
+ * Paint a camera now. The canvas repaints its stage on every commit with the
+ * camera the record holds, which during a travel is the one being travelled
+ * to: that repaint is not a new camera and leaves the travel alone.
+ */
 export function applyCameraTransform(stage: HTMLElement, camera: BoardCamera): void {
+  const travel = travels.get(stage);
+  if (travel && sameCameraView(travel.to, camera)) return;
+  endTravel(stage);
+  paintCamera(stage, camera);
+}
+
+function paintCamera(stage: HTMLElement, camera: BoardCamera): void {
+  shown.set(stage, camera);
   stage.style.transform = cameraTransform(camera);
   // Pane screens scale with the stage like herdr's own miniature. Controls
   // (handles, hints) counter-scale to keep their on-screen size at any zoom.
@@ -88,6 +144,41 @@ export function settleCamera(stage: HTMLElement, camera: BoardCamera, store: (ca
   const next = cameraWithinViewport(stage, camera);
   store(next);
   applyCameraTransform(stage, next);
+  return next;
+}
+
+/**
+ * `settleCamera` for a camera asked for with one press: bounded and handed to
+ * `store` at once, so every reader has it, and painted over `--dur-3`. A stage
+ * that shows nothing yet, a reader who asked for less motion and a camera that
+ * is already on screen are written straight away.
+ */
+export function travelCamera(stage: HTMLElement, camera: BoardCamera, store: (camera: BoardCamera) => void): BoardCamera {
+  const next = cameraWithinViewport(stage, camera);
+  const from = shown.get(stage);
+  const duration = motionMs(MOTION_MS.panel);
+  if (!from || !duration || sameCameraView(from, next) || typeof requestAnimationFrame !== "function") {
+    store(next);
+    applyCameraTransform(stage, next);
+    return next;
+  }
+  endTravel(stage);
+  let started = -1;
+  const step = (now: number) => {
+    if (started < 0) started = now;
+    const time = (now - started) / duration;
+    if (time >= 1 || !stage.isConnected) {
+      travels.delete(stage);
+      paintCamera(stage, next);
+      return;
+    }
+    paintCamera(stage, cameraBetween(from, next, easedShare(time)));
+    travel.frame = requestAnimationFrame(step);
+  };
+  const travel = { to: next, frame: requestAnimationFrame(step) };
+  // Before the store: a subscriber's repaint with this camera must find the travel.
+  travels.set(stage, travel);
+  store(next);
   return next;
 }
 

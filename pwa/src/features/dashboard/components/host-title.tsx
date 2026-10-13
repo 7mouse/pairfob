@@ -1,8 +1,8 @@
 import { ChevronDown } from "lucide-react";
 import { useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../../lib/i18n";
-import { Button, StatusDot } from "../../../shared/ui/primitives";
-import { hostBrief, STATUS_JOIN, type HerdHostView } from "../model/herd-view";
+import { Button, StatusDot, Swap } from "../../../shared/ui/primitives";
+import { hostBrief, hostStatusKey, STATUS_JOIN, type HerdHostView } from "../model/herd-view";
 
 /**
  * The rail's status line: the sentence the phone header reads, whenever the
@@ -15,6 +15,9 @@ import { hostBrief, STATUS_JOIN, type HerdHostView } from "../model/herd-view";
  * depends on the rail's width and the pointer's button sizes, the sentence on
  * the language and the latency's digits. It is laid out once out of sight on a
  * single row and compared with the line, again whenever either changes size.
+ *
+ * Each part marks a change of status as the phone's line does (`HostTitle`);
+ * the line itself is what is measured, so it is the parts that fade in.
  */
 function RailStatus({ host }: { host: HerdHostView }) {
   const line = useRef<HTMLSpanElement>(null);
@@ -40,8 +43,10 @@ function RailStatus({ host }: { host: HerdHostView }) {
       {/* Drawn by the style sheet from the attribute, so the line's own text stays what it shows. */}
       <span ref={whole} className="host-title-whole" data-sentence={host.line} aria-hidden="true" />
       {fits
-        ? <span className="host-title-fact">{host.line}</span>
-        : hostBrief(host).map((part, index) => <span key={index} className="host-title-fact">{index ? STATUS_JOIN : ""}{part}</span>)}
+        ? <Swap on={hostStatusKey(host)} className="host-title-fact">{host.line}</Swap>
+        : hostBrief(host).map((part, index) => (
+          <Swap key={index} on={hostStatusKey(host)} className="host-title-fact">{index ? STATUS_JOIN : ""}{part}</Swap>
+        ))}
     </span>
   );
 }
@@ -54,6 +59,11 @@ function RailStatus({ host }: { host: HerdHostView }) {
  * `brief` is the rail, whose head may be too narrow for the sentence
  * (`RailStatus`). A pointer resting on the title reads the name and the line
  * in full, and the button's name always carries both.
+ *
+ * A connection that drops or comes back is a change of this line and of the
+ * dot's colour, and both are seen to change: the line fades in when its status
+ * does (`hostStatusKey`, so a latency that ticks stays still) and the dot's
+ * colour runs from one to the other.
  */
 export function HostTitle({ host, onOpen, brief = false }: { host: HerdHostView; onOpen: () => void; brief?: boolean }) {
   return (
@@ -69,7 +79,7 @@ export function HostTitle({ host, onOpen, brief = false }: { host: HerdHostView;
         <span className="host-title-name">
           <span className="host-title-label">{host.name}</span><ChevronDown size={16} aria-hidden="true" />
         </span>
-        {brief ? <RailStatus host={host} /> : <span className="host-title-line">{host.line}</span>}
+        {brief ? <RailStatus host={host} /> : <Swap on={hostStatusKey(host)} className="host-title-line">{host.line}</Swap>}
       </span>
     </Button>
   );

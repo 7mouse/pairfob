@@ -177,6 +177,55 @@ describe("herd presenter", () => {
     expect(vibrations).toEqual([14]);
   });
 
+  test("the whole entrance is for a list that was built: its first rows, another grouping, another list", () => {
+    seed([seedAgent("p1", "alpha"), seedAgent("p2", "alpha")]);
+    const first = presentHerdView();
+    expect([first.stagger, first.epoch]).toEqual([true, 1]);
+    // The same rows again, and a session more or less: that list still, and nothing replays.
+    expect(presentHerdView().stagger).toBe(false);
+    seed([seedAgent("p1", "alpha"), seedAgent("p2", "alpha"), seedAgent("p3", "beta")]);
+    const joined = presentHerdView();
+    expect([joined.stagger, joined.epoch]).toEqual([false, 1]);
+    seed([seedAgent("p1", "alpha"), seedAgent("p3", "beta")]);
+    const left = presentHerdView();
+    expect([left.stagger, left.epoch]).toEqual([false, 1]);
+
+    setListGroup("space");
+    const regrouped = presentHerdView();
+    expect([regrouped.stagger, regrouped.epoch]).toEqual([true, 2]);
+    expect(presentHerdView().stagger).toBe(false);
+
+    // No row in common with what was shown: another computer's list, or another Herdr session's.
+    seed([seedAgent("q1", "gamma"), seedAgent("q2", "gamma")]);
+    const other = presentHerdView();
+    expect([other.stagger, other.epoch]).toEqual([true, 3]);
+  });
+
+  test("a list that empties has nothing to replay, and its next rows are a first paint again", () => {
+    seed([seedAgent("p1", "alpha")]);
+    presentHerdView();
+    seed([]);
+    const empty = presentHerdView();
+    expect([empty.stagger, empty.epoch]).toEqual([false, 1]);
+    seed([seedAgent("p1", "alpha")]);
+    const back = presentHerdView();
+    expect([back.stagger, back.epoch]).toEqual([true, 2]);
+  });
+
+  test("a subscriber is told when the list is built again, though nothing else of the attention changed", () => {
+    seed([seedAgent("p1", "alpha")]);
+    presentHerdView();
+    let notified = 0;
+    const stop = subscribeHerdAttention(() => { notified += 1; });
+    setListGroup("space");
+    presentHerdView();
+    setListGroup("agent");
+    presentHerdView();
+    stop();
+    expect(notified).toBe(2);
+    expect(readHerdInput(readHerdAttention()).listEpoch).toBe(3);
+  });
+
   test("a completion in the background acknowledges nothing", () => {
     visible("hidden");
     seed([seedAgent("p1", "alpha", "working")]);

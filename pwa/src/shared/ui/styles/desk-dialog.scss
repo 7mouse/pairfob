@@ -38,6 +38,59 @@ dialog.modal.desk-form::backdrop { @include desk-scrim; }
   dialog.modal::backdrop { @include desk-scrim; }
 }
 
+/* --- Arriving and leaving --------------------------------------------------------- */
+
+/* The centred card: the desk form at any width, and every dialog from 900px,
+   where a finger gets the same card. A panel or a menu anchored under its
+   trigger is not one and keeps its own entrance (`popover.scss`); neither is
+   the bottom sheet, which slides. The card arrives as the help card always
+   has, whole, with its scrim fading in under it. */
+@mixin card-arrives {
+  animation: help-in var(--dur-2) var(--ease);
+
+  &::backdrop { animation: fade-in var(--dur-2) var(--ease); }
+
+  /* A step over another dialog (`DIALOG_STEP`) takes over the scrim that is there. */
+  &.dialog-step::backdrop { animation: none; }
+
+  /* The help card's own entrance was its content's; the card's is enough. */
+  &.help > form { animation: none; }
+}
+
+/* It leaves as it came, in the time of a press. The dialog is closed by then:
+   focus is back where it was and the page answers again. Its owner keeps it in
+   the tree for the exit (`data-card-exit`, overlay/modal.tsx), drawn where it
+   stood, out of reach. Out of the top layer it has no backdrop, so the scrim it
+   takes with it is a spread of its own shadow. */
+@mixin card-leaves {
+  position: fixed;
+  inset-block: 0;
+  z-index: 50;
+  box-shadow: var(--shadow-3), 0 0 0 100vmax rgba(4, 6, 10, 0.38);
+  pointer-events: none;
+  animation: card-out var(--dur-1) var(--ease) forwards;
+}
+
+dialog.modal.desk-form:not(.popover) { @include card-arrives; }
+
+dialog.modal.desk-form[data-card-exit]:not([open], .popover) { @include card-leaves; }
+
+@media (min-width: 900px) {
+  dialog.modal:not(.popover) { @include card-arrives; }
+
+  dialog.modal[data-card-exit]:not([open], .popover) { @include card-leaves; }
+}
+
+@keyframes card-out {
+  to { transform: scale(0.98); opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @keyframes card-out {
+    to { opacity: 0; }
+  }
+}
+
 /* --- Head ------------------------------------------------------------------------- */
 
 /* Finger-sized until the pointer is known to be a mouse: a card the keyboard

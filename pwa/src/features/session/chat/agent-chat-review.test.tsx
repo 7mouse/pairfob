@@ -26,6 +26,7 @@ import { bindSessionOwnerFromLive } from "../bind-live";
 import { AgentChatPane } from "./agent-chat";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { COMPOSE_ENTER_SENDS_KEY, setComposeEnterSends } from "../../settings/preferences-store";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 
 const handlers = { onBack() {}, onWorkspace() {}, onMenu() {}, onSwitch() {} };
 const page = (text: string): AgentTracePage => ({ items: [
@@ -154,7 +155,7 @@ test("a new pane does not inherit the previous pane's expanded card or lazy deta
   applyTrace({ agentTraceItems: items("first-detail") });
   act(mount);
   act(() => {
-    appRoot().querySelector<HTMLDetailsElement>("details.work-card")!.open = true;
+    appRoot().querySelector<HTMLButtonElement>(".work-card button.work-head")!.click();
     appRoot().querySelector<HTMLButtonElement>(".work-step.is-read")!.click();
   });
   await drain();
@@ -166,7 +167,7 @@ test("a new pane does not inherit the previous pane's expanded card or lazy deta
     mount();
   });
   await drain();
-  expect({ cardOpen: appRoot().querySelector<HTMLDetailsElement>("details.work-card")!.open, requested })
+  expect({ cardOpen: appRoot().querySelector(".work-card .work-head")!.getAttribute("aria-expanded") === "true", requested })
     .toEqual({ cardOpen: false, requested: ["p1:first-detail"] });
 });
 
@@ -294,6 +295,13 @@ test("a passing notice floats over the transcript; the chat's own note and a las
   const wrap = appRoot().querySelector(".agent-stream-wrap");
   const reading = stream();
   const placed = () => appRoot().querySelector<HTMLElement>("[data-app-notice]");
+  const floating = () => appRoot().querySelector(".session-notice");
+  // A float that is over stays for an exit's length, marked as leaving, and is then gone.
+  const leaves = async () => {
+    expect(floating()?.className).toBe("session-notice is-leaving");
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, MOTION_MS.press + 40)); });
+    expect(floating()).toBeNull();
+  };
   // The stop outcome, a pad limit, a copy error: there for a moment, so nothing under it may move.
   act(() => showStatus("仍在运行，可以强制停止"));
   expect(placed()?.parentElement?.className).toBe("session-notice");
@@ -305,8 +313,8 @@ test("a passing notice floats over the transcript; the chat's own note and a las
   // A prompt that failed stays until the reader acts on it.
   act(() => showError("没有发送", true));
   expectSameNode(placed()?.parentElement, root);
+  await leaves();
   expectSameNode(placed()?.nextElementSibling, wrap);
-  expect(appRoot().querySelector(".session-notice")).toBeNull();
   // With the application notice gone, the history's own note takes the same place in the page.
   act(() => { clearNotice(); setTraceLoadState("error"); applyTrace({ agentTraceNote: "没能完整读取" }); patchAgentChat(); });
   const note = placed();
@@ -321,6 +329,7 @@ test("a passing notice floats over the transcript; the chat's own note and a las
   expectSameNode(appRoot().querySelector(".session-notice")?.nextElementSibling, wrap);
   act(clearNotice);
   expectSameNode(placed(), note);
+  await leaves();
   expectSameNode(note?.nextElementSibling, wrap);
   expectSameNode(stream(), reading);
 });

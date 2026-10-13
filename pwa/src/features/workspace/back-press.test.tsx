@@ -20,6 +20,7 @@ import { selectPane, setAgentChat, setFullTerminal } from "../session/session-st
 import { clearWorkspacePendingReveal, leaveWorkspace, loadDirectory, loadGitDiff, showWorkspaceTab, workspaceModel } from "./index";
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 import { inspectorOpen } from "./inspector-store";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
 
 /**
  * The files surfaces' ways back, pressed twice by accident. Each swaps what is
@@ -65,6 +66,14 @@ function liveFixture() {
     },
   };
 }
+
+/** The reader's close lets the column's content go first; the column is gone once that is over. */
+const columnGone = () => act(async () => {
+  const deadline = Date.now() + MOTION_MS.press + 1000;
+  do { await new Promise((resolve) => setTimeout(resolve, 20)); } while (document.querySelector("aside.inspector") && Date.now() < deadline);
+  // Focus is handed back a turn after the close.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+});
 
 async function settle(): Promise<void> {
   await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 0)); });
@@ -188,6 +197,7 @@ describe("the inspector's Close", () => {
   test("pressed twice, it closes the column and the second press does not reach the session's own actions", async () => {
     await bootInspector();
     expect(await pointerPress(one(".inspector .inspector-close"))).toBeTrue();
+    await columnGone();
     expect(inspectorOpen()).toBeFalse();
     // The session header's trailing actions stand where the column's corner was.
     expect(await pointerPress(one(".main .chrome-actions .icon-more"))).toBeFalse();

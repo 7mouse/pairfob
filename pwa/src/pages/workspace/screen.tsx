@@ -8,6 +8,7 @@ import {
 } from "../../features/workspace";
 import { BranchSheet } from "../../features/workspace/branches";
 import { WorkspaceBrowser } from "../../features/workspace/browser";
+import { useDetailTravel } from "../../features/workspace/detail-travel";
 import { DiffDetail } from "../../features/workspace/diff";
 import { useScreenEscape } from "../../features/workspace/escape";
 import { FileDetail } from "../../features/workspace/file-detail";
@@ -16,6 +17,7 @@ import { WorkspaceHeader } from "../../features/workspace/header";
 import { LIST_COLUMN_ID, ListDivider, listColumnStyle } from "../../features/workspace/list-divider";
 import { WorkspaceOverview } from "../../features/workspace/overview";
 import { useWorkspaceListWidth } from "../../features/workspace/prefs";
+import { Still } from "../../features/workspace/still";
 import { useTabOrder } from "../../features/workspace/tab-order";
 import { WorkspaceTabStrip } from "../../features/workspace/tab-strip";
 import { useScreenKeys } from "../../features/workspace/workspace-keys";
@@ -43,24 +45,30 @@ export function WorkspaceScreen() {
   const shell = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const listWidth = useWorkspaceListWidth();
+  const detail = snapshot.view !== "browser";
+  // One pane at a time, the reader's step between the two travels; the pane that leaves is kept for the way out.
+  const travel = useDetailTravel(detail);
   useScreenFocus(shell);
   useScreenEscape();
   useScreenKeys();
 
   return <>
-    <div ref={shell} className={`workspace-shell${snapshot.view === "browser" ? "" : " detail"}`}>
+    <div ref={shell} className={`workspace-shell${detail ? " detail" : ""}${travel.className}`}>
       <WorkspaceHeader snapshot={snapshot} onBranches={() => void openBranches()} />
       <WorkspaceNotice />
       <div ref={body} className="workspace-body" style={listColumnStyle(listWidth)}>
-        <aside id={LIST_COLUMN_ID} className="workspace-nav">
+        <aside id={LIST_COLUMN_ID} className="workspace-nav" inert={travel.leaving === "list"}>
           <WorkspaceTabs snapshot={snapshot} />
           <WorkspaceBrowser snapshot={snapshot} />
         </aside>
         <ListDivider body={body} />
-        <main className="workspace-main">
-          {snapshot.view === "file" ? <FileDetail snapshot={snapshot} />
-            : snapshot.view === "diff" ? <DiffDetail snapshot={snapshot} />
-            : <WorkspaceOverview snapshot={snapshot} onBranches={() => void openBranches()} />}
+        <main className="workspace-main" inert={travel.leaving === "detail"}>
+          {/* The file or diff that was closed is no longer in the store: it leaves as it was last drawn. */}
+          <Still still={travel.leaving === "detail"}>
+            {snapshot.view === "file" ? <FileDetail snapshot={snapshot} />
+              : snapshot.view === "diff" ? <DiffDetail snapshot={snapshot} />
+              : <WorkspaceOverview snapshot={snapshot} onBranches={() => void openBranches()} />}
+          </Still>
         </main>
       </div>
     </div>

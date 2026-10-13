@@ -175,6 +175,9 @@ async function withAgent(status: string, run: (setStatus: (next: string) => void
 }
 
 const liveStop = () => root().querySelector<HTMLButtonElement>(".full-terminal-live-actions .full-terminal-live-stop");
+/** The place 停止 keeps in the live row, there to press or away. */
+const stopSlot = () => root().querySelector<HTMLElement>(".full-terminal-live-actions > .full-terminal-live-stop-slot");
+const stopAway = () => stopSlot()?.classList.contains("is-away") === true && stopSlot()?.hasAttribute("inert") === true;
 
 describe("停止 in the mouse-driven dock", () => {
   test("live input keeps it beside 按键 while the agent works, writing Esc like the compose form's", async () => {
@@ -187,7 +190,8 @@ describe("停止 in the mouse-driven dock", () => {
 
       act(() => modeOption("实时")!.click());
       const row = [...root().querySelector(".full-terminal-live-actions")!.children].map((el) => el.className.split(" ")[0]);
-      expect(row.slice(-2)).toEqual(["dock-keys-btn", "full-terminal-compose-send"]);
+      expect(row.slice(-2)).toEqual(["dock-keys-btn", "full-terminal-live-stop-slot"]);
+      expect(stopAway()).toBeFalse();
       expect(liveStop()?.dataset.sendKind).toBe("stop");
       expect(liveStop()?.getAttribute("aria-label")).toBe("停止当前任务");
 
@@ -196,19 +200,39 @@ describe("停止 in the mouse-driven dock", () => {
       expect(liveStop()?.dataset.sendKind).toBe("stopping");
       expect(liveStop()?.disabled).toBeTrue();
 
-      // Herdr reports the pane left working: the flow ends and the button goes with it.
+      // Herdr reports the pane left working: the flow ends and the button fades
+      // out of a slot that keeps its place, so 按键 beside it does not move.
+      const slot = stopSlot();
       act(() => setStatus("idle"));
-      expect(liveStop()).toBeNull();
+      expectSameNode(stopSlot(), slot);
+      expect(stopAway()).toBeTrue();
+      expect([...root().querySelector(".full-terminal-live-actions")!.children].map((el) => el.className.split(" ")[0]))
+        .toEqual(row);
       expect(sent).toHaveLength(1);
+
+      // Working again: the same slot, back in reach.
+      act(() => setStatus("working"));
+      expectSameNode(stopSlot(), slot);
+      expect(stopAway()).toBeFalse();
+      expect(liveStop()?.dataset.sendKind).toBe("stop");
     });
   });
 
-  test("an idle agent has none, and a finger's live pad never does", async () => {
+  test("its slot holds the widest step from the start, so no step of a stop moves the row", async () => {
+    await withAgent("working", () => {
+      act(() => { setComposeLive(true); });
+      paint(DESK);
+      expect(liveStop()?.querySelector(".send-reserve")?.getAttribute("data-widest")).toBe("强制停止");
+    });
+  });
+
+  test("an idle agent's is away and out of reach, and a finger's live pad never has one", async () => {
     await withAgent("idle", () => {
       act(() => { setComposeLive(true); });
       paint(DESK);
       expect(root().querySelector(".full-terminal-live-field")).not.toBeNull();
-      expect(liveStop()).toBeNull();
+      expect(stopSlot()).not.toBeNull();
+      expect(stopAway()).toBeTrue();
     });
     unmountReact();
     await withAgent("working", () => {

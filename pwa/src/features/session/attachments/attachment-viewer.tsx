@@ -6,9 +6,14 @@
  * The large image is an object URL for the editable source that lives only
  * while that item is on screen; the store itself still only ever makes the
  * small thumbnail URL.
+ *
+ * Opened from a thumbnail, the picture grows out of it while the black ground
+ * fades in, and closing sends it back (`viewer-flight`). The viewer is a
+ * dialog of its own, so every way out of it (the ×, Escape, the system's back)
+ * goes through that exit.
  */
 import { ChevronLeft, ChevronRight, FileText, Info, PenLine, X } from "lucide-react";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { presentModal, ModalFrame, type ModalController } from "../../../shared/ui/overlay/modal";
 import { Button } from "../../../shared/ui/primitives/button";
 import { haptic } from "../../../lib/dom";
@@ -22,6 +27,7 @@ import { attachmentScopeKey, attachmentsStore, runtimeCheckpoint, runtimeObjectU
 import { changeQuality, subscribeTrayState, visibleItemsSnapshot } from "./attachments-tray-actions";
 import { inBody, keepsOriginal } from "./attachments-tray-model";
 import { presentImageEditor } from "./image-editor/image-editor";
+import { closeViewer, flightEnd, growFromThumbnail, type FlightEnd } from "./viewer-flight";
 
 /** Text files up to this size show their first lines in the viewer. */
 const TEXT_PREVIEW_BYTES = 4096;
@@ -48,15 +54,21 @@ function settled(scope: AttachmentScope, item: AttachmentItem): boolean {
 
 /**
  * Object URL for the source image while it is on screen (revoked on change), or
- * the tray thumbnail when the browser cannot decode the
- * source (HEIC outside Safari, a damaged file). `onError` reports the failed decode.
+ * the tray thumbnail when there is no source to show or the browser cannot
+ * decode it (HEIC outside Safari, a damaged file). `onError` reports the failed
+ * decode.
+ *
+ * The URL is made before the first paint, so the picture the viewer draws is
+ * the source from the start. Drawn first as the thumbnail it stood at the
+ * thumbnail's few pixels and jumped to its size when the source arrived, and a
+ * picture growing out of its thumbnail has to know the size it is growing to.
  */
 function useSourceUrl(scope: AttachmentScope, item: AttachmentItem | undefined): { url: string; onError: () => void } {
   const key = attachmentScopeKey(scope);
   const source = item?.kind === "image" ? runtimeSourceFile(key, item.localId) : null;
   const [url, setUrl] = useState("");
   const [failed, setFailed] = useState(false);
-  useEffect(() => {
+  useLayoutEffect(() => {
     setFailed(false);
     if (!source) { setUrl(""); return; }
     const next = URL.createObjectURL(source);
@@ -64,7 +76,7 @@ function useSourceUrl(scope: AttachmentScope, item: AttachmentItem | undefined):
     return () => URL.revokeObjectURL(next);
   }, [source]);
   const thumb = item?.kind === "image" ? runtimeObjectUrl(key, item.localId) : "";
-  return { url: failed || !url ? thumb : url, onError: () => setFailed(true) };
+  return { url: failed || !source ? thumb : url, onError: () => setFailed(true) };
 }
 
 function useTextPreview(scope: AttachmentScope, item: AttachmentItem | undefined): string {
@@ -141,7 +153,13 @@ export function AttachmentInfo({ item, scopeCurrent }: { item: AttachmentItem; s
   </ul>;
 }
 
-function ViewerBody({ modal, scope, start }: { modal: ModalController<void>; scope: AttachmentScope; start: number }) {
+function ViewerBody({ modal, scope, start, origin, leaveNow }: {
+  modal: ModalController<void>; scope: AttachmentScope; start: number;
+  /** The thumbnail the viewer was opened from, when it was on screen. */
+  origin: FlightEnd | null;
+  /** Close without the exit, for what takes the viewer's place. */
+  leaveNow: () => void;
+}) {
   const key = attachmentScopeKey(scope);
   const items = useItems(key);
   const draft = useSyncExternalStore(composeStore.subscribe, composeDraft);
@@ -152,6 +170,19 @@ function ViewerBody({ modal, scope, start }: { modal: ModalController<void>; sco
   const item = items[at];
   const { url, onError: onImageError } = useSourceUrl(scope, item);
   const text = useTextPreview(scope, item);
+  const picture = useRef<HTMLImageElement>(null);
+  // The picture the viewer opened on takes off once, when it has a size to grow
+  // to. Until then it is not drawn (`data-grounded`): shown for a frame at its
+  // full size first, it would jump back to the thumbnail to start from.
+  const grounded = useRef(origin !== null);
+  const takeOff = () => {
+    const el = picture.current;
+    if (!grounded.current || !origin || !el || !el.complete || !el.naturalWidth) return;
+    grounded.current = false;
+    growFromThumbnail(el, origin);
+    el.removeAttribute("data-grounded");
+  };
+  useLayoutEffect(takeOff);
 
   useEffect(() => {
     if (!items.length) modal.dismiss();
@@ -161,6 +192,8 @@ function ViewerBody({ modal, scope, start }: { modal: ModalController<void>; sco
     const next = at + step;
     if (next < 0 || next >= items.length) return;
     haptic(2);
+    // Another picture is not the one that was opened.
+    grounded.current = false;
     setIndex(next);
   };
 
@@ -198,7 +231,8 @@ function ViewerBody({ modal, scope, start }: { modal: ModalController<void>; sco
         <ChevronLeft size={20} aria-hidden="true" />
       </Button>}
       {item.kind === "image" && url
-        ? <img className="attach-viewer-img" src={url} alt={item.name} draggable={false} onError={onImageError} />
+        ? <img ref={picture} className="attach-viewer-img" data-item={item.localId} data-grounded={grounded.current ? "" : undefined}
+          src={url} alt={item.name} draggable={false} onLoad={takeOff} onError={onImageError} />
         : <div className="attach-viewer-file">
           <FileText size={44} aria-hidden="true" />
           {text ? <pre className="attach-viewer-text">{text}</pre>
@@ -213,7 +247,7 @@ function ViewerBody({ modal, scope, start }: { modal: ModalController<void>; sco
       {editable && <Button className="attach-viewer-act" onClick={() => {
         haptic(2);
         // The editor replaces the viewer rather than stacking over it.
-        modal.dismiss();
+        leaveNow();
         void editImage(scope, item.localId, (input) => presentImageEditor(input));
       }}><PenLine size={16} aria-hidden="true" />{attachT("viewer.markup")}</Button>}
       {editable && <Button className="attach-viewer-act" aria-pressed={original}
@@ -228,11 +262,17 @@ function ViewerBody({ modal, scope, start }: { modal: ModalController<void>; sco
   </div>;
 }
 
-/** Open the viewer on tray item `index` of `scope`. */
-export function presentAttachmentViewer(scope: AttachmentScope, index: number): void {
-  presentModal<void>((modal) => (
-    <ModalFrame modal={modal} title="" className="attach-viewer" heading={<></>}>
-      <ViewerBody modal={modal} scope={scope} start={index} />
-    </ModalFrame>
-  ), { replaceKey: "attach-viewer" });
+/**
+ * Open the viewer on tray item `index` of `scope`. `from` is the thumbnail it
+ * was opened from: the picture grows out of it when it is on screen.
+ */
+export function presentAttachmentViewer(scope: AttachmentScope, index: number, from: Element | null = null): void {
+  const origin = flightEnd(from);
+  presentModal<void>((modal) => {
+    // Dismissing plays the exit first. Another viewer taking this one's place still closes it at once.
+    const viewer: ModalController<void> = { ...modal, dismiss: () => closeViewer(modal.dialog.current, () => modal.dismiss()) };
+    return <ModalFrame modal={viewer} title="" className="attach-viewer" heading={<></>}>
+      <ViewerBody modal={viewer} scope={scope} start={index} origin={origin} leaveNow={() => modal.dismiss()} />
+    </ModalFrame>;
+  }, { replaceKey: "attach-viewer" });
 }

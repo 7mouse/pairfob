@@ -1,10 +1,10 @@
 import { ChevronDown, ChevronLeft } from "lucide-react";
 import { t } from "../../lib/i18n";
 import type { GitChangeKind } from "../../lib/workspace";
-import { Button } from "../../shared/ui/primitives";
+import { Button, Swap } from "../../shared/ui/primitives";
 import { closeWorkspaceDetail } from "./actions";
 import { guardBackPress } from "./back-press";
-import { DiffBody, DiffHint, DiffStats, DiffTools, LayerSwitch, useDiffView } from "./diff";
+import { DiffBody, DiffFooter, DiffHint, DiffStats, DiffTools, LayerSwitch, useDiffView } from "./diff";
 import { DiffStepper } from "./diff-stepper";
 import { DetailMoreButton, FileActions, FileBody, FileMeta, useFileView } from "./file-detail";
 import { openFileSwitcher } from "./file-switcher";
@@ -32,7 +32,7 @@ function ListSwitch({ path, mark }: { path: string; mark?: GitChangeKind }) {
     </Button>
     <Button className="inspector-switch-file" aria-label={t("inspector.switchFile", { name })} title={path} aria-haspopup="dialog"
       onClick={(event) => openFileSwitcher(event.currentTarget)}>
-      <span className="workspace-detail-name">{name}</span>
+      <Swap on={path} className="workspace-detail-name">{name}</Swap>
       {mark && <GitMark kind={mark} />}
       <ChevronDown size={14} aria-hidden="true" />
     </Button>
@@ -78,9 +78,9 @@ export function InspectorDiff({ snapshot }: { snapshot: WorkspaceSnapshot }) {
       </span>
     </div>
     <DiffBody snapshot={snapshot} view={view} onEditNote={note.open} hint={false} inline={note} parked={note.parked} />
-    <div className="workspace-diff-footer">
-      {diff && !diff.binary && <DiffNotesBar key={view.diffKey} path={diff.path} layer={snapshot.diffLayer} paneId={snapshot.paneId} beside />}
+    <DiffFooter view={view}>
+      {diff && !diff.binary && <DiffNotesBar path={diff.path} layer={snapshot.diffLayer} paneId={snapshot.paneId} beside />}
       {view.invitesNotes && <DiffHint />}
-    </div>
+    </DiffFooter>
   </section>;
 }

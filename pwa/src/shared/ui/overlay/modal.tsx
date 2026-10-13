@@ -1,7 +1,9 @@
 import { X } from "lucide-react";
 import { t } from "../../../lib/i18n";
+import { MOTION_MS, motionMs } from "../dom/motion";
+import { ROOMY_QUERY } from "../dom/width-tier";
 import { Button } from "../primitives/button";
-import { DeskFormContext, dialogClass, useDeskCancel } from "./desk-form";
+import { DESK_FORM, DeskFormContext, dialogClass, useDeskCancel } from "./desk-form";
 import { useDialogLifecycle } from "./dialog-lifecycle";
 import { createEscapeSteps, EscapeStepsContext } from "./escape-steps";
 import { deskPresentation } from "./popover";
@@ -23,6 +25,33 @@ export type ModalController<T> = {
 
 let serial = 0;
 const replacements = new Map<string, () => void>();
+
+/**
+ * What marks a dialog whose owner keeps it for an exit. The style sheet draws
+ * a closed dialog that carries it where it stood, fading, for as long as it is
+ * the centred card (`styles/desk-dialog.scss`); any other closed dialog is not
+ * drawn at all.
+ */
+const CARD_EXIT = "data-card-exit";
+
+/**
+ * Whether a dialog is drawn as the centred card: the desk form, and any dialog
+ * from the roomy width. The style sheet's own condition, read here to know
+ * whether a closed one has an exit to play. A bottom sheet and a panel or menu
+ * anchored under its trigger have none and are taken down at once.
+ */
+function drawnAsCard(dialog: HTMLDialogElement): boolean {
+  if (dialog.classList.contains("popover")) return false;
+  return dialog.classList.contains(DESK_FORM) || window.matchMedia(ROOMY_QUERY).matches;
+}
+
+/** The closed dialogs still in the tree for their exit, each with what takes it down. */
+const leaving = new Set<() => void>();
+
+/** Take down what is only leaving: the next dialog has the screen, and is the one dialog on the page. */
+function dropLeaving(): void {
+  for (const drop of [...leaving]) drop();
+}
 type ModalOptions<T> = {
   replaceKey?: string;
   /** Where focus returns on close; defaults to what held it when the modal opened. */
@@ -47,6 +76,7 @@ export function presentModal<T>(view: (modal: ModalController<T>) => ReactNode,
 export function presentModal<T>(view: (modal: ModalController<T>) => ReactNode, options?: ModalOptions<T>): ModalController<T>;
 export function presentModal<T>(view: (modal: ModalController<T>) => ReactNode, options: ModalOptions<T> = {}): ModalController<T> {
   const { replaceKey } = options;
+  dropLeaving();
   if (replaceKey) replacements.get(replaceKey)?.();
   const trigger = options.returnFocus ?? (document.activeElement instanceof HTMLElement ? document.activeElement : null);
   const origin = followTrigger(trigger);
@@ -78,8 +108,31 @@ export function presentModal<T>(view: (modal: ModalController<T>) => ReactNode, 
     finish() {
       if (finished) return;
       finished = true;
-      if (!accepted && modal.dialog.current && options.readClose) value = options.readClose(modal.dialog.current);
-      flushSync(() => root.unmount());
+      const dialog = modal.dialog.current;
+      if (!accepted && dialog && options.readClose) value = options.readClose(dialog);
+      // The dialog is closed: focus goes back and the result is handed over
+      // now, as always. Only its removal waits, and only for a card, which is
+      // seen leaving meanwhile and is out of reach (`inert`).
+      const exit = dialog && drawnAsCard(dialog) ? motionMs(MOTION_MS.press) : 0;
+      if (exit && dialog) {
+        dialog.setAttribute("inert", "");
+        // Focus still on one of its controls is focus nowhere, as it would be
+        // with the dialog gone: what gives focus back below asks exactly that.
+        const held = document.activeElement;
+        if (held instanceof HTMLElement && dialog.contains(held)) held.blur();
+        const home = dialog.parentNode;
+        const drop = () => {
+          if (!leaving.delete(drop)) return;
+          window.clearTimeout(timer);
+          // A page cleared under it took the dialog out; React takes it from where it put it.
+          if (home && dialog.parentNode !== home) home.appendChild(dialog);
+          root.unmount();
+        };
+        const timer = window.setTimeout(drop, exit);
+        leaving.add(drop);
+      } else {
+        flushSync(() => root.unmount());
+      }
       queueMicrotask(() => {
         const current = !replaceKey || replacements.get(replaceKey) === replace;
         if (replaceKey && current) replacements.delete(replaceKey);
@@ -104,6 +157,8 @@ export function presentModal<T>(view: (modal: ModalController<T>) => ReactNode, 
   const replace = () => { restoreFocus = false; modal.dismiss(); };
   if (replaceKey) replacements.set(replaceKey, replace);
   flushSync(() => root.render(createPortal(view(modal), document.body)));
+  // Marked once it is open: before that a closed dialog is one not yet shown.
+  modal.dialog.current?.setAttribute(CARD_EXIT, "");
   return modal;
 }
 

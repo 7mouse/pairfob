@@ -64,7 +64,7 @@ describe("the keys at the page", () => {
   beforeEach(async () => {
     await resetBoardTestDOM();
     appRoot().innerHTML = `<header><button class="more">More</button></header>
-      <div class="agent-stream" tabindex="0"><details><summary class="work-head">2 steps</summary></details></div>
+      <div class="agent-stream" tabindex="0"><div class="work-card"><button class="work-head" aria-expanded="false">2 steps</button></div></div>
       <div class="dock agent-dock"><textarea></textarea></div>`;
     stream = appRoot().querySelector(".agent-stream")!;
     field = appRoot().querySelector("textarea")!;
@@ -89,7 +89,7 @@ describe("the keys at the page", () => {
   });
 
   test("focus inside the transcript is the browser's to scroll, and a character is nobody's here", () => {
-    for (const target of [stream, stream.querySelector("summary")!]) {
+    for (const target of [stream, stream.querySelector(".work-head")!]) {
       const event = press(target, "PageDown");
       expect(readAgentStream(event)).toBeFalse();
       expect(event.defaultPrevented).toBeFalse();

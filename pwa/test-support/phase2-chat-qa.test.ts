@@ -95,7 +95,7 @@ test("phase2 long Pi scene includes successful, failed, and empty tool results",
   const steps = [...document.querySelectorAll<HTMLButtonElement>(".work-step")];
   const failed = steps.find((step) => step.textContent?.includes("bun test chat"))!;
   expect(failed.className).toContain("is-error");
-  expect(failed.closest("details.work-card")?.className).toBe("work-card is-done");
+  expect(failed.closest(".work-card")?.className).toBe("work-card is-done");
   // Tool bodies load only when a step's sheet opens, and never enter the stream.
   await act(async () => { failed.click(); await Promise.resolve(); });
   await settle(() => (document.querySelector("dialog.step-sheet")?.textContent ?? "").includes("expected one refresh"));
@@ -111,7 +111,7 @@ test("phase2 long Pi scene includes successful, failed, and empty tool results",
 
 test("the steps scene keeps routine failures off the card header and names command-output reads", async () => {
   await start("chat-steps");
-  const cards = [...document.querySelectorAll<HTMLDetailsElement>("details.work-card")];
+  const cards = [...document.querySelectorAll<HTMLElement>(".work-card")];
   // The agent worked past a failed read and answered: the card counts its steps.
   expect(cards[0].className).toBe("work-card is-done");
   expect(cards[0].querySelector(".work-title")?.textContent).toBe("Done · 5 steps");
@@ -129,7 +129,7 @@ test("the steps scene keeps routine failures off the card header and names comma
 });
 
 test("recorded Cursor, Hermes and opencode sessions render from the daemon's own replies", async () => {
-  const card = () => document.querySelector<HTMLDetailsElement>("details.work-card")!;
+  const card = () => document.querySelector<HTMLElement>(".work-card")!;
   // Tool rows only: thinking and the agent's notes are rows too.
   const rows = () => [...card().querySelectorAll(".work-step")].filter((row) => row.querySelector(".work-step-text") && !row.className.includes("is-think"))
     .map((row) => `${row.className.match(/is-(read|search|edit|command|web|other|think)/)?.[1]}:${row.className.match(/is-(done|error|ended|running)/)?.[1] ?? ""}`);

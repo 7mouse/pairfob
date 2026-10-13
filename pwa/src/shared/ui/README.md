@@ -48,3 +48,29 @@ Reuse `Button`, `EmptyState`, `StatusLine`, setting rows and menu primitives as
 appropriate. `Button` deliberately retains native props and only defaults the
 button type; it does not own business loading or mutation state. Specialized
 terminal keys, board tabs and the camera scanner retain their own interactions.
+
+Motion that more than one screen needs lives here too, so the same change moves
+the same way everywhere (`styles/motion-kit`, emitted by `styles/motion`):
+
+- `primitives/fold`: `Fold` opens and shuts a block by height and keeps its
+  content mounted; shut, it is `inert`. Use it for a group, a row joining or
+  leaving a list, a form that grows a field. Do not swap a block in with
+  `hidden` or a conditional when its neighbours would jump.
+- `primitives/swap`: `Swap` fades a word or a number in when its `on` value
+  changes, never on a first paint or a repaint.
+- `primitives/copy-ack` with `shared/react/use-copied`: the two faces of a copy
+  button in one cell, so confirming a copy moves nothing.
+- `shared/react/use-presence`: `usePresence` and `useKeptList` keep what just
+  left mounted for its exit, marked `leaving`; `useKeptList` also marks a
+  newcomer `entering`. Style the exit on an `is-leaving` class next to the
+  thing's own entrance, shorter than the entrance.
+- Classes `swap-in`, `pop-in` and `rise-in` for a node that is new by
+  construction. `MOTION_MS` (`dom/motion`) names the four `--dur-*` tokens for a
+  timer that must wait out a CSS exit.
+- `dom/motion` `playMove`: a move whose two ends are measured on the page (a
+  button whose label changed width, a thing sent to another place), played
+  with Web Animations on the same durations and curve. `overlay/sheet-height`
+  `useSheetHeight` is the one for a sheet whose content is replaced whole.
+
+A repaint is not a change: nothing here may run because a poll drew the same
+data again. Nothing may tween the complete terminal's box either.

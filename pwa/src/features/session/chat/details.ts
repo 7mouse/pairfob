@@ -1,5 +1,5 @@
 /**
- * Manual <details> choices for the agent stream. Scoped to the adopted session
+ * The reader's own open/shut choices for the stream's cards. Scoped to the adopted session
  * owner. Controllers record toggles; render must not snapshot the DOM.
  */
 

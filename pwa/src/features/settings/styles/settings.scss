@@ -207,10 +207,7 @@
 /* Where the second line is a sentence. A line of facts joined by dots (a quota's
    window and reset) keeps its plain wrap: evened out, it would start a line with the dot. */
 .notification-item .set-item-sub,
-.wake-item .set-item-sub,
 .set-radio .set-item-sub { text-wrap: balance; }
-
-.set-item-sub.is-warn { color: var(--warn); }
 
 .set-item-sub.is-error,
 .set-item.is-error .set-item-label { color: var(--error); }
@@ -408,13 +405,6 @@
   justify-content: center;
 }
 
-/* The screen row's second line is a sentence, so it gives way: beside the
-   control on a wide card, a full line above it on a phone. */
-.set-item.wake-item > .set-item-text {
-  flex: 1000 1 16rem;
-  min-width: 0;
-}
-
 .set-seg.seg {
   --seg-pad: 2px;
   --seg-gap: 2px;
@@ -425,8 +415,28 @@
   border-radius: 11px;
 }
 
-/* Segments differ in width, so the choice is painted on the segment itself. */
+/* Segments follow their words, so the shared indicator's equal shares do not
+   fit them. The choice is one thumb all the same: it takes the chosen
+   segment's measured box (`features/settings/seg-thumb`) and slides there. */
 .set-seg::before { display: none; }
+
+.set-seg-thumb {
+  position: absolute;
+  top: var(--seg-pad);
+  bottom: var(--seg-pad);
+  left: 0;
+  width: var(--set-seg-w, 0);
+  border-radius: 9px;
+  background: var(--bg);
+  transform: translateX(var(--set-seg-x, 0));
+  transition: transform var(--dur-2) var(--ease), width var(--dur-2) var(--ease);
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.set-seg-thumb.is-placed { visibility: visible; }
+/* A box that moved without a new choice is written, not travelled. */
+.set-seg-thumb.is-still { transition: none; }
 
 .set-seg .seg-item {
   flex: 1 1 auto;
@@ -434,10 +444,12 @@
   padding: 0 12px;
   border-radius: 9px;
   white-space: nowrap;
-  transition: background var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
+  /* The word follows the thumb; the ground is the press's own. */
+  transition: color var(--dur-2) var(--ease), background var(--dur-1) var(--ease);
 }
 
-.set-seg .seg-item.on { background: var(--bg); }
+/* Until the thumb has a box to take, the segment says the choice itself. */
+.set-seg:not(:has(> .set-seg-thumb.is-placed)) .seg-item.on { background: var(--bg); }
 
 /* The segment is drawn 40px tall inside its 44px track; a finger gets the
    track's whole height and a pixel past it, so a row laid out on a fraction

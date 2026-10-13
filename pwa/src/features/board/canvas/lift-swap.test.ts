@@ -4,6 +4,7 @@ import type { TabLayout } from "../../../lib/layout";
 import type { LayoutDirection } from "../../../lib/operations";
 import { boardCamera, type BoardCamera } from "../model/camera";
 import { bindBoardCanvasGestures, BOARD_LONG_PRESS_MS } from "./gesture-adapter";
+import { startLift } from "./lift-swap";
 
 // p1 | p2, side by side; tile rects are stubbed because the test DOM has no layout.
 const layout: TabLayout = { workspaceId: "w1", tabId: "t1", zoomed: false, focusedPaneId: "p1",
@@ -165,4 +166,109 @@ test("camera keys: 0 fits, Ctrl/⌘ plus and minus zoom around the centre", () =
   key({ key: "0", altKey: true });
   key({ key: "v" });
   expect(rig.calls.cameras.length).toBe(before);
+});
+
+test("a carried tile is put down, not dropped: its lift marks go at once and it stays on top until it is back", async () => {
+  const rig = setup();
+  rig.pointer("pointerdown");
+  await hold();
+  rig.pointer("pointermove", { clientX: 40, clientY: 400 });
+  rig.pointer("pointerup", { clientX: 40, clientY: 400 });
+  // The marks that held it at the finger are gone, so the stylesheet eases it home.
+  expect(rig.tiles[0].dataset.boardLift).toBeUndefined();
+  expect(rig.tiles[0].style.getPropertyValue("--board-lift-x")).toBe("");
+  expect(rig.tiles[0].style.getPropertyValue("--board-lift-y")).toBe("");
+  expect(rig.tiles[0].dataset.boardSettle).toBe("");
+  expect(Object.keys(rig.tiles[1].dataset).filter(key => key.startsWith("board"))).toEqual([]);
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(rig.tiles[0].dataset.boardSettle).toBeUndefined();
+});
+
+test("a tile picked up again on its way back is only lifted", () => {
+  const root = document.createElement("div");
+  const tile = document.createElement("div");
+  tile.className = "board-pane";
+  tile.dataset.paneId = "p1";
+  root.append(tile);
+  document.body.append(root);
+  const carry = startLift(root, tile, "p1", new Map(), { x: 0, y: 0 }, 8);
+  carry.move({ x: 30, y: 0 });
+  carry.cancel();
+  expect(tile.dataset.boardSettle).toBe("");
+  const again = startLift(root, tile, "p1", new Map(), { x: 0, y: 0 }, 8);
+  expect(tile.dataset.boardLift).toBe("");
+  expect(tile.dataset.boardSettle).toBeUndefined();
+  // Held in place and let go: it never left, so there is no way back to mark.
+  again.finish();
+  expect(Object.keys(tile.dataset).filter(key => key.startsWith("board"))).toEqual([]);
+});
+
+function carryOnto(direction: LayoutDirection = "right") {
+  const root = document.createElement("div");
+  const [tile, other] = ["p1", "p2"].map((id, index) => {
+    const node = document.createElement("div");
+    node.className = "board-pane";
+    node.dataset.paneId = id;
+    node.style.left = `${index * 100}px`;
+    node.getBoundingClientRect = rect(index * 100, 100);
+    root.append(node);
+    return node;
+  });
+  document.body.append(root);
+  const carry = startLift(root, tile, "p1", new Map([["p2", direction]]), { x: 40, y: 40 }, 8);
+  carry.move({ x: 150, y: 40 });
+  return { root, tile, other, carry };
+}
+
+test("a tile dropped on a neighbour is held at the finger until its box changes, then put down in the same turn", async () => {
+  const { tile, other, carry } = carryOnto();
+  const result = carry.finish();
+  expect([result.target, result.direction]).toEqual(["p2", "right"]);
+  // Let go, but not put down: the offset stays and the lift marks are gone.
+  expect(tile.dataset.boardLift).toBeUndefined();
+  expect(tile.dataset.boardSettle).toBe("held");
+  expect(tile.style.getPropertyValue("--board-lift-x")).toBe("110px");
+  expect(Object.keys(other.dataset).filter(key => key.startsWith("board"))).toEqual([]);
+  // A repaint that writes the same box is not the layout answering.
+  tile.style.left = "0px";
+  await Promise.resolve();
+  expect(tile.dataset.boardSettle).toBe("held");
+  // The new box: the offset leaves with it, and the tile only has to stay on top.
+  tile.style.left = "100px";
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(tile.style.getPropertyValue("--board-lift-x")).toBe("");
+  expect(tile.dataset.boardSettle).toBe("");
+  // The request ending afterwards has nothing left to put down.
+  result.putDown();
+  expect(tile.dataset.boardSettle).toBe("");
+  await new Promise(resolve => setTimeout(resolve, 300));
+  expect(tile.dataset.boardSettle).toBeUndefined();
+});
+
+test("a swap that ends without a new box puts the held tile back, and picking it up again ends the hold", () => {
+  const { tile, carry } = carryOnto();
+  const result = carry.finish();
+  expect(tile.dataset.boardSettle).toBe("held");
+  result.putDown();
+  expect(tile.style.getPropertyValue("--board-lift-x")).toBe("");
+  expect(tile.dataset.boardSettle).toBe("");
+
+  const again = carryOnto("left");
+  again.carry.finish();
+  expect(again.tile.dataset.boardSettle).toBe("held");
+  startLift(again.root, again.tile, "p1", new Map(), { x: 0, y: 0 }, 8);
+  expect(again.tile.dataset.boardSettle).toBeUndefined();
+  expect(again.tile.dataset.boardLift).toBe("");
+});
+
+test("the gesture puts the tile down when the swap it asked for is over", async () => {
+  const rig = setup();
+  rig.pointer("pointerdown");
+  await hold();
+  rig.pointer("pointermove", { clientX: 150, clientY: 40 });
+  rig.pointer("pointerup", { clientX: 150, clientY: 40 });
+  expect(rig.calls.swaps).toEqual([["p1", "right"]]);
+  expect(rig.tiles[0].dataset.boardSettle).toBe("held");
+  await new Promise(resolve => setTimeout(resolve, 0));
+  expect(rig.tiles[0].dataset.boardSettle).toBe("");
 });

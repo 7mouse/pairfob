@@ -1,3 +1,5 @@
+@use "./dock-switch";
+
 /* --- Compose field, send / stop button (session page v2) --------------------------
    Owned by the compose workstream. Loaded right after dock.scss so rules here win
    over the older .dock-form rules without editing that file. The same frame and
@@ -175,6 +177,21 @@ $field-hint: #757575;
 }
 
 /*
+  The label of every kind stands in one wrapper (compose-controls.tsx), so a
+  change of kind swaps it in place and the fade knows it from a first paint.
+  Both are boxes of the button's own row, not lines of text: a mark with no
+  word beside it would otherwise sit on a baseline, off the button's middle.
+*/
+.send-face { display: inline-flex; }
+
+.send-label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/*
   A stop under way holds the width of its widest step (compose-controls.tsx):
   the step shown and a hidden 强制停止 share one cell. The hidden one is the
   wrapper's own text, so the button still reads as one label, and it is
@@ -260,6 +277,25 @@ $field-hint: #757575;
 }
 
 .full-terminal-live-send:active { background: var(--accent-deep); }
+
+/*
+  停止 beside a live terminal's field keeps its place in the row whether or not
+  there is anything to stop (full-terminal-stop.tsx): arriving, it would take
+  its width from the field and move 按键 under the pointer. Away, it is clear
+  and cannot be pressed (the slot is `inert` as well); it fades in where it
+  already stands, and leaves at an exit's pace.
+*/
+.full-terminal-live-stop-slot {
+  flex: 0 0 auto;
+  display: flex;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+.full-terminal-live-stop-slot.is-away {
+  opacity: 0;
+  pointer-events: none;
+  transition-duration: var(--dur-1);
+}
 
 /* --- Blocked attachments: a small popover above the send button ---------------------- */
 
@@ -372,11 +408,11 @@ $field-hint: #757575;
 
 .dock-mode-switch {
   flex: none;
-  display: flex;
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   background: var(--surface);
+  @include dock-switch.track(".dock-mode-option", 2px, 6px);
 }
 
 .dock-mode-option {
@@ -384,13 +420,13 @@ $field-hint: #757575;
   padding: 0 10px;
   border: 0;
   border-radius: 6px;
-  background: transparent;
   color: var(--muted);
   font: 500 var(--text-caption) var(--font);
   cursor: pointer;
+  @include dock-switch.option;
 }
 
-.dock-mode-option[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); }
+.dock-mode-option[aria-pressed="true"] { color: var(--ink); }
 
 /* Live is the mode that types into the session; it wears the field's live colour. */
 .dock-mode-option:last-child[aria-pressed="true"] { color: var(--ok); }

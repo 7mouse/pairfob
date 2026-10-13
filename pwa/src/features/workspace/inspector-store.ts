@@ -11,7 +11,7 @@ import { createDomain } from "../../shared/model/domain-store";
  * layout's answer (`isRoomy() && open`): a window that narrows keeps the choice
  * and shows the column again when it widens.
  */
-const domain = createDomain("workspaceInspector", { open: false });
+const domain = createDomain("workspaceInspector", { open: false, leaving: false });
 export const inspectorStore = domain.store;
 
 export function inspectorOpen(): boolean {
@@ -22,5 +22,17 @@ export function setInspectorOpen(open: boolean): void {
   if (domain.controller.read().open === open) return;
   domain.controller.write((record) => {
     record.open = open;
+  });
+}
+
+/** The reader closed the column and its content is on its way out (`leaveWorkspaceInspector`). */
+export function inspectorLeaving(): boolean {
+  return domain.controller.read().leaving;
+}
+
+export function setInspectorLeaving(leaving: boolean): void {
+  if (domain.controller.read().leaving === leaving) return;
+  domain.controller.write((record) => {
+    record.leaving = leaving;
   });
 }

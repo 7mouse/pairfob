@@ -1,15 +1,30 @@
 import { Globe, Monitor } from "lucide-react";
-import type { ReactNode } from "react";
+import { useRef, type ReactNode } from "react";
 import { ThisDeviceIcon } from "../../features/settings/this-device";
 import { t } from "../../lib/i18n";
+import { Swap } from "../../shared/ui/primitives";
 
 /**
  * The real route a session takes — this device → pairfob.com → the computer —
  * with the stuck or broken hop marked. It says where the problem is, which
  * decides what the reader can do about it.
+ *
+ * The card is redrawn every second while it counts a wait, so nothing in it
+ * moves for being drawn. A hop that changes state does: a link that comes
+ * through is drawn across (the stylesheet, on the link's own class), the
+ * node's check or cross pops in, and its note is swapped in.
  */
 export type HopState = "ok" | "wait" | "fail" | "idle";
-export type PathNode = { state: HopState; note: string };
+export type PathNode = {
+  state: HopState;
+  note: string;
+  /**
+   * What the note says, when its words carry a running count ("waiting 9 s").
+   * The note is swapped in when this changes, so a count ticking up is not a
+   * new note every second. Defaults to the note itself.
+   */
+  says?: string;
+};
 
 export function ConnectionPathCard({ host, phone, link1, relay, link2, computer, children }: {
   host: string;
@@ -35,12 +50,29 @@ export function ConnectionPathCard({ host, phone, link1, relay, link2, computer,
   );
 }
 
+/** How many times `value` has changed since the first render: 0 until it does. */
+function useTurns(value: string): number {
+  const seen = useRef(value);
+  const turns = useRef(0);
+  if (seen.current !== value) {
+    seen.current = value;
+    turns.current += 1;
+  }
+  return turns.current;
+}
+
 function Node({ node, icon, name }: { node: PathNode; icon: ReactNode; name: string }) {
+  const turns = useTurns(node.state);
+  const marked = node.state === "ok" || node.state === "fail";
   return (
     <span className={`conn-node is-${node.state}`} aria-hidden="true">
-      <span className="conn-node-icon">{icon}</span>
+      <span className="conn-node-icon">
+        {icon}
+        {/* A new mark for each result this node comes to; the one it was first drawn with is still. */}
+        {marked ? <span key={turns} className={`conn-node-badge${turns ? " pop-in" : ""}`} /> : null}
+      </span>
       <b>{name}</b>
-      <small>{node.note}</small>
+      <Swap as="small" on={node.says ?? node.note}>{node.note}</Swap>
     </span>
   );
 }

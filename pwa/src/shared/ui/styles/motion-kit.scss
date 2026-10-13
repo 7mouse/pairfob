@@ -1,0 +1,115 @@
+// Shared motion pieces that no one screen owns: a block that folds, a label
+// that swaps, a mark that pops, a row that joins a list, and the two faces of a
+// copy button. Emitted through mixins by the motion composition. Every piece
+// uses the four durations and `--ease`; a screen that needs one of these moves
+// takes it from here instead of writing another.
+
+@mixin motion-kit {
+  /* --- Fold --------------------------------------------------------------------
+     A block that opens and shuts by height (the `Fold` primitive). The track
+     goes 1fr <-> 0fr, the same move as the list header's "needs you" row, so
+     nothing measures a height and the content can change size while open. The
+     inner box clips while the block moves: leave room inside it for a focus
+     ring or a shadow that must not be cut. A shut block is `inert`.
+     ------------------------------------------------------------------------------ */
+  .fold {
+    display: grid;
+    grid-template-rows: 1fr;
+    transition: grid-template-rows var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease);
+  }
+
+  .fold > .fold-body {
+    min-width: 0;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .fold.is-shut {
+    grid-template-rows: 0fr;
+    opacity: 0;
+  }
+
+  /* A block that mounts already open and should still be seen opening. Engines
+     without @starting-style show it open at once, which is what they did before. */
+  @starting-style {
+    .fold.fold-appear:not(.is-shut) {
+      grid-template-rows: 0fr;
+      opacity: 0;
+    }
+  }
+
+  /* --- Swap --------------------------------------------------------------------
+     A word or a number replaced in place (the `Swap` primitive): the list card's
+     pill-swap for every other status word, count and name.
+     ------------------------------------------------------------------------------ */
+  .swap-in { animation: swap-in var(--dur-3) var(--ease); }
+
+  @keyframes swap-in {
+    from { opacity: 0.2; }
+    to { opacity: 1; }
+  }
+
+  /* --- Pop ---------------------------------------------------------------------
+     A small mark that reports a result where the reader is already looking: a
+     check replacing a spinner, a badge that was not there. Same move as the
+     empty-state figure.
+     ------------------------------------------------------------------------------ */
+  .pop-in { animation: pop-in var(--dur-2) var(--ease) backwards; }
+
+  @keyframes pop-in {
+    from { opacity: 0; transform: scale(0.86); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* --- Rise --------------------------------------------------------------------
+     One thing joining what is already on screen: the list card's own entrance,
+     for a single newcomer rather than a whole list.
+     ------------------------------------------------------------------------------ */
+  .rise-in { animation: rise-in var(--dur-2) var(--ease) backwards; }
+
+  @keyframes rise-in {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: none; }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  /* --- Copy button face --------------------------------------------------------
+     The resting label and the confirmation share one cell (the `CopyAck`
+     primitive), so the button is as wide as the wider of the two and the line
+     beside it never reflows when a copy is confirmed.
+     ------------------------------------------------------------------------------ */
+  .copy-ack {
+    display: inline-grid;
+    align-items: center;
+    justify-items: center;
+  }
+
+  .copy-ack-face {
+    grid-area: 1 / 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity var(--dur-1) var(--ease);
+  }
+
+  .copy-ack[data-state="idle"] > .is-idle,
+  .copy-ack[data-state="copied"] > .is-copied,
+  .copy-ack[data-state="failed"] > .is-failed { opacity: 1; }
+
+  .copy-ack-face.is-copied { color: var(--ok); }
+  .copy-ack-face.is-failed { color: var(--error); }
+  .copy-ack[data-state="copied"] > .is-copied > svg { animation: pop-in var(--dur-2) var(--ease); }
+}
+
+@mixin motion-kit-reduced {
+  /* Scale and travel drop out; the fade still says that something arrived. */
+  .pop-in,
+  .rise-in,
+  .copy-ack[data-state="copied"] > .is-copied > svg { animation-name: fade-in; }
+}

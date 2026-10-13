@@ -12,6 +12,7 @@ import { t } from '../../lib/i18n';
 import { ProtocolError } from '../../lib/protocol/errors';
 import { messageOf } from '../../lib/notices';
 import { enterWorkspace, loadDirectory, showWorkspaceTab, loadWorkspaceFile } from './actions';
+import { arrivingDirectly } from './detail-travel';
 import { openWorkspaceInspector } from './inspector';
 import { activeScope, getWorkspaceSnapshot, readCache } from './store';
 
@@ -71,7 +72,10 @@ export async function openPaneFile(value: string, owner: ReturnType<typeof captu
     if (resolved.kind === 'directory') {
       showWorkspaceTab('files');
       await loadDirectory(resolved.path);
-    } else await loadWorkspaceFile(resolved.path, reference.line ?? null);
+    } else {
+      // The screen, or the column, arrives on this file: that arrival is the one move.
+      await arrivingDirectly(() => loadWorkspaceFile(resolved.path, reference.line ?? null));
+    }
   } catch (error) {
     if (current()) showError(error instanceof ProtocolError && error.code === 'unknown_op' ? t('preview.homeUnsupported')
       : error instanceof ProtocolError && error.code === 'forbidden' ? t('preview.outside') : messageOf(error));

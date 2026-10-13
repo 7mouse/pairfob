@@ -1,5 +1,5 @@
 import { RefreshCw } from "lucide-react";
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { computersStore, liveSession } from "../../features/computers/catalog-store";
 import { goToScreen } from "../../app/navigation-store";
 import { commitView } from "../../app/host";
@@ -46,6 +46,9 @@ export function QuotaContent() {
   const snapshot = useSyncExternalStore(subscribeQuota, () => quotaSnapshot(session));
   const panel = quotaPanelModel(snapshot, session?.isConnected() === true);
   const loading = !!snapshot?.loading;
+  // One turn of the mark for each press: a read can come back within a frame,
+  // so the turn belongs to the press and not to the time the read takes.
+  const [turns, setTurns] = useState(0);
   return (
     <>
       <BackBar
@@ -60,8 +63,8 @@ export function QuotaContent() {
             className="topbar-create quota-refresh"
             disabled={loading || session?.isConnected() !== true}
             aria-busy={loading}
-            onClick={() => void refreshAgentQuota()}
-          ><RefreshCw size={16} aria-hidden="true" />{t(loading ? "quota.loading" : "quota.refresh")}</Button>
+            onClick={() => { setTurns(count => count + 1); void refreshAgentQuota(); }}
+          ><RefreshCw key={turns} className={turns ? "is-turning" : undefined} size={16} aria-hidden="true" />{t(loading ? "quota.loading" : "quota.refresh")}</Button>
         </TopbarActions>
       </BackBar>
       <QuotaPanelView panel={panel} />

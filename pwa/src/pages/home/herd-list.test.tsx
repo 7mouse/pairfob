@@ -208,7 +208,9 @@ describe("React herd list", () => {
     expectSameNode(app().querySelectorAll(".group-title")[2], headings[2]);
     expectSameNode(document.activeElement, headings[2]);
     expectSameNode(app().querySelectorAll(".card")[2], cards[2]);
-    expect((app().querySelectorAll(".herd-group-body")[2] as HTMLElement).hidden).toBe(false);
+    const opened = app().querySelectorAll<HTMLElement>(".herd-group-fold")[2];
+    expect(opened.classList.contains("is-shut")).toBe(false);
+    expect(opened.hasAttribute("inert")).toBe(false);
     paint();
     expect(preferencesStore.get().listGroupCollapsed.beta).toBe(false);
   });
@@ -224,7 +226,9 @@ describe("React herd list", () => {
     expect(card.querySelector(".card-main")?.getAttribute("aria-pressed")).toBe("true");
     expect(card.querySelector(".card-status.is-unknown")?.textContent).toBe(t("status.unverifiable"));
     expect(card.querySelector(".card-status.is-done")).toBeNull();
-    expect(app().querySelector(".attn-strip, .group-mark")).toBeNull();
+    // A strip an earlier paint opened may still be shutting; it is not presented as current.
+    expect(app().querySelector(".attn-wrap:not(.is-shut) .attn-strip, .group-mark")).toBeNull();
+    expect(app().querySelector(".attn-wrap")?.hasAttribute("inert")).toBe(true);
   });
 
   test("a visible completion batch vibrates once and keeps attention through repaint", () => {

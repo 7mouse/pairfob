@@ -22,6 +22,9 @@ import {
 } from "./index";
 import { setLang, t } from "../../lib/i18n";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
 const seedRestorer = new WorkspaceSnapshotRestorer();
 const revision = "a".repeat(64);
 const patch = "@@ -1 +1 @@\n-old\n+new\n";
@@ -267,13 +270,13 @@ describe("independent React workspace review", () => {
     await act(async () => { applyCapabilities({ ...NO_OPERATION_CAPABILITIES, prompt_agent: true }, []); });
     await act(async () => { await loadGitDiff("app.ts", "worktree"); });
     await act(async () => { appRoot().querySelector<HTMLButtonElement>(".diff-comment-btn")!.click(); });
-    const field = document.querySelector<HTMLTextAreaElement>("form.diff-note-inline textarea")!;
+    const field = document.querySelector<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`)!;
     field.value = "保留输入中的批注";
     field.setSelectionRange(2, 5);
     field.focus();
     await act(async () => { commitTest(); });
-    expect(document.querySelectorAll("form.diff-note-inline")).toHaveLength(1);
-    expectSameNode(document.querySelector("form.diff-note-inline textarea"), field);
+    expect(document.querySelectorAll(`${UNDER} form.diff-note-inline`)).toHaveLength(1);
+    expectSameNode(document.querySelector(`${UNDER} form.diff-note-inline textarea`), field);
     expect(field.value).toBe("保留输入中的批注");
     expectSameNode(document.activeElement, field);
     expect([field.selectionStart, field.selectionEnd]).toEqual([2, 5]);

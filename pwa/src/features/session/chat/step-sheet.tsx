@@ -9,7 +9,8 @@ import { categoryLabel, recordsStepResults, stepCategory, stepObject, stepState,
 import { agentFromDashboardSnapshot } from "../agents";
 import { useDashboard } from "../../dashboard/hooks";
 import { showActionSheet } from "../../../shared/ui/overlay/action-sheet";
-import { Button, Spinner } from "../../../shared/ui/primitives";
+import { Button, CopyAck, Spinner } from "../../../shared/ui/primitives";
+import { useCopied } from "../copy-confirm";
 import { loadToolDetail, toolDetailView } from "./agent-chat-detail";
 import { useChat } from "../hooks";
 
@@ -70,10 +71,12 @@ function StatePill({ state }: { state: StepState }) {
 }
 
 function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
+  const [copied, confirm] = useCopied();
   return <Button className="step-copy" onClick={() => {
-    void navigator.clipboard?.writeText(text).then(() => setCopied(true), () => setCopied(false));
-  }}><Copy size={13} aria-hidden="true" />{copied ? t("sheet.copied") : t("sheet.copy")}</Button>;
+    void navigator.clipboard?.writeText(text).then(() => confirm("done"), () => undefined);
+  }}><CopyAck state={copied ? "copied" : "idle"}
+    idle={<><Copy size={13} aria-hidden="true" />{t("sheet.copy")}</>}
+    copied={<><Check size={13} aria-hidden="true" />{t("sheet.copied")}</>} /></Button>;
 }
 
 function Section({ title, copy, children }: { title: string; copy?: string; children: ReactNode }) {

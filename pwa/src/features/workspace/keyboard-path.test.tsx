@@ -21,6 +21,10 @@ import { selectPane, setAgentChat, setFullTerminal } from "../session/session-st
 import { clearWorkspacePendingReveal, enterWorkspace, leaveWorkspace, workspaceModel } from "./index";
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 import { inspectorOpen } from "./inspector-store";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
+
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
 
 /**
  * The files surfaces worked with the keyboard alone: what Tab stops on, what
@@ -79,6 +83,14 @@ function liveFixture() {
     gitBranches: async () => ({ items: [], truncated: false, revision }),
   };
 }
+
+/** The reader's close lets the column's content go first; the column is gone once that is over. */
+const columnGone = () => act(async () => {
+  const deadline = Date.now() + MOTION_MS.press + 1000;
+  do { await new Promise((resolve) => setTimeout(resolve, 20)); } while (document.querySelector("aside.inspector") && Date.now() < deadline);
+  // Focus is handed back a turn after the close.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+});
 
 async function settle(): Promise<void> {
   await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 0)); });
@@ -240,6 +252,7 @@ describe("the inspector by keyboard", () => {
     expectSameNode(focused(), row("lib.ts"));
 
     expect((await key("Escape")).defaultPrevented).toBeTrue();
+    await columnGone();
     expect(inspectorOpen()).toBeFalse();
     expectSameNode(focused(), filesButton());
   });
@@ -252,15 +265,15 @@ describe("the inspector by keyboard", () => {
     const line = one<HTMLButtonElement>(".workspace-inspector .diff-add .diff-comment-btn");
     await focusOn(line);
     await key("Enter");
-    const field = one<HTMLTextAreaElement>("form.diff-note-inline textarea");
+    const field = one<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`);
     await act(async () => {
       field.value = "why true";
       field.dispatchEvent(new window.Event("input", { bubbles: true }));
     });
     await focusOn(line);
     await key("Escape");
-    expect(appRoot().querySelector("form.diff-note-inline")).toBeNull();
-    expect(one(".workspace-diff-note.is-draft").textContent).toContain("why true");
+    expect(appRoot().querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
+    expect(one(`${UNDER} .workspace-diff-note.is-draft`).textContent).toContain("why true");
     expect(workspaceModel.view).toBe("diff");
     await key("Escape");
     expect(workspaceModel.view).toBe("browser");
@@ -403,12 +416,12 @@ describe("the files screen by keyboard", () => {
     await click(row("app.ts"));
     await click(one(".workspace-shell .diff-add"));
     // The note is written under its line: the form takes the key, and the diff under it stays open.
-    const field = one<HTMLTextAreaElement>(".workspace-shell form.diff-note-inline textarea");
+    const field = one<HTMLTextAreaElement>(`.workspace-shell ${UNDER} form.diff-note-inline textarea`);
     const inForm = new happy.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }) as unknown as Event;
     await act(async () => { field.dispatchEvent(inForm); });
     await settle();
     expect(inForm.defaultPrevented).toBeTrue();
-    expect(document.querySelector("form.diff-note-inline")).toBeNull();
+    expect(document.querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(workspaceModel.view).toBe("diff");
     expect(currentScreen()).toBe("workspace");
 

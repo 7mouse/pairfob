@@ -9,7 +9,8 @@ import { useConnection, useRuntime } from "../../connection/hooks";
 import { operationBusy } from "../../operations/capabilities-store";
 import { currentHerdStatusInput, herdLiveness } from "../../connection/runtime-status";
 import type { SessionHandlers } from "./view";
-import { AgentAvatar, BackButton, Button } from "../../../shared/ui/primitives";
+import { useRef } from "react";
+import { AgentAvatar, BackButton, Button, Swap } from "../../../shared/ui/primitives";
 import { useDomain } from "../../../shared/react/use-domain";
 import { isDesk, isRoomy } from "../../../app/viewport";
 import { inspectorStore } from "../../workspace/inspector-store";
@@ -59,11 +60,23 @@ export function SessionActions({ onWorkspace, onMenu }: { onWorkspace: () => voi
   </div>;
 }
 
-/** Back to the list, carrying how many other panes are waiting on the reader. */
+/**
+ * Back to the list, carrying how many other panes are waiting on the reader.
+ *
+ * The count pops in when a pane starts waiting while this header is on screen.
+ * A header that opens with panes already waiting draws it still: that is the
+ * state the reader walked into, not news.
+ */
 function SessionBack({ onBack, waiting }: { onBack: () => void; waiting: number }) {
+  const seen = useRef(waiting);
+  const arrived = useRef(false);
+  if (seen.current !== waiting) {
+    arrived.current = seen.current === 0 && waiting > 0;
+    seen.current = waiting;
+  }
   return <span className="chrome-back">
     <BackButton onBack={onBack} label={waiting ? t("chrome.backWaiting", { n: String(waiting) }) : t("chrome.backList")} />
-    {waiting ? <span className="chrome-back-badge" aria-hidden="true">{waiting > 9 ? "9+" : waiting}</span> : null}
+    {waiting ? <span className={arrived.current ? "chrome-back-badge pop-in" : "chrome-back-badge"} aria-hidden="true">{waiting > 9 ? "9+" : waiting}</span> : null}
   </span>;
 }
 
@@ -75,6 +88,12 @@ function SessionBack({ onBack, waiting }: { onBack: () => void; waiting: number 
  * would have shown as a group heading. It is not a button — switching sessions
  * happens on the list, reached through back or the edge swipe. The avatar and
  * title carry the classes the shared list ↔ pane transition names.
+ *
+ * A status that changes while the header is on screen is marked as the list
+ * card marks it: the word fades in (`Swap`), the avatar's dot crosses to its
+ * new colour (session-shell.scss) and the back count pops. All three are keyed
+ * by the pane, so a header handed another session draws that session's status
+ * as a first paint, not as a change.
  */
 export function SessionIdentity({ agent, fallbackTitle, includeBack, handlers, className = "", guided = false }: {
   agent: Immutable<DashboardAgentCard> | undefined;
@@ -97,17 +116,20 @@ export function SessionIdentity({ agent, fallbackTitle, includeBack, handlers, c
   const waiting = blockedElsewhere(agents, agent?.paneId ?? "", stale);
   const title = identity?.title ?? fallbackTitle;
   const full = [title, identity?.statusLabel, line].filter(Boolean).join(" · ");
+  const pane = agent?.paneId ?? "";
   return <header className={`chrome${className ? ` ${className}` : ""}`} data-react-session-chrome={guided ? "" : undefined}>
-    {includeBack && <SessionBack onBack={handlers.onBack} waiting={waiting} />}
+    {includeBack && <SessionBack key={pane} onBack={handlers.onBack} waiting={waiting} />}
     <div className="chrome-title" title={full}>
-      {identity ? <span className="chrome-avatar">
+      {identity ? <span key={pane} className="chrome-avatar">
         <AgentAvatar kind={identity.kind === "agent" ? identity.agentKind : ""}
           status={identity.kind === "agent" ? identity.statusTone : undefined} />
       </span> : null}
       <span className="chrome-copy">
         <span className="chrome-name">{title}</span>
         {identity && (identity.statusLabel || line) ? <span className="chrome-meta">
-          {identity.statusLabel ? <span className={`chrome-status is-${identity.statusTone}`}>{identity.statusLabel}</span> : null}
+          {identity.statusLabel
+            ? <Swap key={pane} on={identity.statusLabel} className={`chrome-status is-${identity.statusTone}`}>{identity.statusLabel}</Swap>
+            : null}
           {identity.statusLabel && line ? <span className="chrome-meta-sep" aria-hidden="true">·</span> : null}
           {line ? <span className="chrome-meta-text">{line}</span> : null}
         </span> : null}

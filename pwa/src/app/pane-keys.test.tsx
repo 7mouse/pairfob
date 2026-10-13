@@ -390,7 +390,7 @@ test("Escape closes the open row actions before the session gets one, from the b
 function chatDesk(): { main: HTMLElement; inspector: HTMLElement; stream: HTMLElement; field: HTMLTextAreaElement } {
   const { main, inspector } = desk();
   main.innerHTML = `<header class="chrome"><button class="more">More</button></header>
-    <div class="agent-stream" tabindex="0"><p>reply</p><details><summary class="work-head">2 steps</summary></details>
+    <div class="agent-stream" tabindex="0"><p>reply</p><div class="work-card"><button class="work-head" aria-expanded="false">2 steps</button></div>
       <button class="copy">Copy</button><a class="link" href="#">docs</a></div>
     <div class="dock agent-dock"><textarea></textarea></div>`;
   setAgentChat(true);

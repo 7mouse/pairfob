@@ -478,7 +478,9 @@ describe("react guided terminal gestures", () => {
       second.dispatchEvent(pointer("pointermove", second, 8, 60));
     });
     expect(rows().some((row) => row.classList.contains("is-picked"))).toBeFalse();
-    expect(appRoot().querySelector(".row-bubble")).toBeNull();
+    // The bubble is closed: what is left of it is only playing its exit, out of reach.
+    expect(appRoot().querySelector(".row-bubble:not(.is-leaving)")).toBeNull();
+    expect(appRoot().querySelector(".row-bubble")?.hasAttribute("inert") ?? true).toBeTrue();
   });
 
   test("a long press enters selection mode and selects the held row", async () => {

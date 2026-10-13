@@ -56,6 +56,9 @@ export type FixtureAPI = {
   setConnected(connected: boolean): void;
   emit(event: SessionEvent): void;
   appendChatTurn(): void;
+  appendChatStep(): void;
+  setAgentStatus(status: string): Promise<FixtureSnapshot>;
+  setExtraSessions(count: number): Promise<FixtureSnapshot>;
   refreshChat(): Promise<FixtureSnapshot>;
   terminalFrame(text: string, options?: FixtureTerminalFrame): boolean;
   hold(method: string): void;

@@ -22,6 +22,7 @@ export type FixtureSession = {
   setConnected(connected: boolean): void;
   setTrace(items: AgentTraceItem[]): void;
   appendChatTurn(): void;
+  appendChatStep(): void;
   hold(method: string): void;
   release(method: string): void;
   failNext(method: string, code: string): void;
@@ -67,6 +68,7 @@ export function createSession(source: SessionSource = {}): FixtureSession {
   const deviceList = data.devices();
   let trace = data.trace();
   let appendedTurns = 0;
+  let appendedSteps = 0;
   const capabilities = Object.fromEntries(Object.keys(NO_OPERATION_CAPABILITIES).map((key) => [key, true]));
   const emit = (event: SessionEvent) => {
     // The fixture has no production connection pool; publish its transport observation here.
@@ -237,7 +239,7 @@ export function createSession(source: SessionSource = {}): FixtureSession {
     terminalFrame: sendFrame,
     terminalFrames: () => terminalFrames,
     setConnected(value) { connected = value; },
-    setTrace(items) { trace = structuredClone(items); appendedTurns = 0; },
+    setTrace(items) { trace = structuredClone(items); appendedTurns = 0; appendedSteps = 0; },
     appendChatTurn() {
       if (trace.length >= 200) throw new Error("QA chat trace reached its 200-item bound");
       const id = ++appendedTurns;
@@ -245,6 +247,14 @@ export function createSession(source: SessionSource = {}): FixtureSession {
         { type: "user", text: `QA appended turn ${id}` },
         { type: "assistant", text: `QA appended response ${id}` },
       );
+    },
+    appendChatStep() {
+      if (trace.length >= 200) throw new Error("QA chat trace reached its 200-item bound");
+      const id = ++appendedSteps;
+      // The step before it is over: the running turn moves on by one.
+      const last = trace[trace.length - 1];
+      if (last?.type === "tool" && last.toolState === "running") { last.toolState = "done"; last.output = "ok"; }
+      trace.push({ type: "tool", name: "exec_command", input: `{"cmd":"bun test step-${id}"}`, toolState: "running", detailRef: `qa-appended-step-${id}`, label: `bun test step-${id}` });
     },
     hold(method) { held.add(method); },
     release(method) { held.delete(method); for (const waiter of waiters.get(method) ?? []) waiter.resolve(); waiters.delete(method); },

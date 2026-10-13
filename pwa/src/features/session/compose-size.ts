@@ -1,6 +1,8 @@
+import { MOTION_MS } from "../../shared/ui/dom/motion";
 import { COMPOSE_MIN_PX } from "./compose-store";
 import { termFontPx, termLineHeightPx } from "../settings/preferences-store";
 import { shortLandscape } from "./keypad/short-landscape";
+import { playMove } from "./measured-move";
 
 /**
  * How tall a compose field may grow (session page v2).
@@ -271,6 +273,33 @@ function showWholeLines(field: HTMLTextAreaElement, dense: boolean): void {
   frame.style.setProperty("--compose-cut-bg", style.backgroundColor);
 }
 
+/** Fields whose box is easing down to a height already set (`easeCollapse`). */
+const collapsing = new WeakMap<HTMLTextAreaElement, Animation>();
+
+/**
+ * A draft that is gone gives its lines back over a moment instead of in one
+ * frame: sent, or cleared, a field several lines tall dropped to one and the
+ * transcript above it jumped by the difference. Only that drop is eased. A
+ * field that grows or shrinks under the hand while it is being written must be
+ * its draft's size on the frame the draft changes, or the line being typed is
+ * out of sight until the box catches up.
+ *
+ * Never in the complete terminal: its dock's height is the computer's rows, and
+ * a field easing down would resize the program there on every frame.
+ *
+ * The inline height is already the final one; the move sits over it and is
+ * taken off before the field is measured again (`fitComposeHeight`).
+ */
+function easeCollapse(field: HTMLTextAreaElement, from: number, to: number): void {
+  if (field.value || from - to < 2 || field.closest(".full-terminal-pad")) return;
+  const move = playMove(field, [{ height: `${from}px` }, { height: `${to}px` }], MOTION_MS.element);
+  if (!move) return;
+  collapsing.set(field, move);
+  const done = (): void => { if (collapsing.get(field) === move) collapsing.delete(field); };
+  move.addEventListener("finish", done);
+  move.addEventListener("cancel", done);
+}
+
 /**
  * Size a compose textarea to its content within the room it has. Returns true
  * when the height changed, so the caller can keep its scroller pinned.
@@ -285,6 +314,10 @@ function showWholeLines(field: HTMLTextAreaElement, dense: boolean): void {
  */
 export function fitComposeHeight(field: HTMLTextAreaElement): boolean {
   const before = field.style.height;
+  // Mid-collapse the box is between two heights; what is measured below is the field itself.
+  const moving = collapsing.get(field);
+  const drawn = moving ? field.offsetHeight : null;
+  moving?.cancel();
   const was = field.offsetHeight;
   const room = measureComposeRoom(field);
   const max = composeMaxPx(room);
@@ -296,9 +329,12 @@ export function fitComposeHeight(field: HTMLTextAreaElement): boolean {
   const borders = Math.max(0, field.offsetHeight - field.clientHeight);
   const content = contentHeight(field) + borders;
   field.style.overflowY = "";
-  field.style.height = `${Math.min(Math.max(content, COMPOSE_MIN_PX), max)}px`;
+  const next = Math.min(Math.max(content, COMPOSE_MIN_PX), max);
+  field.style.height = `${next}px`;
   if (field.offsetHeight < was) revealCaretLine(field);
   showWholeLines(field, room.terminalFloor !== undefined);
+  // A collapse cut short by this fit goes on from where it was drawn.
+  easeCollapse(field, drawn ?? was, next);
   return field.style.height !== before;
 }
 

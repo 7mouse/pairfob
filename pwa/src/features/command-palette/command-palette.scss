@@ -30,8 +30,9 @@ dialog.modal.command-palette > form {
     overflow: hidden;
   }
 
-  /* On [open] only: a bare display here would outrank the closed-state guard. */
-  dialog.modal.command-palette#{$mark}[open] { display: flex; }
+  /* On [open] only: a bare display here would outrank the closed-state guard.
+     The panel kept for its exit (`data-card-exit`) is laid out as it was open. */
+  dialog.modal.command-palette#{$mark}:is([open], [data-card-exit]) { display: flex; }
 
   dialog.modal.command-palette#{$mark} > form {
     flex: 1 1 auto;

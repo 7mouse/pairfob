@@ -110,7 +110,6 @@ function freezeSnapshot(next: WorkspaceModel, reveal: boolean, epoch: number): W
     && snapshot.notesEpoch === epoch
     && snapshot.revealNav === next.revealNav
     && snapshot.revealFile === next.revealFile
-    && snapshot.revealDiff === next.revealDiff
   ) return snapshot;
   return Object.freeze({
     paneId: next.paneId,
@@ -140,7 +139,6 @@ function freezeSnapshot(next: WorkspaceModel, reveal: boolean, epoch: number): W
     notesEpoch: epoch,
     revealNav: next.revealNav,
     revealFile: next.revealFile,
-    revealDiff: next.revealDiff,
   });
 }
 
@@ -172,7 +170,6 @@ function syncCompatibilityModel(): void {
   workspaceModel.error = snapshot.error;
   workspaceModel.revealNav = snapshot.revealNav;
   workspaceModel.revealFile = snapshot.revealFile;
-  workspaceModel.revealDiff = snapshot.revealDiff;
 }
 
 function emit(notify = true): void {
@@ -226,7 +223,6 @@ function retirePending(): void {
     media: emptyMediaView(),
     revealNav: false,
     revealFile: false,
-    revealDiff: false,
   };
 }
 
@@ -458,7 +454,6 @@ export function finishWorkspaceLoad(): void {
     loadingMore: false,
     revealNav: pending && model.view === "browser",
     revealFile: pending && model.view === "file",
-    revealDiff: pending && model.view === "diff",
   });
 }
 
@@ -478,7 +473,6 @@ export function adoptWorkspaceIdentity(identity: {
     loadingBranches: false,
     revealNav: false,
     revealFile: false,
-    revealDiff: false,
     ...(identity.directory !== undefined ? { directory: identity.directory } : {}),
     ...(identity.descriptor !== undefined ? { descriptor: identity.descriptor } : {}),
     ...(rootChanged ? {

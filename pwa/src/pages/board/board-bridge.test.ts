@@ -276,14 +276,22 @@ describe("board camera bridge", () => {
     releaseBoardCanvasHost();
   });
 
-  test("placing and zooming write the record and paint the stage in one step", () => {
+  test("placing and zooming write the record at once; a stage that already shows a camera travels to the new one", async () => {
     const viewport = sizedViewport(800, 600);
     const node = stage();
+    document.body.append(node);
+    // Nothing shown yet: there is nowhere to travel from, so the fit is painted in the same step.
     placeBoardStage(viewport, node, layout);
     expect(boardStore.get().boardFitted).toBe(true);
     expect(node.style.transform).toContain("scale(0.875)");
     zoomBoardAt(viewport, node, 400, 300, 2);
+    // Every reader has the camera now; the stage is still where it was and is on its way.
     expect(readBoardCamera().scale).toBe(2);
+    expect(node.style.transform).toContain("scale(0.875)");
+    // The canvas repaints its stage with the record on every commit: that is not a new camera.
+    applyBoardTransform(node);
+    expect(node.style.transform).toContain("scale(0.875)");
+    await new Promise((resolve) => setTimeout(resolve, 400));
     expect(node.style.transform).toContain("scale(2)");
     // A clamped zoom neither writes nor repaints.
     const before = readBoardCamera();
@@ -291,6 +299,7 @@ describe("board camera bridge", () => {
     zoomBoardAt(viewport, node, 400, 300, 2);
     expect(readBoardCamera()).toEqual(before);
     expect(node.style.transform).toBe(transform);
+    node.remove();
   });
 
   test("a zoom from the toolbar or a tile is bounded like a gesture: the board leaves no empty band", () => {

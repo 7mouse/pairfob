@@ -1,6 +1,7 @@
 import { liveSession } from "../../computers/catalog-store";
 import { openPaneId, paneFollow, paneRow, setPaneFollow, setPaneRow, setTermSelect, termSelect } from "../session-store";
 import { prefersReducedMotion } from "../../../lib/dom";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 import { isPageZoomed } from "../../../lib/gesture-boundary";
 import { TERMINAL_MAX_COLS, TERMINAL_MAX_ROWS, TERMINAL_MIN_COLS, TERMINAL_MIN_ROWS } from "../../../lib/protocol/terminal";
 import { reportMutationError } from "../../connection/mutations";
@@ -20,8 +21,8 @@ import { markCaughtUp } from "./unread";
 const BOTTOM_SLACK = 32;
 const TAP_SLOP_PX = 8;
 const HOLD_MS = 420;
-/** Long enough for the chip to leave, short enough not to outlast the scroll. */
-const JUMP_OUT_MS = 220;
+/** The chip's exit (`.term-jump-out`, terminal.scss): gone before the scroll it started has arrived. */
+const JUMP_OUT_MS = MOTION_MS.press;
 
 let jumpTimer = 0;
 let jumpLeaving = false;

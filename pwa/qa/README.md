@@ -24,6 +24,8 @@ URLs (replace server port as needed):
 - `/qa/index.html?scene=chat-complete&lang=zh`: a finished turn whose reply carries the three shapes of a code block (`completeTrace()` in `qa/data.ts`): one short line, which is a single row with its copy button; one line longer than any column, and a block of several lines, which keep a strip above the code for the button. The other chat scenes keep `trace()` and its one short block.
 - `/qa/index.html?scene=guided-live&lang=zh` and `guided-live-expanded`: live (实时) input, without and with the key pad. `guided-expanded` is the pad in composed mode at any width; on a desk layout under a mouse it is the pad called up from 按键.
 
+Add `&motion=1` to any scene URL to leave animation and transitions running (for example `/qa/index.html?scene=home-grouped&lang=zh&motion=1`): motion is frozen by default so captures compare, and this is the switch for checking an entrance, an exit or a fold by eye. A scene opened this way is not comparable with the saved captures.
+
 Styles load from `/src/style.scss` plus the Tailwind entry. The optional `style` query override accepts only a local `/src/*.scss` source path.
 
 Wait for `window.qa` and then `await window.qa.ready`, or wait for `html[data-qa-ready="true"]`. No fixture toolbar is rendered. Example browser evaluation:
@@ -56,6 +58,9 @@ window.qa.release("promptAgent");
 window.qa.failNext("workspaceDelete", "unknown_outcome");
 window.qa.setConnected(false); // Fixture connection and network flags; no real transport.
 window.qa.appendChatTurn(); // Append one bounded, deterministic backend turn.
+window.qa.appendChatStep(); // Add one running step to the turn in progress (and finish the step before it).
+await window.qa.setAgentStatus("blocked"); // The open session's agent in another status (working, blocked, idle, done), on the scene as it stands.
+await window.qa.setExtraSessions(1); // The baseline computer with that many more sessions (0 takes them away): one row joining or leaving the list.
 await window.qa.refreshChat(); // Call the production refreshAgentTrace path.
 await window.qa.render();
 ```
@@ -73,7 +78,7 @@ Important gaps and limits:
 - `terminal-loading` and `terminal-error` are marked `shellOnly=true`: they deliberately render the production FullTerminalScreen shell with an inactive engine (no xterm, no TerminalOpen) to verify shell/control React ownership and visual parity. The shell renders through a QA-owned standalone React root with an explicit create/unmount lifetime (never the production paint bridge or its global legacy root), and that root is retired before any ordinary scene remounts the App. WebGL/frame behavior and terminal bridge lifecycle are covered by `terminal-live` / `terminal-open-error` (real engine in the browser; mock engine in the bun smoke).
 - Camera is deterministically denied, clipboard is local, Notification permission requests return denied, credential IndexedDB is blocked, and no real push subscription/handshake/pairing is performed. Add separately authorized live/device checks for these paths.
 - Seeded scenes cover page states, not every modal or control combination. Open existing menus, operation forms, diff-note editors, help dialogs and file confirmations via browser interactions on these scenes. Search and jump is the only dialog with scenes of its own; other declarative modal scenes, update-in-progress fixtures, live viewport keyboard simulation, and full native-device IME/pinch/foreground checks remain to add. The Phase 2 long trace is deterministic fixture coverage, not a real-runtime stress result.
-- Date/Date.now are fixed at `2026-09-08T04:00:00.000Z`; monotonic gesture/timer clocks remain real. A scene that seeds stamps the application takes from `Date.now()` itself (`home-recent`'s opens) does it through `clockAt` (`qa/environment.ts`), which holds another instant for one synchronous action and returns to the fixed one. Animations/transitions and caret paint are disabled without changing the browser motion preference or layout rules. This is static geometry/color parity, not animation acceptance.
+- Date/Date.now are fixed at `2026-09-08T04:00:00.000Z`; monotonic gesture/timer clocks remain real. A scene that seeds stamps the application takes from `Date.now()` itself (`home-recent`'s opens) does it through `clockAt` (`qa/environment.ts`), which holds another instant for one synchronous action and returns to the fixed one. Animations/transitions and caret paint are disabled without changing the browser motion preference or layout rules; what the page moves from script (an element kept for its exit, a measured move) stands still too, because script is told the reader asked for less motion while the style sheet is not. This is static geometry/color parity, not animation acceptance.
 - When recording acceptance evidence, keep source/test, rendered fixture, live transport and physical-device results distinct.
 
 

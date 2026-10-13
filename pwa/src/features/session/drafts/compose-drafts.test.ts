@@ -25,6 +25,8 @@ import {
   capturePromptRequest,
   currentComposeDraftScope,
   currentViewIncarnation,
+  declareViewSwitch,
+  parkComposeView,
   promptRequestIsLive,
   promptRequestOwnsComputer,
   recoverComposeDraft,
@@ -38,6 +40,7 @@ import {
   nextDraftRevision, parkStoredDraft, readStoredDraft, storedDraftIsParked, writeStoredDraft,
 } from "./state-drafts";
 import type { PairResult, LiveSession } from "../../../lib/protocol/client";
+import { nextTransition, queuedKind, takeTransition } from "../../../app/transition";
 
 const happy = new Window({ url: "https://pairfob.com/", width: 390, height: 844 });
 const g = globalThis as unknown as Record<string, unknown>;
@@ -124,6 +127,8 @@ beforeEach(() => {
 
 afterEach(() => {
   resetComposeDrafts();
+  // A view switch declares its arrival; no case here paints, so none is left for the next.
+  takeTransition();
   setPhase(checkpoint.phase);
   setScreen(checkpoint.screen);
   selectPane(checkpoint.paneId);
@@ -146,6 +151,51 @@ afterEach(() => {
   // named restores so a setter's own persistence cannot clobber the preimage.
   localStorage.clear();
   for (const [key, value] of storagePreimage) localStorage.setItem(key, value);
+});
+
+describe("a switch between the pane's views declares its arrival", () => {
+  test("对话 -> 控制 -> 终端 on the open pane: the arriving view fades in under the header that stays", () => {
+    boot({ mode: "agent" });
+    takeTransition();
+    switchComposeView(() => { setAgentChat(false); });
+    expect(takeTransition()).toBe("view");
+    switchComposeView(() => { setFullTerminal(true); });
+    expect(takeTransition()).toBe("view");
+    // The complete terminal leaves through its own path, which declares the same thing as it paints.
+    declareViewSwitch();
+    expect(takeTransition()).toBe("view");
+  });
+
+  test("a mode put away on the way out of the pane leaves that navigation's own transition alone", () => {
+    boot({ mode: "agent" });
+    takeTransition();
+    // Back to the list: the pop is declared first.
+    nextTransition("pop", "p1");
+    switchComposeView(() => { setAgentChat(false); });
+    expect(queuedKind()).toBe("pop");
+    expect(takeTransition()).toBe("pop");
+  });
+
+  test("leaving for a screen that declares nothing stays undeclared", async () => {
+    boot({ mode: "agent" });
+    takeTransition();
+    // On to the files: the view is parked, then the mode is put away in the same turn.
+    parkComposeView();
+    switchComposeView(() => { setAgentChat(false); });
+    expect(queuedKind()).toBe("none");
+    // The park marks its own turn only: the next switch on this pane is a switch again.
+    await Promise.resolve();
+    switchComposeView(() => { setAgentChat(true); });
+    expect(takeTransition()).toBe("view");
+  });
+
+  test("nothing is declared for a pane that is not the screen", () => {
+    boot({ mode: "agent" });
+    setScreen("home");
+    takeTransition();
+    switchComposeView(() => { setAgentChat(false); });
+    expect(queuedKind()).toBe("none");
+  });
 });
 
 describe("compose drafts stay on their pane and mode", () => {

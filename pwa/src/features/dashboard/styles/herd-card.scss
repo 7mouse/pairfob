@@ -18,6 +18,13 @@
   overflow: hidden;
 }
 
+/* A group's body opens and shuts in a fold (`herd-group.tsx`), and so does
+   each row (`herd-rows.tsx`). A fold's box clips what it holds; here it does so
+   only while it moves or is shut. Open and at rest, a row's focus ring and the
+   rail's bare rows reach past the body's edge and must not be cut. */
+.fold.herd-group-fold:not(.is-folding) > .fold-body,
+.fold.herd-row:not(.is-entering):not(.is-leaving) > .fold-body { overflow: visible; }
+
 .card {
   position: relative;
   display: block;
@@ -51,7 +58,8 @@
 
 /* Hairline between rows, inset past the agent mark; drawn on the sliding
    button so it moves with a swipe and leaves ::before/::after to the motion. */
-.card + .card .card-main {
+.card + .card .card-main,
+.herd-row + .herd-row .card-main {
   background-image: linear-gradient(var(--line), var(--line));
   background-repeat: no-repeat;
   background-size: calc(100% - 68px) 1px;
@@ -78,6 +86,12 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* A list whose computer stopped answering dims and comes back over a moment
+   (`.card.unverifiable` below), so losing the connection reads as a state, not
+   as a fault of the screen. */
+.card { transition: opacity var(--dur-3) var(--ease); }
+.card-name { transition: color var(--dur-3) var(--ease); }
 
 .card.is-terminal .card-name { font-family: var(--mono); font-size: var(--text-body); font-weight: 500; }
 .card.is-blocked .card-name,
@@ -214,8 +228,9 @@
 /* --- Card motion -------------------------------------------------------------- */
 
 /*
-  Entrance runs only when the list structure changed — first paint, a regroup, a
-  card added or removed. A poll repaint must never replay it or the herd strobes.
+  The whole entrance runs only for a list that was built: a first paint, a
+  regroup, another computer. A poll repaint must never replay it or the herd
+  strobes, and a session that joins or leaves moves only its own row (below).
   --i is one running index down the whole list, so grouped and flat both read as
   a single top-down sweep.
 */
@@ -240,7 +255,8 @@
   so a translated overlay would hang a card-width off the right edge and the list
   page could be panned sideways into empty background.
 */
-.card.ac-changed::after {
+.card.ac-changed::after,
+.herd-row.is-entering .card::after {
   content: "";
   position: absolute;
   inset: 0;
@@ -262,7 +278,35 @@
   to { background-position: 0 0; }
 }
 
-/* The label is a new element every paint, so it fades in rather than transitions. */
+/*
+  One session more or less (`roster.ts`). The new row's fold opens it into its
+  place (`.fold-appear`), and the sweep that marks a change follows once it is
+  open. The mark outlives the move by an unknown time, so the sweep is drawn
+  only while it runs. A closed session's row fades first and gives up its
+  height after: the fold's height waits out the fade.
+*/
+.herd-row.is-entering .card::after {
+  opacity: 0;
+  animation-name: card-sweep, card-sweep-shown;
+  animation-delay: var(--dur-3);
+  animation-fill-mode: none;
+}
+
+@keyframes card-sweep-shown {
+  from, to { opacity: 1; }
+}
+
+.fold.herd-row.is-leaving { transition-delay: var(--dur-2), 0s; }
+
+/* A group whose last session was closed goes with that row. */
+.herd-group.is-leaving .group-head,
+.herd-group.is-leaving > .section-title {
+  opacity: 0;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
+/* The label is a new element when its word changes (`Swap`), so it fades in
+   rather than transitions; a card marked as changed fades it in either way. */
 .card.ac-changed .card-status { animation: pill-swap var(--dur-3) var(--ease); }
 
 @keyframes pill-swap {
@@ -307,6 +351,7 @@
 
   /* Travel-only effects; the pill fade still reports the change. */
   .card.ac-changed::after,
+  .herd-row.is-entering .card::after,
   .card.attn-out::before { display: none; }
 }
 

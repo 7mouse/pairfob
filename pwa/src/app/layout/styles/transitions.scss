@@ -1,5 +1,5 @@
 // App-owned screen view transitions: native View Transitions navigation and the
-// CSS-only fallback that animates the arriving #app. Emitted through mixins by
+// CSS-only fallback that animates the arriving screen. Emitted through mixins by
 // the motion composition so these rules stay with the App shell.
 
 @mixin app-view-transitions {
@@ -157,8 +157,29 @@
      more than the effect is worth. */
   html[data-fallback-transition="push"] #app { animation: screen-from-right var(--dur-4) var(--ease); }
   html[data-fallback-transition="pop"] #app { animation: screen-forward var(--dur-4) var(--ease); }
-  html[data-fallback-transition="fade"] #app,
-  html[data-fallback-transition="expand"] #app { animation: screen-fade var(--dur-3) var(--ease); }
+  html[data-fallback-transition="fade"] #app:not(.tabs):not(.desk),
+  html[data-fallback-transition="expand"] #app:not(.tabs):not(.desk) { animation: screen-fade var(--dur-3) var(--ease); }
+
+  /* A fade is a move between pages at one depth, and what both pages share has
+     not gone anywhere: the tab bar under the phone's tab roots, the list rail
+     of the columns side by side. Only the page beside them arrives. */
+  html[data-fallback-transition="fade"],
+  html[data-fallback-transition="expand"] {
+    #app.tabs > :not(.tab-bar),
+    #app.desk > :not(.rail) { animation: screen-fade var(--dur-3) var(--ease); }
+  }
+
+  /* Another view of the same session: the header is the same header and stays,
+     what is under it arrives. The complete terminal has its final box from the
+     first frame; only its opacity moves. */
+  html[data-fallback-transition="view"] .pane-root > :not(.chrome) { animation: screen-fade var(--dur-3) var(--ease); }
+
+  /* One page deeper under the same tab, and back: the page travels as a screen
+     does and the tab bar, which both pages stand on, does not. */
+  html[data-fallback-transition="page-push"] #app.tabs > :not(.tab-bar) { animation: screen-from-right var(--dur-4) var(--ease); }
+  html[data-fallback-transition="page-pop"] #app.tabs > :not(.tab-bar) { animation: screen-forward var(--dur-4) var(--ease); }
+  html[data-fallback-transition="page-push"] #app:not(.tabs) { animation: screen-from-right var(--dur-4) var(--ease); }
+  html[data-fallback-transition="page-pop"] #app:not(.tabs) { animation: screen-forward var(--dur-4) var(--ease); }
 
   @keyframes screen-fade {
     from { opacity: 0; }
@@ -205,7 +226,10 @@
 }
 
 @mixin app-transition-reduced {
-  html[data-fallback-transition] #app { animation: none; }
+  html[data-fallback-transition] #app,
+  html[data-fallback-transition] #app.tabs > :not(.tab-bar),
+  html[data-fallback-transition] #app.desk > :not(.rail),
+  html[data-fallback-transition] .pane-root > :not(.chrome) { animation: none; }
   /* List ↔ pane under reduced motion: no travel, a short fade only. */
   html[data-fallback-transition="reduced"] #app { animation: screen-fade 120ms linear; }
 }

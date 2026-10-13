@@ -106,9 +106,11 @@ export function workspaceKey(event: KeyboardEvent, root: ParentNode): boolean {
     if (writing && root.contains(writing)) {
       flushSync(() => writing.requestSubmit());
       // An empty note is not saved and says so in its form: nothing is sent past it.
-      if (writing.isConnected) return true;
+      // A saved one's form is on its way out by now, folding shut and out of reach.
+      if (writing.isConnected && !writing.closest("[inert]")) return true;
     }
-    const send = root.querySelector<HTMLButtonElement>(".workspace-notes-send:not(:disabled)");
+    // A bar on its way out has nothing left to send.
+    const send = root.querySelector<HTMLButtonElement>(".workspace-notes-bar:not(.is-leaving) .workspace-notes-send:not(:disabled)");
     if (!send) return writing !== null;
     send.click();
     return true;

@@ -1,4 +1,4 @@
-import { ChevronDown } from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   checkDaemonRelease,
@@ -16,7 +16,8 @@ import { legacyBuild } from "../../lib/daemon-version";
 import { askConfirm } from "../../shared/ui/overlay/basic-dialogs";
 import { t } from "../../lib/i18n";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
-import { Button, SetNavItem, Spinner } from "../../shared/ui/primitives";
+import { useCopied } from "../../shared/react/use-copied";
+import { Button, CopyAck, SetNavItem, Spinner } from "../../shared/ui/primitives";
 import { openSettingsSection } from "./actions";
 import { PageRefresh } from "./page-refresh";
 
@@ -63,25 +64,27 @@ function phaseCopy(phase: string, build: string, target: string): string {
   }
 }
 
+/**
+ * The command to run by hand, with its copy button. A copy is confirmed on the
+ * button's own face (`CopyAck`), so the command beside it is not cut again,
+ * and the button is itself again afterwards. A refused copy is said in full
+ * instead: it is the one case where the reader needs the sentence, and it is
+ * too long to hold room for on every other day.
+ */
 function UpdateCommand() {
-  const [copy, setCopy] = useState<"ready" | "copied" | "failed">("ready");
-  const label = t(copy === "ready" ? "update.copyCommand" : copy === "copied" ? "update.copied" : "update.copyManual");
+  const [copied, confirm] = useCopied<"copied" | "failed">();
   return (
     <div className="command-line">
       <code>pairfob update</code>
       <Button
         className="set-action command-copy"
         onClick={() => {
-          void navigator.clipboard
-            .writeText("pairfob update")
-            .then(() => {
-              setCopy("copied");
-            })
-            .catch(() => {
-              setCopy("failed");
-            });
+          // Called inside the tap: some browsers only allow clipboard writes there.
+          const write = navigator.clipboard?.writeText("pairfob update") ?? Promise.reject(new Error("no clipboard"));
+          void write.then(() => confirm("copied"), () => confirm("failed"));
         }}
-      >{label}</Button>
+      >{copied === "failed" ? t("update.copyManual") : <CopyAck state={copied ?? "idle"} idle={t("update.copyCommand")}
+        copied={<><Check size={14} aria-hidden="true" />{t("update.copied")}</>} />}</Button>
     </div>
   );
 }

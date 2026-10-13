@@ -20,6 +20,9 @@ import { selectPane, setAgentChat, setFullTerminal } from "../session/session-st
 import { clearWorkspacePendingReveal, enterWorkspace, leaveWorkspace, workspaceModel } from "./index";
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
 /**
  * Where the keyboard is after a note's card or its form is answered. The card
  * of a half-written note leaves when it is saved, cancelled or opened into the
@@ -102,10 +105,10 @@ function one<T extends HTMLElement = HTMLElement>(selector: string): T {
 const focused = () => document.activeElement as HTMLElement | null;
 /** The added line's own button: its number. */
 const line = () => one<HTMLButtonElement>(".workspace-diff-line.diff-add .diff-comment-btn");
-const draftCard = () => appRoot().querySelector<HTMLElement>(".workspace-diff-note.is-draft");
-const savedCard = () => appRoot().querySelector<HTMLElement>(".workspace-diff-note:not(.is-draft)");
+const draftCard = () => appRoot().querySelector<HTMLElement>(`${UNDER} .workspace-diff-note.is-draft`);
+const savedCard = () => appRoot().querySelector<HTMLElement>(`${UNDER} .workspace-diff-note:not(.is-draft)`);
 /** The note form open under its line. */
-const form = () => appRoot().querySelector<HTMLFormElement>("form.diff-note-inline");
+const form = () => appRoot().querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`);
 
 /** A press as the engine delivers one: the pointer, focus on the pressed button, the click. */
 async function press(target: HTMLElement, input: Input = "mouse"): Promise<void> {
@@ -247,7 +250,8 @@ describe("a note's card answered in place, with a mouse on the files screen", ()
 
     await leaveHalfWritten();
     await press(draftCard()!.querySelector<HTMLElement>(".diff-note-keep")!);
-    expect(edit.isConnected).toBeFalse();
+    // The first note's card went with its note: what is left of it is folding shut, out of reach.
+    expect(edit.closest(UNDER)).toBeNull();
     await press(savedCard()!.querySelector<HTMLElement>(".diff-note-action")!);
     await press(form()!.querySelector<HTMLElement>(".diff-note-remove")!);
     expect(form()).toBeNull();

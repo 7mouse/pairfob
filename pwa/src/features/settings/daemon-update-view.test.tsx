@@ -412,18 +412,36 @@ test("daemon update subscription preserves the React host across a release check
   expect(host!.querySelector("[data-daemon-update]")).toBeNull();
 });
 
+test("copying the update command is confirmed in the button's own room; a refusal is said in full", async () => {
+  paintManualHelp();
+  const button = host!.querySelector<HTMLButtonElement>(".command-copy")!;
+  const written: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { value: { writeText: async (text: string) => { written.push(text); } }, configurable: true });
+  await act(async () => button.click());
+  expect(written).toEqual(["pairfob update"]);
+  expectSameNode(host!.querySelector(".command-copy"), button);
+  expect(button.querySelector(".copy-ack")?.getAttribute("data-state")).toBe("copied");
+  expect(button.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent).toBe(t("update.copied"));
+  Object.defineProperty(navigator, "clipboard", { value: { writeText: async () => { throw new Error("denied"); } }, configurable: true });
+  await act(async () => button.click());
+  expect(button.textContent).toBe(t("update.copyManual"));
+});
+
 test("the persistent manual update copy label follows the language on the same node", () => {
   paintManualHelp();
   // The copy button is the ManualUpdateHelp button; its label is the
   // copy-command text (pairfob update lives in the <code> element).
   const before = host!.querySelector("button")!;
-  expect(before.textContent).toBe(t("update.copyCommand"));
+  // The button holds its resting label and its confirmation in one cell; the one showing is its label.
+  const label = () => before.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent;
+  expect(before.querySelector(".copy-ack")?.getAttribute("data-state")).toBe("idle");
+  expect(label()).toBe(t("update.copyCommand"));
   expect(host!.querySelector("code")?.textContent).toContain("pairfob update");
   act(() => setLang("en"));
   act(() => { root!.render(createElement(ManualUpdateHelp)); });
   expectSameNode(host!.querySelector("button"), before);
-  expect(before.textContent).toBe(t("update.copyCommand"));
-  expect(before.textContent).not.toBe("复制更新命令");
+  expect(label()).toBe(t("update.copyCommand"));
+  expect(label()).not.toBe("复制更新命令");
   act(() => setLang("zh"));
   act(() => { root!.render(createElement(ManualUpdateHelp)); });
 });

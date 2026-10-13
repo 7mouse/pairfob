@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { computerTitle } from "../../lib/computer-catalog";
 import { t } from "../../lib/i18n";
 import { resumeComputer } from "../../features/computers/actions";
@@ -8,7 +8,9 @@ import { phase as currentPhase, retryingUnreachable } from "../../features/conne
 import { ReadingFrame } from "./reading-frame";
 import { HerdSkeleton } from "../../features/dashboard/components/herd-skeleton";
 import { MenuChoice, showActionSheet } from "../../shared/ui/overlay";
-import { Button, StatusDot } from "../../shared/ui/primitives";
+import { Button, Fold, StatusDot } from "../../shared/ui/primitives";
+import { usePresence } from "../../shared/react/use-presence";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
 import type { PairResult } from "../../lib/protocol/client";
 import { ConnectionPathCard } from "./connection-path-card";
 import { UnreachableShell } from "./unreachable-shell";
@@ -37,6 +39,11 @@ function BootFrame({ reading }: { reading: boolean }) {
   const current = reading ? null : credential();
   const name = current ? computerTitle(current) : "";
   const slow = useSlowConnect(!reading);
+  const showing = !!slow && !!current;
+  // What the card last said stays in it while it shuts.
+  const shown = useRef<{ pair: PairResult; name: string; hop: PathHop; seconds: number } | null>(null);
+  if (slow && current) shown.current = { pair: current, name, hop: slow.hop, seconds: slow.seconds };
+  const card = usePresence(showing, MOTION_MS.panel);
   const line = reading ? t("boot.reading")
     : slow ? t(slow.hop === "relay" ? "slow.lineRelay" : "slow.lineComputer", { n: String(slow.seconds) })
     : t("boot.connectingLine");
@@ -56,7 +63,12 @@ function BootFrame({ reading }: { reading: boolean }) {
           </div>
         </div>
       </header>
-      {slow && current ? <SlowPanel pair={current} name={name} hop={slow.hop} seconds={slow.seconds} /> : null}
+      {/* The card opens under the header and moves the rows down with it. Its
+          place is there from the start, shut, so it opens because the wait
+          became slow and not because the frame was drawn. */}
+      <Fold open={showing}>
+        {card.mounted && shown.current ? <SlowPanel {...shown.current} /> : null}
+      </Fold>
       <HerdSkeleton />
     </div>
   );
@@ -83,13 +95,15 @@ function SlowPanel({ pair, name, hop, seconds }: { pair: PairResult; name: strin
   const relay = hop === "relay";
   const others = computers().filter((item) => item.daemonId !== pair.daemonId);
   const node = (state: "ok" | "wait" | "idle", note: string) => ({ state, note });
+  // A waiting note counts seconds; it is one note for as long as the hop waits.
+  const waiting = (note: string) => ({ ...node("wait", note), says: "wait" });
   return (
     <ConnectionPathCard host={name}
       phone={node("ok", t("path.phoneOk"))}
       link1={relay ? "wait" : "ok"}
-      relay={relay ? node("wait", t("path.relayWait", { n: String(seconds) })) : node("ok", t("path.relayOk"))}
+      relay={relay ? waiting(t("path.relayWait", { n: String(seconds) })) : node("ok", t("path.relayOk"))}
       link2={relay ? "idle" : "wait"}
-      computer={relay ? node("idle", t("path.idle")) : node("wait", t("path.waitingSeconds", { n: String(seconds) }))}>
+      computer={relay ? node("idle", t("path.idle")) : waiting(t("path.waitingSeconds", { n: String(seconds) }))}>
       <p className="conn-path-note">{relay ? t("slow.noteRelay") : t("slow.noteComputer")}</p>
       <div className="conn-path-actions">
         {/* A newer attempt supersedes the one in flight; nothing is replayed. */}

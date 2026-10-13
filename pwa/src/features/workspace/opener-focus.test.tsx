@@ -23,6 +23,7 @@ import { selectPane, setAgentChat, setFullTerminal } from "../session/session-st
 import { clearWorkspacePendingReveal, enterWorkspace, leaveWorkspace } from "./index";
 import { closeWorkspaceInspector, expandWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 import { focusLeaving } from "./opener-focus";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
 
 /**
  * Where focus is after a files surface opens or closes. A key pressed inside
@@ -58,6 +59,14 @@ function liveFixture() {
     }),
   };
 }
+
+/** The reader's close lets the column's content go first; the column is gone once that is over. */
+const columnGone = () => act(async () => {
+  const deadline = Date.now() + MOTION_MS.press + 1000;
+  do { await new Promise((resolve) => setTimeout(resolve, 20)); } while (document.querySelector("aside.inspector") && Date.now() < deadline);
+  // Focus is handed back a turn after the close.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+});
 
 async function settle(): Promise<void> {
   await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 0)); });
@@ -151,6 +160,7 @@ describe("the inspector closed from inside it", () => {
     await boot();
     await openInspector();
     await enterOn(one(".inspector .inspector-close"));
+    await columnGone();
     expect(appRoot().querySelector("aside.inspector")).toBeNull();
     expectSameNode(document.activeElement, filesButton());
     expect(filesButton().getAttribute("aria-pressed")).toBe("false");
@@ -160,6 +170,7 @@ describe("the inspector closed from inside it", () => {
     await boot();
     await openInspector();
     await pressOn(one(".inspector .inspector-close"), "mouse");
+    await columnGone();
     expect(appRoot().querySelector("aside.inspector")).toBeNull();
     expectSameNode(document.activeElement, document.body);
     // Nothing beside the session holds the keyboard: what is typed next goes where its rule sends it.
@@ -171,6 +182,7 @@ describe("the inspector closed from inside it", () => {
     await boot();
     await openInspector();
     await pressOn(one(".inspector .inspector-close"), "touch");
+    await columnGone();
     expectSameNode(document.activeElement, document.body);
   });
 
@@ -191,6 +203,7 @@ describe("the inspector closed from inside it", () => {
     await boot();
     await openInspector();
     await enterOn(one(".inspector .inspector-close"));
+    await columnGone();
     expectSameNode(document.activeElement, filesButton());
     // A complete terminal asks once its bridge is up, long after the close.
     expect(sessionMayTakeFocus()).toBeFalse();
@@ -202,6 +215,7 @@ describe("the inspector closed from inside it", () => {
     await boot();
     await openInspector();
     await pressOn(one(".inspector .inspector-close"), "mouse");
+    await columnGone();
     expect(sessionMayTakeFocus()).toBeTrue();
   });
 
@@ -295,6 +309,7 @@ describe("the files screen left for the session", () => {
     // In the column, so the key is the column's and not the running program's.
     expect(sessionHoldsKeys(document.activeElement, heldKeyboardZone())).toBeFalse();
     await escape();
+    await columnGone();
     expect(appRoot().querySelector("aside.inspector")).toBeNull();
     expectSameNode(document.activeElement, filesButton());
   });
@@ -309,6 +324,7 @@ describe("the files screen left for the session", () => {
     expectSameNode(document.activeElement, expandButton());
     expect(sessionMayTakeFocus()).toBeFalse();
     await escape();
+    await columnGone();
     expect(appRoot().querySelector("aside.inspector")).toBeNull();
   });
 

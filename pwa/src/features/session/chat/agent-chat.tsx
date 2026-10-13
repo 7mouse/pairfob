@@ -3,6 +3,7 @@ import { ArrowDown } from "lucide-react";
 import { openPaneId } from "../session-store";
 import { useCallback, useEffect, useLayoutEffect, useRef, useSyncExternalStore } from "react";
 import { followTrace, setTraceFollow } from "./trace-store";
+import { glidingToTail } from "./tail-glide";
 import { computersStore } from "../../computers/catalog-store";
 import { useChat, useSession } from "../hooks";
 import { useDashboard } from "../../dashboard/hooks";
@@ -92,6 +93,7 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
     <div className="agent-stream-wrap">
       <AgentStream streamRef={stream} items={items} working={working} waiting={status === "blocked"} stale={stale}
         verified={verified} progress={progress} follow={chat.agentTraceFollow} hasOlder={chat.agentTraceNext !== null}
+        historyLoads={chat.agentTraceOlder}
         empty={emptySpec(working)}
         busy={chat.agentTraceBusy || (!chat.agentTraceItems.length && chat.agentTraceLoadState === "cold")}
         signature={streamSig(items, working)} truncated={chat.agentTraceTruncated}
@@ -99,7 +101,8 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
         onRetry={() => { if (!chat.agentTraceBusy) void refreshAgentTrace(); }}
         onNeedOlder={() => { if (chat.agentTraceNext && !chat.agentTraceBusy) void refreshAgentTrace(true); }}
         onFollow={(follow, element) => {
-          if (follow) followTrace();
+          // A glide to the tail passes through "not at the tail" on its way; the reader has not left.
+          if (follow || glidingToTail(element)) followTrace();
           else setTraceFollow(false);
           publishAgentChatUI();
           rememberAgentViewport(element, paneId);

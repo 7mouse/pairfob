@@ -89,6 +89,16 @@ export function installStablePaint(): void {
   // Keep normal motion preference and layout; freeze decorative animation only.
   style.textContent = `*, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; caret-color: transparent !important; }`;
   document.head.append(style);
+  // What the page moves from script stands still with it: nothing is kept on
+  // screen for an exit and no measured move is played, so a capture taken
+  // right after a change shows where it ends. Only script's question is
+  // answered here; the style sheet's own motion preference is untouched.
+  const match = window.matchMedia.bind(window);
+  window.matchMedia = (query: string): MediaQueryList => {
+    if (!/prefers-reduced-motion:\s*reduce/.test(query)) return match(query);
+    const still = new EventTarget() as MediaQueryList;
+    return Object.assign(still, { matches: true, media: query, onchange: null, addListener() {}, removeListener() {} });
+  };
 }
 
 export async function settlePaint(): Promise<void> {

@@ -26,6 +26,8 @@
   line-height: 13px;
 }
 
+/* The tools of the lines on screen, as one group to hold while the next diff is read; the bar lays out the tools themselves. */
+.workspace-tools { display: contents; }
 .workspace-hunk-nav,
 .workspace-stepper { display: inline-flex; align-items: center; flex: none; }
 .workspace-hunk-where,

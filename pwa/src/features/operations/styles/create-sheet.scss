@@ -9,8 +9,43 @@
 
 /* A sticky footer sits inside the scroller's padding: drop the bottom padding
    so nothing scrolls into view beneath the pinned action. The footer carries
-   the safe-area inset itself. */
-.sheet-body:has(> .create-sheet-body > .create-footer) { padding-bottom: 0; }
+   the safe-area inset itself. The form may be one of the views the sheet swaps
+   (`.create-swap`, sheet-swap.tsx). */
+.sheet-body:has(> .create-sheet-body > .create-footer, > .create-swap > .create-sheet-body > .create-footer) { padding-bottom: 0; }
+
+/* --- Blocks that open and shut ---------------------------------------------------
+   Choosing another place or another way to start adds fields. They are in the
+   form from the start, folded (`Fold`), so the sheet grows to them instead of
+   jumping from under the finger.
+
+   A fold clips what leaves its box while it moves, and the controls in these
+   draw their focus ring 4px outside themselves. So the box reaches 4px further
+   on every side and the block is pulled back by as much: open, every row is
+   where it was without the fold; shut, it takes no room at all, which is why
+   the margin moves with the height.
+   ------------------------------------------------------------------------------ */
+.fold.create-fold {
+  margin-block: -4px;
+  transition: grid-template-rows var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease), margin var(--dur-3) var(--ease);
+}
+
+.fold.create-fold.is-shut { margin-block: 0; }
+.create-fold > .fold-body { margin-inline: -4px; padding-inline: 4px; }
+/* A column like the form itself, so the rows keep the margins they had in it. */
+.create-fold-in { display: flex; flex-direction: column; padding-block: 4px; }
+
+/* The full list stands in for the form in place and travels as a pushed page
+   does (`sheet-page-push` / `sheet-page-pop`, shared/ui/styles/overlay): the
+   list comes in from the right, the form it gives way to comes back from the
+   left. `is-back` is on a form only when it returns from the list, so a sheet
+   that opens is still. */
+.create-sheet-body.is-picking { animation: sheet-page-push var(--dur-3) var(--ease); }
+.create-sheet-body.is-back { animation: sheet-page-pop var(--dur-3) var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  .create-sheet-body.is-picking,
+  .create-sheet-body.is-back { animation: none; }
+}
 
 /* One section label for the whole form: same size, same space above each. */
 .create-label {
@@ -48,6 +83,8 @@
   font: 600 var(--text-body) var(--font);
   white-space: nowrap;
   cursor: pointer;
+  /* A choice is acknowledged, not switched: the same short step on every chip, tile, row and star. */
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), border-color var(--dur-1) var(--ease);
 }
 
 .create-chip.is-combo { border-radius: var(--r-md); padding-left: 8px; background: var(--surface); }
@@ -74,6 +111,7 @@
   gap: var(--space-3);
   width: 100%;
   text-align: left;
+  transition: background-color var(--dur-1) var(--ease);
 }
 
 .create-dir.is-selected { background: rgba(110, 168, 254, 0.1); }
@@ -158,6 +196,7 @@
   background: var(--surface);
   color: var(--ink);
   cursor: pointer;
+  transition: border-color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
 }
 
 .create-kind .agent-avatar { width: 36px; height: 36px; }
@@ -238,7 +277,7 @@ dialog.modal#{$desk} .create-footer > .create-submit {
 .create-sheet-body .kind-filter::placeholder { font-size: 16px; }
 .create-sheet-body .kind-filter:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
 
-.kind-row { display: flex; align-items: center; border-radius: var(--r-md); }
+.kind-row { display: flex; align-items: center; border-radius: var(--r-md); transition: background-color var(--dur-1) var(--ease); }
 .kind-row.is-selected { background: rgba(110, 168, 254, 0.08); }
 
 .kind-pick {
@@ -259,8 +298,12 @@ dialog.modal#{$desk} .create-footer > .create-submit {
 .kind-pick-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .kind-pick-name { font-size: var(--text-subhead); font-weight: 600; }
 .kind-pick-meta { font-size: var(--text-secondary); color: var(--muted); }
-.kind-star { color: var(--muted); }
+.kind-star { color: var(--muted); transition: color var(--dur-1) var(--ease); }
 .kind-star.is-on { color: var(--warn); }
+/* The star fills by opacity: the icon's own `fill` attribute flips between none
+   and a colour, which nothing can travel between. */
+.kind-star > svg { fill: currentColor; fill-opacity: 0; transition: fill-opacity var(--dur-1) var(--ease); }
+.kind-star.is-on > svg { fill-opacity: 1; }
 .kind-empty, .kind-note { margin: 4px 8px 10px; font-size: var(--text-secondary); color: var(--muted); }
 
 .create-picker-head { display: flex; align-items: center; gap: 4px; margin: -6px 0 4px -10px; }

@@ -41,9 +41,21 @@ function paint(): void {
   act(() => { root?.render(createElement(RowBarHarness)); });
 }
 
+/** What an action reads as: a copy action shows one of its two stacked faces (`CopyAck`). */
+function shownLabel(action: Element): string {
+  const ack = action.querySelector(".copy-ack");
+  if (!ack) return action.textContent ?? "";
+  return ack.querySelector(`.copy-ack-face.is-${ack.getAttribute("data-state")}`)?.textContent ?? "";
+}
+
+/** The bubble while it is there to use; one playing its exit is not. */
+const openBubble = () => container!.querySelector<HTMLElement>(".row-bubble:not(.is-leaving)");
+const leavingBubble = () => container!.querySelector<HTMLElement>(".row-bubble.is-leaving");
+const exitOver = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 160)); });
+
 function click(label: string): HTMLButtonElement {
   const el = [...(container!.querySelectorAll("button"))].find((button) => {
-    return button.getAttribute("aria-label") === label || button.textContent === label;
+    return button.getAttribute("aria-label") === label || shownLabel(button) === label;
   });
   if (!(el instanceof HTMLButtonElement)) throw new Error(`missing ${label}`);
   act(() => { el.click(); });
@@ -145,7 +157,7 @@ describe("react session row bar", () => {
     const bar = container!.querySelector(".row-bubble");
     expect(bar?.getAttribute("role")).toBe("toolbar");
     expect(bar?.hasAttribute("data-react-session-rowbar")).toBeTrue();
-    const labels = [...container!.querySelectorAll(".row-act")].map((el) => el.textContent);
+    const labels = [...container!.querySelectorAll(".row-act")].map(shownLabel);
     expect(labels).toEqual(["复制", "复制路径", "引用", "选择"]);
     const pathButton = [...container!.querySelectorAll(".row-act")][1];
     expect(pathButton.getAttribute("aria-label")).toBe("复制路径 /tmp/demo/app.ts");
@@ -159,17 +171,37 @@ describe("react session row bar", () => {
   test("no path means no path action", () => {
     boot("plain words only");
     act(() => { openRow(0); });
-    const labels = [...container!.querySelectorAll(".row-act")].map((el) => el.textContent);
+    const labels = [...container!.querySelectorAll(".row-act")].map(shownLabel);
     expect(labels).toEqual(["复制", "引用", "选择"]);
   });
 
-  test("a second tap on the same row closes it", () => {
-    boot("same row");
+  test("a second tap on the same row closes it: it leaves where it stood, out of reach, then goes", async () => {
+    boot("same row with /tmp/a.ts");
     act(() => { openRow(0); });
     expect(paneRow()).toBe(0);
+    const bubble = openBubble()!;
+    expect(bubble.hasAttribute("inert")).toBeFalse();
     act(() => { openRow(0); });
     expect(paneRow()).toBeNull();
+    expect(openBubble()).toBeNull();
+    // The same node, with the actions it had, for the length of its exit.
+    expectSameNode(leavingBubble(), bubble);
+    expect(bubble.hasAttribute("inert")).toBeTrue();
+    expect([...bubble.querySelectorAll(".row-act")].map(shownLabel)).toEqual(["复制", "复制路径", "引用", "选择"]);
+    await exitOver();
     expect(container!.querySelector(".row-bubble")).toBeNull();
+  });
+
+  test("a row picked again while the bubble is leaving opens it again", async () => {
+    boot("first line\nsecond line");
+    act(() => { openRow(0); });
+    act(() => { openRow(0); });
+    expect(leavingBubble()).not.toBeNull();
+    act(() => { openRow(1); });
+    expect(leavingBubble()).toBeNull();
+    expect(openBubble()?.hasAttribute("inert")).toBeFalse();
+    await exitOver();
+    expect(openBubble()).not.toBeNull();
   });
 
   test("quote inserts into compose and select enters selection mode", () => {
@@ -211,7 +243,7 @@ describe("react session row bar", () => {
       let first: KeyboardEvent;
       act(() => { first = escape(document.body); });
       expect(paneRow()).toBeNull();
-      expect(container!.querySelector(".row-bubble")).toBeNull();
+      expect(openBubble()).toBeNull();
       expect(first!.defaultPrevented).toBeTrue();
       // Neither the compose field nor the page-level pane keys saw it.
       expect(seen).toEqual([]);
@@ -364,7 +396,10 @@ describe("react session row bar", () => {
     expect(visibleNotice()).toBeNull();
     expect(paneRow()).toBe(0);
     expectSameNode(container!.querySelector(".row-act"), copy);
-    expect([copy.textContent, copy.getAttribute("aria-label"), "copied" in copy.dataset]).toEqual(["已复制", "已复制这一行。", true]);
+    expect([shownLabel(copy), copy.getAttribute("aria-label"), "copied" in copy.dataset]).toEqual(["已复制", "已复制这一行。", true]);
+    // Both faces stand in one cell, so the action is the same width saying either.
+    expect([...copy.querySelectorAll(".copy-ack > .copy-ack-face")].map((face) => [face.textContent, face.getAttribute("aria-hidden")]))
+      .toEqual([["复制", "true"], ["已复制", "false"]]);
     // Pressing again copies again and starts the confirmation over.
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, ROW_COPIED_MS - 300)); });
     click("已复制");
@@ -374,7 +409,67 @@ describe("react session row bar", () => {
     expect(paneRow()).toBe(0);
     await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
     expect(paneRow()).toBeNull();
+    expect(openBubble()).toBeNull();
+    await exitOver();
     expect(container!.querySelector(".row-bubble")).toBeNull();
+  });
+
+  test("the bubble that closes on a copy leaves still saying so", async () => {
+    Object.defineProperty(navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async () => undefined },
+    });
+    boot("copy me");
+    act(() => { openRow(0); });
+    click("复制");
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, ROW_COPIED_MS + 30)); });
+    expect(paneRow()).toBeNull();
+    expect(shownLabel(leavingBubble()!.querySelector(".row-act")!)).toBe("已复制");
+  });
+
+  test("sent to another row the bubble slides there; kept on its row it is simply put where the row is", () => {
+    boot("first line\nsecond line");
+    // Two rows 100px apart in a buffer from 100 to 600.
+    const term = document.createElement("div");
+    term.className = "term";
+    const tops = [200, 300];
+    for (const [index, top] of tops.entries()) {
+      const row = document.createElement("div");
+      row.className = "term-line";
+      row.dataset.row = String(index);
+      row.getBoundingClientRect = () => rect(tops[index] ?? top, (tops[index] ?? top) + 18);
+      term.append(row);
+    }
+    term.getBoundingClientRect = () => rect(100, 600);
+    appRoot().replaceChildren(term);
+
+    act(() => { openRow(0); });
+    const bubble = openBubble()!;
+    const moves: Array<{ frames: Keyframe[]; duration: number }> = [];
+    // Drawn where its inline `top` puts it, in a stage whose origin is the viewport's.
+    bubble.getBoundingClientRect = () => rect(Number.parseFloat(bubble.style.top) || 0, (Number.parseFloat(bubble.style.top) || 0) + 46);
+    (bubble as unknown as { animate: unknown }).animate = (frames: Keyframe[], options: KeyframeAnimationOptions) => {
+      moves.push({ frames, duration: Number(options.duration) });
+      return { cancel: () => undefined };
+    };
+    // Opening it is its entrance, not a slide.
+    paint();
+    expect(moves).toEqual([]);
+    const first = Number.parseFloat(bubble.style.top);
+
+    act(() => { openRow(1); });
+    expectSameNode(openBubble(), bubble);
+    const second = Number.parseFloat(bubble.style.top);
+    expect(second - first).toBe(100);
+    expect(moves).toEqual([{ frames: [{ transform: "translate(0px, -100px)" }, { transform: "none" }], duration: 180 }]);
+
+    // Output moved the buffer under the same picked row: no travel, just the new place.
+    tops[1] = 340;
+    paint();
+    expect(Number.parseFloat(bubble.style.top) - second).toBe(40);
+    expect(moves).toHaveLength(1);
+    appRoot().replaceChildren();
   });
 
   test("a row picked while another says copied keeps its bubble, with the actions as they were", async () => {
@@ -388,7 +483,7 @@ describe("react session row bar", () => {
     click("复制");
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     act(() => { openRow(1); });
-    expect(container!.querySelector(".row-act")?.textContent).toBe("复制");
+    expect(shownLabel(container!.querySelector(".row-act")!)).toBe("复制");
     click("复制");
     await act(async () => { await Promise.resolve(); await Promise.resolve(); });
     expect(written).toEqual(["first line", "second line"]);

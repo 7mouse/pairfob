@@ -9,6 +9,9 @@ import { SENT_ANSWER_GRACE_MS, SENT_SETTLE_MS } from "../../lib/diff-notes-sent"
 import { liveSession } from "../computers/catalog-store";
 import { loadGitDiff, workspaceModel } from "./index";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
 /**
  * What stays of a note after it is sent: a record under its line and the
  * receipt of its file, both saying how far the agent is; and one Send for the
@@ -51,12 +54,12 @@ async function openDiff(path: string): Promise<void> {
 
 async function addNote(body: string): Promise<void> {
   await press(one(".diff-add .diff-comment-btn"));
-  await type(one<HTMLTextAreaElement>("form.diff-note-inline textarea"), body);
-  await press(one(".diff-note-inline-save"));
+  await type(one<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`), body);
+  await press(one(`${UNDER} .diff-note-inline-save`));
 }
 
-const bar = () => one(".workspace-notes-bar");
-const sentCard = () => document.querySelector<HTMLElement>(".workspace-diff-note.is-sent");
+const bar = () => one(".workspace-notes-bar:not(.is-leaving)");
+const sentCard = () => document.querySelector<HTMLElement>(`${UNDER} .workspace-diff-note.is-sent`);
 
 beforeEach(async () => {
   await resetBoardTestDOM();
@@ -123,12 +126,12 @@ describe("a note after it is sent", () => {
     await settle();
     // Another file has no receipt of this one's notes.
     await openDiff("src/b.ts");
-    expect(document.querySelector(".workspace-notes-bar")).toBeNull();
+    expect(document.querySelector(".workspace-notes-bar:not(.is-leaving)")).toBeNull();
     expect(sentCard()).toBeNull();
     await openDiff("src/app.ts");
     expect(bar().classList.contains("is-sent")).toBeTrue();
     await press(one(".workspace-notes-dismiss"));
-    expect(document.querySelector(".workspace-notes-bar")).toBeNull();
+    expect(document.querySelector(".workspace-notes-bar:not(.is-leaving)")).toBeNull();
     expect(sentCard()).toBeNull();
   });
 
@@ -140,7 +143,7 @@ describe("a note after it is sent", () => {
     await settle();
     await addNote("and another thing");
     expect(sentCard()).toBeNull();
-    expect(all(".workspace-diff-note").map((card) => card.querySelector(".diff-note-body")?.textContent)).toEqual(["and another thing"]);
+    expect(all(`${UNDER} .workspace-diff-note`).map((card) => card.querySelector(".diff-note-body")?.textContent)).toEqual(["and another thing"]);
     expect(bar().classList.contains("is-sent")).toBeFalse();
   });
 });

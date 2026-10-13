@@ -22,7 +22,7 @@ import { hardwareKeyboard, useHardwareKeyboard } from "../../../app/input-mode";
 import { canSend, leaveAgentChat, refreshAgentTrace, stickAgentStream, submitAgentPrompt } from "./agent-chat-controller";
 import { publishAgentChatUI } from "./agent-chat-ui";
 import { pageAgentStreamFromField } from "./reading-keys";
-import { Button } from "../../../shared/ui/primitives";
+import { Button, Fold } from "../../../shared/ui/primitives";
 import { AttachButton } from "../attachments/attach-button";
 import { fitComposeHeight } from "../compose-size";
 import { phoneEnterKeyHint, returnAddsNewline } from "../compose-keys";
@@ -191,11 +191,14 @@ export function AgentCompose() {
   // A tablet with a keyboard has no hint line under the field: the field says what Enter does.
   const placeholder = keysInPlace && allowed ? `${prompt} · ${t("deskDock.hintChat")}` : prompt;
   return <div className="dock agent-dock">
-    {/* The needs-you card sits in the latest turn; this entry covers a reader scrolled away from it. */}
-    {selected?.status === "blocked" && !follow && <div className="agent-confirm">
-      <p className="agent-confirm-copy">{t("chat.waitingConfirm")}</p>
-      <Button className="btn btn-small" onClick={() => leaveAgentChat()}>{t("needs.go")}</Button>
-    </div>}
+    {/* The needs-you card sits in the latest turn; this entry covers a reader scrolled away from it. It
+        folds in and out as they scroll, so the transcript's box eases to its new height instead of jumping. */}
+    <Fold open={selected?.status === "blocked" && !follow}>
+      <div className="agent-confirm">
+        <p className="agent-confirm-copy">{t("chat.waitingConfirm")}</p>
+        <Button className="btn btn-small" onClick={() => leaveAgentChat()}>{t("needs.go")}</Button>
+      </div>
+    </Fold>
     <AttachmentTray compact={keyboardOpen} />
     <form className="dock-form" onSubmit={event => { event.preventDefault(); void submitAgentMessage(); }}>
       <AttachButton />

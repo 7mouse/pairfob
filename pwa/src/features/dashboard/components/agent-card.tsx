@@ -1,7 +1,7 @@
 import { Check, MoreHorizontal, Pin, PinOff } from "lucide-react";
 import { useLayoutEffect, useRef } from "react";
 import { t } from "../../../lib/i18n";
-import { AgentAvatar, Button } from "../../../shared/ui/primitives";
+import { AgentAvatar, Button, Swap } from "../../../shared/ui/primitives";
 import { useObjectPress } from "../../../shared/ui/overlay";
 import type { HerdActions } from "../actions";
 import type { HerdCardView } from "../model/herd-view";
@@ -35,7 +35,11 @@ export function AgentCard({ card, actions, hoverActions = false, listed = false 
   card: HerdCardView;
   actions: HerdActions;
   hoverActions?: boolean;
-  /** The row is an item of a counted list (the rail, whose list is one keyboard stop: `list-keys.ts`). */
+  /**
+   * The row is an item of a counted list (the rail, whose list is one keyboard
+   * stop: `list-keys.ts`). The item is the fold the row stands in
+   * (`herd-rows.tsx`), a child of the list; the row inside it is only its content.
+   */
   listed?: boolean;
 }) {
   const title = useRef<HTMLSpanElement>(null);
@@ -78,7 +82,7 @@ export function AgentCard({ card, actions, hoverActions = false, listed = false 
     </div>
   );
   return (
-    <article ref={row} className={classes} role={listed ? "listitem" : undefined} style={indexedStyle(card.index)}>
+    <article ref={row} className={classes} role={listed ? "none" : undefined} style={indexedStyle(card.index)}>
       {hoverActions ? null : trailing}
       <Button
         ref={press}
@@ -100,7 +104,8 @@ export function AgentCard({ card, actions, hoverActions = false, listed = false 
             <span className="card-name">{card.title}</span>
           </span>
           <span className="card-meta">
-            {card.statusLabel ? <span className={`card-status is-${card.statusTone}`}>{card.statusLabel}</span> : null}
+            {/* The word marks its own change: a status the agent reported, or one that can no longer be confirmed. */}
+            {card.statusLabel ? <Swap on={card.statusLabel} className={`card-status is-${card.statusTone}`}>{card.statusLabel}</Swap> : null}
             {card.statusLabel && card.line ? <span aria-hidden="true"> · </span> : null}
             {card.line}
           </span>

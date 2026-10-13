@@ -266,6 +266,26 @@ function focusedSnapshot(status: string, agent?: string): ReturnType<typeof data
   };
 }
 const idleFocusedSnapshot = () => focusedSnapshot("idle");
+
+/**
+ * The open session's agent in another status, on the scene as it stands: the
+ * change a status hook would report, for what reacts to it while mounted.
+ */
+export function applyFocusedStatus(status: string): void {
+  replaceAgentsFromSnapshot(focusedSnapshot(status));
+}
+
+/** The baseline computer with `extra` more sessions in its first workspace: a list that gains or loses a row. */
+export function applyExtraSessions(extra: number): void {
+  const base = data.snapshot();
+  const seed = base.panes?.[0]!;
+  replaceAgentsFromSnapshot({
+    ...base,
+    panes: [...(base.panes ?? []), ...Array.from({ length: extra }, (_, index) => ({
+      ...seed, pane_id: `w1:added-${index + 1}`, label: `Added session ${index + 1}`, agent: "claude", agent_status: "working",
+    }))],
+  });
+}
 const blockedFocusedSnapshot = () => focusedSnapshot("blocked");
 
 /**

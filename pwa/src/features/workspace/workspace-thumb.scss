@@ -1,0 +1,37 @@
+/* The mark of a chosen segment: the tabs of the files screen and of the column, the two
+   layers of a diff, the preview's own switches.
+
+   One mark that slides to the choice instead of a background jumping between siblings, as
+   the shared segmented control does (`shared/ui/styles/seg`). The segments of a strip are
+   equal shares of it, so an index and a count are all the geometry: the component writes
+   both on the strip (`thumb`), and each strip says how far its segments stand from its edge
+   and from each other. The first paint places the mark where it belongs; only a new choice
+   has somewhere to slide from. */
+
+.workspace-tabs,
+.inspector-tabs,
+.workspace-layer-switch {
+  position: relative;
+  /* The mark is drawn under the segments' words and over the strip's own ground. */
+  isolation: isolate;
+}
+
+.workspace-tabs::before,
+.inspector-tabs::before,
+.workspace-layer-switch::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: var(--thumb-pad);
+  bottom: var(--thumb-pad);
+  left: var(--thumb-pad);
+  width: calc((100% - 2 * var(--thumb-pad) - (var(--thumb-count, 2) - 1) * var(--thumb-gap)) / var(--thumb-count, 2));
+  border-radius: var(--thumb-radius);
+  background: var(--surface-2);
+  /* Nothing chosen (`thumb` says so): no mark. */
+  opacity: var(--thumb-shown, 1);
+  /* Percentages resolve against the mark's own box, so one segment and one gap is the pitch. */
+  transform: translateX(calc(var(--thumb-on, 0) * (100% + var(--thumb-gap))));
+  transition: transform var(--dur-2) var(--ease);
+  pointer-events: none;
+}

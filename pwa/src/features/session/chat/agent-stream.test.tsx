@@ -20,20 +20,22 @@ const items: AgentTraceItem[] = [
 ];
 const empty = { kind: "empty" as const, title: "No history" };
 
-function toggle(card: HTMLDetailsElement, open: boolean) {
-  act(() => {
-    card.open = open;
-
-  });
+/** The card's head says whether its steps are open, and a press on it turns them. */
+const expanded = (card: Element): boolean => card.querySelector(".work-head")?.getAttribute("aria-expanded") === "true";
+function toggle(card: HTMLElement, open: boolean) {
+  if (expanded(card) !== open) act(() => card.querySelector<HTMLButtonElement>("button.work-head")!.click());
 }
+/** What a copy button reads as: the one face of its two that is not hidden. */
+const shown = (button: Element): string | null | undefined =>
+  button.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent;
 
 test("a finished turn folds its steps into a result-first card above the reply and its actions", () => {
   const copied: string[] = [];
   act(() => renderReact(<AgentStream items={items} working={false} empty={empty} verified
     onCopyReply={text => { copied.push(text); }} onTerminal={() => {}} />));
   expect(appRoot().querySelector(".agent-user-text")?.textContent).toBe(items[0].text);
-  const card = appRoot().querySelector<HTMLDetailsElement>("details.work-card")!;
-  expect(card.open).toBeFalse();
+  const card = appRoot().querySelector<HTMLElement>(".work-card")!;
+  expect(expanded(card)).toBeFalse();
   expect(card.className).toBe("work-card is-done");
   expect(card.querySelector(".work-title")?.textContent).toBe(t("work.doneSteps", { n: 1 }));
   expect(appRoot().querySelectorAll(".work-step")).toHaveLength(2);
@@ -51,7 +53,7 @@ test("a finished turn folds its steps into a result-first card above the reply a
 
 test("without verified failure states a finished card stays neutral instead of claiming success", () => {
   act(() => renderReact(<AgentStream items={items} working={false} empty={empty} />));
-  expect(appRoot().querySelector("details.work-card")?.className).toBe("work-card is-neutral");
+  expect(appRoot().querySelector(".work-card")?.className).toBe("work-card is-neutral");
   expect(appRoot().querySelector(".work-step.is-read")?.className).toContain("is-ended");
 });
 
@@ -64,7 +66,7 @@ test("the card leads with changed files past a routine failure, and step rows op
     { type: "assistant", text: "One test still fails." },
   ];
   act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified onOpenStep={item => opened.push(item)} />));
-  const card = appRoot().querySelector<HTMLDetailsElement>("details.work-card")!;
+  const card = appRoot().querySelector<HTMLElement>(".work-card")!;
   expect(card.className).toBe("work-card is-done");
   expect(card.querySelector(".work-title")?.textContent).toBe(t("work.changedFiles", { n: 1 }));
   expect(card.querySelector(".work-detail")?.textContent).toBe(`boot.ts · ${t("work.total", { n: 2 })}`);
@@ -75,17 +77,17 @@ test("the card leads with changed files past a routine failure, and step rows op
   expect(opened.map(item => item.detailRef)).toEqual(["b1"]);
 });
 
-test("a manual collapse of a live card survives new output and keeps its details node", () => {
+test("a manual collapse of a live card survives new output and keeps its card node", () => {
   const paint = (text: string) => act(() => renderReact(<AgentStream items={[...items.slice(0, 3), { type: "assistant", text }]}
     working empty={empty} />));
   paint("first partial reply");
-  const card = appRoot().querySelector<HTMLDetailsElement>("details.work-card")!;
-  expect(card.open).toBeTrue();
+  const card = appRoot().querySelector<HTMLElement>(".work-card")!;
+  expect(expanded(card)).toBeTrue();
   toggle(card, false);
   expect(card.dataset.user).toBe("closed");
   paint("second partial reply");
-  expectSameNode(appRoot().querySelector("details.work-card"), card);
-  expect(card.open).toBeFalse();
+  expectSameNode(appRoot().querySelector(".work-card"), card);
+  expect(expanded(card)).toBeFalse();
   expect(card.querySelector(".work-title")?.textContent).toBe(t("work.running", { n: 1 }));
   // While running, the latest note sits under the card and nothing offers a copy yet.
   expect(appRoot().querySelector(".agent-assistant-intermediate")?.textContent).toContain("second partial reply");
@@ -105,7 +107,7 @@ test("a blocked agent raises the needs-you card with what it waits to run", () =
   let exits = 0;
   const turn: AgentTraceItem[] = [{ type: "user", text: "clean up" }, { type: "tool", name: "Bash", label: "rm -rf pwa/dist", toolState: "running" }];
   act(() => renderReact(<AgentStream items={turn} working waiting empty={empty} onTerminal={() => { exits++; }} />));
-  expect(appRoot().querySelector("details.work-card")?.className).toBe("work-card is-waiting");
+  expect(appRoot().querySelector(".work-card")?.className).toBe("work-card is-waiting");
   const needs = appRoot().querySelector(".needs-card")!;
   expect(needs.querySelector(".needs-verb")?.textContent).toBe(t("needs.run"));
   expect(needs.querySelector(".needs-object")?.textContent).toBe("rm -rf pwa/dist");
@@ -115,7 +117,7 @@ test("a blocked agent raises the needs-you card with what it waits to run", () =
 
 test("a lost connection freezes the live card instead of spinning", () => {
   act(() => renderReact(<AgentStream items={items.slice(0, 3)} working stale empty={empty} />));
-  const card = appRoot().querySelector("details.work-card")!;
+  const card = appRoot().querySelector(".work-card")!;
   expect(card.className).toBe("work-card is-stale");
   expect(card.querySelector(".work-head .spinner")).toBeNull();
 });
@@ -127,7 +129,7 @@ test("a pending prompt carries its delivery state in its own turn", () => {
   expect(pending.className).toBe("pending-card");
   expect(pending.textContent).toBe(t("pending.local"));
   expect(pending.querySelector(".spinner")).toBeNull();
-  expect(appRoot().querySelector("details.work-card")).toBeNull();
+  expect(appRoot().querySelector(".work-card")).toBeNull();
 });
 
 test("attachment paths become chips and long prompts fold", () => {
@@ -177,7 +179,7 @@ test("unavailable history keeps its terminal action beside a pending prompt with
     empty={{ kind: "unavailable", title: "Cannot read", sub: "See terminal" }} onTerminal={() => { exits++; }} />));
   expect(appRoot().textContent).toContain("Already sent");
   expect(appRoot().textContent).toContain("Cannot read");
-  expect(appRoot().querySelector("details.work-card")).toBeNull();
+  expect(appRoot().querySelector(".work-card")).toBeNull();
   act(() => appRoot().querySelector<HTMLButtonElement>(".agent-open-terminal")!.click());
   expect(exits).toBe(1);
 });
@@ -196,7 +198,7 @@ test("commands render as chips; interrupts mark the card and compaction stays a 
   expect(command.getAttribute("aria-label")).toBe(t("trace.commandAria", { cmd: "/clear" }));
   expect(appRoot().querySelectorAll(".agent-user")).toHaveLength(1);
   expect(appRoot().querySelector(".agent-md")?.textContent).toContain("partial");
-  const card = appRoot().querySelector("details.work-card")!;
+  const card = appRoot().querySelector(".work-card")!;
   expect(card.className).toBe("work-card is-interrupted");
   expect(card.querySelector(".work-title")?.textContent).toBe(t("work.interrupted"));
   // The transcript opens with /clear, so a new-session divider leads it.
@@ -230,7 +232,7 @@ test("only a turn that stopped on a failed step leads with the failure, and name
     { type: "user", text: "again" }, { type: "tool", name: "Read", label: "b.ts", toolState: "done" },
     { type: "tool", name: "Bash", label: "bun test", toolState: "error" },
   ]} working={false} verified empty={empty} />));
-  const cards = [...appRoot().querySelectorAll("details.work-card")];
+  const cards = [...appRoot().querySelectorAll(".work-card")];
   expect(cards.map((card) => card.className)).toEqual(["work-card is-done", "work-card is-error"]);
   expect(cards[0].querySelector(".work-title")?.textContent).toBe(t("work.doneSteps", { n: 2 }));
   expect(cards[1].querySelector(".work-title")?.textContent).toBe(t("work.endedFailed"));
@@ -268,12 +270,12 @@ test("a card that finishes while the reader is scrolled up stays open until they
   const paint = (working: boolean, follow: boolean, extra: AgentTraceItem[] = []) =>
     act(() => renderReact(<AgentStream items={[...live, ...extra]} working={working} follow={follow} empty={empty} />));
   paint(true, false);
-  const card = () => appRoot().querySelector<HTMLDetailsElement>("details.work-card")!;
-  expect(card().open).toBeTrue();
+  const card = () => appRoot().querySelector<HTMLElement>(".work-card")!;
+  expect(expanded(card())).toBeTrue();
   paint(false, false, [{ type: "assistant", text: "done" }]);
-  expect(card().open).toBeTrue();
+  expect(expanded(card())).toBeTrue();
   paint(false, true, [{ type: "assistant", text: "done" }]);
-  expect(card().open).toBeFalse();
+  expect(expanded(card())).toBeFalse();
 });
 
 test("code blocks in a final reply get their own copy button", () => {
@@ -281,7 +283,7 @@ test("code blocks in a final reply get their own copy button", () => {
   act(() => renderReact(<AgentStream items={[{ type: "user", text: "q" }, { type: "assistant", text: "Run:\n\n```sh\nbun test\n```" }]}
     working={false} empty={empty} onCopyReply={(text, what) => { copied.push([text, what]); }} />));
   const button = appRoot().querySelector<HTMLButtonElement>(".md-code .md-copy")!;
-  expect(button.textContent).toBe(t("reply.copyCode"));
+  expect(shown(button)).toBe(t("reply.copyCode"));
   act(() => button.click());
   // Without the line break that ends the block: pasted into a shell, it would run the line.
   expect(copied).toEqual([["bun test", "code"]]);
@@ -294,7 +296,7 @@ test("every copy press copies what was pressed and is confirmed on that button, 
     working={false} empty={empty} onCopyReply={async (value) => { copied.push(value); return true; }} />));
   const [first, second] = [...appRoot().querySelectorAll<HTMLButtonElement>(".md-code .md-copy")];
   const reply = appRoot().querySelector<HTMLButtonElement>(".agent-reply-copy")!;
-  const labels = () => [first, second, reply].map((button) => button.textContent);
+  const labels = () => [first, second, reply].map(shown);
   const press = async (button: HTMLButtonElement) => await act(async () => { button.click(); await Promise.resolve(); await Promise.resolve(); });
   await press(first);
   expect(labels()).toEqual([t("reply.copied"), t("reply.copyCode"), t("reply.copy")]);
@@ -309,8 +311,8 @@ test("every copy press copies what was pressed and is confirmed on that button, 
   expectSameNode(appRoot().querySelector(".md-code .md-copy"), first);
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, COPIED_MS + 60)); });
   expect(labels()).toEqual([t("reply.copyCode"), t("reply.copyCode"), t("reply.copy")]);
-  expect([first.getAttribute("aria-label"), "copied" in first.dataset, reply.getAttribute("aria-label")])
-    .toEqual([null, false, t("chat.copyReplyAria")]);
+  expect([first.getAttribute("aria-label"), first.querySelector(".copy-ack")?.getAttribute("data-state"), reply.getAttribute("aria-label")])
+    .toEqual([null, "idle", t("chat.copyReplyAria")]);
 });
 
 test("a copy the browser refused leaves the pressed button as it was", async () => {
@@ -319,7 +321,7 @@ test("a copy the browser refused leaves the pressed button as it was", async () 
   const code = appRoot().querySelector<HTMLButtonElement>(".md-code .md-copy")!;
   const reply = appRoot().querySelector<HTMLButtonElement>(".agent-reply-copy")!;
   await act(async () => { code.click(); reply.click(); await Promise.resolve(); await Promise.resolve(); });
-  expect([code.textContent, reply.textContent]).toEqual([t("reply.copyCode"), t("reply.copy")]);
+  expect([shown(code), shown(reply)]).toEqual([t("reply.copyCode"), t("reply.copy")]);
 });
 
 test("copied code keeps the line breaks inside it and drops only the one that ends the block", () => {

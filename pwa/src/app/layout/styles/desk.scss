@@ -69,6 +69,23 @@
   color: var(--ink);
 }
 
+/* The column takes its place in one step: a width that eased in would resize
+   the session beside it, which may be the complete terminal, on every frame.
+   What the reader opened is seen to open all the same: the column's content
+   walks in from the edge, as a page pushed inside a sheet does. Only while the
+   column is marked (`pages/workspace/inspector.tsx`), so content drawn again
+   in a column already open stands still. */
+#app > .inspector.is-entering > * { animation: sheet-page-push var(--dur-3) var(--ease); }
+
+/* Closed by the reader, the content goes first, one step shorter than it came,
+   and the column gives its room back after (`leaveWorkspaceInspector`). */
+#app > .inspector.is-leaving { pointer-events: none; }
+#app > .inspector.is-leaving > * { opacity: 0; transition: opacity var(--dur-1) var(--ease); }
+
+@media (prefers-reduced-motion: reduce) {
+  #app > .inspector.is-entering > * { animation-name: fade-in; }
+}
+
 
 .main {
   display: flex;

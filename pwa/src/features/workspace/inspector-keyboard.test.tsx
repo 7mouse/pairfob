@@ -19,6 +19,16 @@ import { selectPane, setAgentChat, setFullTerminal } from "../session/session-st
 import { clearWorkspacePendingReveal, leaveWorkspace, showWorkspaceTab, workspaceModel } from "./index";
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
+/** The line a note's form or card stands under: what comes before everything the note keeps there. */
+const lineOver = (piece: Element | null | undefined): Element | null => {
+  let before = piece?.closest(".diff-note-fold")?.previousElementSibling ?? null;
+  while (before?.matches(".diff-note-fold")) before = before.previousElementSibling;
+  return before;
+};
+
 /**
  * Where the keyboard is after the reader works in the inspector. The page
  * forwards keys to the session whenever focus is not held by the column, so
@@ -146,7 +156,7 @@ async function type(textarea: HTMLTextAreaElement, text: string): Promise<void> 
 }
 
 function editor(): HTMLTextAreaElement {
-  return inColumn<HTMLTextAreaElement>("form.diff-note-inline textarea");
+  return inColumn<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`);
 }
 
 function held(): boolean {
@@ -191,8 +201,8 @@ describe("a note written in the inspector", () => {
     await press(line, "body");
 
     expect(document.querySelector("dialog[open]")).toBeNull();
-    const form = inColumn<HTMLFormElement>("form.diff-note-inline");
-    expect(form.previousElementSibling === line).toBeTrue();
+    const form = inColumn<HTMLFormElement>(`${UNDER} form.diff-note-inline`);
+    expect(lineOver(form) === line).toBeTrue();
     expect(form.getAttribute("aria-label")).toBe("给第 2 行写批注");
     expectSameNode(document.activeElement, editor());
     expect(form.querySelector<HTMLButtonElement>("button[type='submit']")?.disabled).toBeTrue();
@@ -209,32 +219,32 @@ describe("a note written in the inspector", () => {
     // The key was the editor's: nothing above the column sees it.
     expect(escape.defaultPrevented).toBeTrue();
     expect(escape.reachedDocument).toBeFalse();
-    expect(column().querySelector("form.diff-note-inline")).toBeNull();
+    expect(column().querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(diffNotesFor("app.ts", "worktree")).toHaveLength(0);
     // Not saved and not lost: the words wait under the line they were written on.
-    const card = inColumn(".workspace-diff-note.is-draft");
+    const card = inColumn(`${UNDER} .workspace-diff-note.is-draft`);
     expect(card.querySelector(".diff-note-state")?.textContent).toBe("未保存");
     expect(card.querySelector(".diff-note-body")?.textContent).toBe("never mind");
-    expect(card.previousElementSibling === line).toBeTrue();
+    expect(lineOver(card) === line).toBeTrue();
     // The line the editor belonged to: the next Esc, Ctrl+C or ↑ is not the session's.
     expect(held()).toBeTrue();
     expectSameNode(document.activeElement, inColumn(".workspace-diff-line.diff-add .diff-comment-btn"));
 
     // One press on the words is the editor again, with the keyboard after the last word.
-    await press(inColumn(".diff-note-resume"));
-    expect(column().querySelector(".workspace-diff-note.is-draft")).toBeNull();
+    await press(inColumn(`${UNDER} .diff-note-resume`));
+    expect(column().querySelector(`${UNDER} .workspace-diff-note.is-draft`)).toBeNull();
     expect(editor().value).toBe("never mind");
     expectSameNode(document.activeElement, editor());
-    expect(inColumn(".diff-note-inline-save").hasAttribute("disabled")).toBeFalse();
+    expect(inColumn(`${UNDER} .diff-note-inline-save`).hasAttribute("disabled")).toBeFalse();
 
     // Set aside again, any line leads back into it; Cancel is what throws it away.
     await key(editor(), { key: "Escape" });
     await press(inColumn(".workspace-diff-line.diff-delete"), "body");
     expect(editor().value).toBe("never mind");
-    expect(inColumn("form.diff-note-inline").previousElementSibling === line).toBeTrue();
-    await press(inColumn(".diff-note-inline-cancel"));
-    expect(column().querySelector("form.diff-note-inline")).toBeNull();
-    expect(column().querySelector(".workspace-diff-note")).toBeNull();
+    expect(lineOver(inColumn(`${UNDER} form.diff-note-inline`)) === line).toBeTrue();
+    await press(inColumn(`${UNDER} .diff-note-inline-cancel`));
+    expect(column().querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
+    expect(column().querySelector(`${UNDER} .workspace-diff-note`)).toBeNull();
     expect(held()).toBeTrue();
     await press(line, "body");
     expect(editor().value).toBe("");
@@ -249,33 +259,33 @@ describe("a note written in the inspector", () => {
     await press(line, "body");
     const empty = await key(editor(), { key: "Escape" });
     expect(empty.reachedDocument).toBeFalse();
-    expect(column().querySelector("form.diff-note-inline")).toBeNull();
-    expect(column().querySelector(".workspace-diff-note")).toBeNull();
+    expect(column().querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
+    expect(column().querySelector(`${UNDER} .workspace-diff-note`)).toBeNull();
     expect(held()).toBeTrue();
 
     // Save on the card saves the words as they stand.
     await press(line, "body");
     await type(editor(), "  why true  ");
     await key(editor(), { key: "Escape" });
-    await press(inColumn(".diff-note-keep"));
-    expect(column().querySelector(".workspace-diff-note.is-draft")).toBeNull();
+    await press(inColumn(`${UNDER} .diff-note-keep`));
+    expect(column().querySelector(`${UNDER} .workspace-diff-note.is-draft`)).toBeNull();
     expect(diffNotesFor("app.ts", "worktree").map((note) => note.body)).toEqual(["why true"]);
     expect(held()).toBeTrue();
 
     // A saved note opened and left as it is has nothing new either.
-    await press(inColumn(".diff-note-action"));
+    await press(inColumn(`${UNDER} .diff-note-action`));
     await key(editor(), { key: "Escape" });
-    expect(column().querySelector("form.diff-note-inline")).toBeNull();
-    expect(column().querySelectorAll(".workspace-diff-note")).toHaveLength(1);
+    expect(column().querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
+    expect(column().querySelectorAll(`${UNDER} .workspace-diff-note`)).toHaveLength(1);
 
     // An edit left with Escape waits beside the note it would replace; Cancel on the card drops only the edit.
-    await press(inColumn(".diff-note-action"));
+    await press(inColumn(`${UNDER} .diff-note-action`));
     await type(editor(), "why true, reworded");
     await key(editor(), { key: "Escape" });
-    expect([...column().querySelectorAll(".workspace-diff-note")].map((item) => [item.classList.contains("is-draft"), item.querySelector(".diff-note-body")?.textContent]))
+    expect([...column().querySelectorAll(`${UNDER} .workspace-diff-note`)].map((item) => [item.classList.contains("is-draft"), item.querySelector(".diff-note-body")?.textContent]))
       .toEqual([[false, "why true"], [true, "why true, reworded"]]);
-    await press(inColumn(".diff-note-discard"));
-    expect(column().querySelector(".workspace-diff-note.is-draft")).toBeNull();
+    await press(inColumn(`${UNDER} .diff-note-discard`));
+    expect(column().querySelector(`${UNDER} .workspace-diff-note.is-draft`)).toBeNull();
     expect(diffNotesFor("app.ts", "worktree").map((note) => note.body)).toEqual(["why true"]);
     expect(held()).toBeTrue();
   });
@@ -285,17 +295,17 @@ describe("a note written in the inspector", () => {
     await openDiff();
     await press(inColumn(".workspace-diff-line.diff-add"), "body");
     await type(editor(), "why true");
-    await press(inColumn(".diff-note-inline-save"));
+    await press(inColumn(`${UNDER} .diff-note-inline-save`));
 
-    expect(column().querySelector("form.diff-note-inline")).toBeNull();
-    expect(inColumn(".workspace-diff-note").textContent).toContain("why true");
+    expect(column().querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
+    expect(inColumn(`${UNDER} .workspace-diff-note`).textContent).toContain("why true");
     expect(held()).toBeTrue();
 
     // Editing the saved note happens in the same place, and can delete it.
-    await press(inColumn(".diff-note-action"));
-    expect(column().querySelector(".workspace-diff-note")).toBeNull();
+    await press(inColumn(`${UNDER} .diff-note-action`));
+    expect(column().querySelector(`${UNDER} .workspace-diff-note`)).toBeNull();
     expect(editor().value).toBe("why true");
-    expect(inColumn(".diff-note-inline .diff-note-remove").textContent).toBe("删除批注");
+    expect(inColumn(`${UNDER} .diff-note-inline .diff-note-remove`).textContent).toBe("删除批注");
     await type(editor(), "why true?");
     await key(editor(), { key: "Enter", ctrlKey: true });
     expect(diffNotesFor("app.ts", "worktree").map((note) => note.body)).toEqual(["why true?"]);
@@ -311,7 +321,7 @@ describe("a note written in the inspector", () => {
     const sent = await key(editor(), { key: "Enter", ctrlKey: true, shiftKey: true });
     // The column answered it: the key did not go on to the page, where the session reads keys.
     expect(sent.defaultPrevented).toBeTrue();
-    expect(column().querySelector("form.diff-note-inline")).toBeNull();
+    expect(column().querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).toContain("why true");
   });
@@ -326,16 +336,16 @@ describe("a note written in the inspector", () => {
 
     await type(editor(), "half");
     await press(inColumn(".workspace-diff-line.diff-delete"), "body");
-    expect(column().querySelectorAll("form.diff-note-inline")).toHaveLength(1);
-    expect(inColumn("form.diff-note-inline").previousElementSibling === inColumn(".workspace-diff-line.diff-add")).toBeTrue();
+    expect(column().querySelectorAll(`${UNDER} form.diff-note-inline`)).toHaveLength(1);
+    expect(lineOver(inColumn(`${UNDER} form.diff-note-inline`)) === inColumn(".workspace-diff-line.diff-add")).toBeTrue();
     expect(editor().value).toBe("half");
     expectSameNode(document.activeElement, editor());
 
     // Untouched, it simply moves.
-    await press(inColumn(".diff-note-inline-cancel"));
+    await press(inColumn(`${UNDER} .diff-note-inline-cancel`));
     await press(inColumn(".workspace-diff-line.diff-add"), "body");
     await press(inColumn(".workspace-diff-line.diff-delete"), "body");
-    expect(inColumn("form.diff-note-inline").previousElementSibling === inColumn(".workspace-diff-line.diff-delete")).toBeTrue();
+    expect(lineOver(inColumn(`${UNDER} form.diff-note-inline`)) === inColumn(".workspace-diff-line.diff-delete")).toBeTrue();
   });
 
   test("a half-written note is still there when the column comes back", async () => {
@@ -358,7 +368,7 @@ describe("a note written in the inspector", () => {
     });
     await settle();
     expect(editor().value).toBe("not lost");
-    expect(inColumn(".diff-note-inline-save").hasAttribute("disabled")).toBeFalse();
+    expect(inColumn(`${UNDER} .diff-note-inline-save`).hasAttribute("disabled")).toBeFalse();
   });
 });
 
@@ -387,7 +397,8 @@ describe("focus after the inspector's overlays", () => {
     if (!menu) throw new Error("the file menu did not open");
     await act(async () => { menu.close("cancel"); });
     await settle();
-    expect(document.querySelector("dialog.workspace-file-menu")).toBeNull();
+    // Closed, and out of reach if it is still on the page for its exit (`shared/ui/overlay/modal`).
+    expect(document.querySelector("dialog.workspace-file-menu:not([inert])")).toBeNull();
     expect(held()).toBeTrue();
 
     // The pressed row is replaced by the file it opens; focus does not fall out with it.

@@ -4,6 +4,7 @@
 // emitted in the original cascade order so the compiled CSS is unchanged; the
 // App view-transition/fallback slot stays last, after every feature stylesheet.
 @use "../shared/ui/styles/press";
+@use "../shared/ui/styles/motion-kit";
 @use "../app/layout/styles/transitions";
 
 /* --- Motion primitives ---------------------------------------------------------
@@ -13,6 +14,8 @@
    press state can darken a selected control.
    ------------------------------------------------------------------------------ */
 @include press.press-feedback();
+
+@include motion-kit.motion-kit();
 
 @include transitions.app-view-transitions();
 
@@ -29,4 +32,6 @@
   @include press.press-reduced-tapack();
 
   @include press.press-reduced-press();
+
+  @include motion-kit.motion-kit-reduced();
 }

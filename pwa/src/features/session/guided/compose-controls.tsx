@@ -1,7 +1,8 @@
 import { CornerDownLeft, Keyboard, Square } from "lucide-react";
 import { useLayoutEffect, useRef, useState, useSyncExternalStore, type ReactNode, type RefObject } from "react";
 import { t } from "../../../lib/i18n";
-import { Button, Spinner } from "../../../shared/ui/primitives";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
+import { Button, Spinner, Swap } from "../../../shared/ui/primitives";
 import { useConnection, useRuntime } from "../../connection/hooks";
 import { canInterruptAgent } from "../../connection/runtime-status";
 import { useDashboard } from "../../dashboard/hooks";
@@ -17,6 +18,7 @@ import {
 } from "../attachments/attachments-send";
 import { PadChromeButton, preventComposeBlurUnlessIME } from "../compose-focus";
 import { draftLineCount } from "../compose-size";
+import { playMove } from "../measured-move";
 import { clearModifiers } from "../keypad/keypad";
 import { useShortLandscape } from "../keypad/short-landscape";
 import { useSoftKeyboardOpen } from "../keypad/soft-keyboard";
@@ -214,6 +216,43 @@ function useSendPointer(ref: RefObject<HTMLButtonElement | null>, onLongPress: (
   }, [ref]);
 }
 
+/**
+ * A change of kind changes the label, and with it the button's width: the
+ * field beside it gave way in one frame. The button eases from the width it had
+ * to the width its new label needs, and the field follows.
+ *
+ * Not in the complete terminal. There the field would be laid out again on
+ * every frame of the move over a box whose height is the computer's rows; its
+ * button changes width at once, as it did, and a stop under way holds one
+ * width for its steps (`.send-reserve`).
+ */
+function useEasedWidth(ref: RefObject<HTMLButtonElement | null>, kind: SendKind): void {
+  const shown = useRef(kind);
+  const width = useRef<number | null>(null);
+  const move = useRef<Animation | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const moving = move.current?.playState === "running";
+    if (shown.current === kind) {
+      // The same kind drawn again: a count ticking in the label is not a move.
+      if (!moving) width.current = el.getBoundingClientRect().width;
+      return;
+    }
+    shown.current = kind;
+    // Mid-move the box is still on its way; the next move starts from where it is.
+    const from = moving ? el.getBoundingClientRect().width : width.current;
+    move.current?.cancel();
+    move.current = null;
+    const to = el.getBoundingClientRect().width;
+    width.current = to;
+    if (from === null || Math.abs(from - to) < 1 || el.closest(".full-terminal-pad")) return;
+    // Clipped on the way: a longer label does not hang out of a box still growing to it.
+    move.current = playMove(el, [{ width: `${from}px`, overflow: "hidden" }, { width: `${to}px`, overflow: "hidden" }], MOTION_MS.element);
+  });
+  useLayoutEffect(() => () => { move.current?.cancel(); }, []);
+}
+
 export type SendButtonProps = {
   kind: SendKind;
   /** Mean upload progress while waiting. */
@@ -226,6 +265,8 @@ export type SendButtonProps = {
   /** Long press stops while the pane works and the button is a send button. */
   longPressStops: boolean;
   disabled?: boolean;
+  /** Hold the width of the widest stop step in every kind, where the button only ever stops. */
+  holdWidest?: boolean;
 };
 
 function sendContent(kind: SendKind, percent: number): { label: ReactNode; aria: string } {
@@ -247,18 +288,27 @@ function sendContent(kind: SendKind, percent: number): { label: ReactNode; aria:
   }
 }
 
-/** One button, bottom-aligned in every state, whose meaning follows `sendKind`. */
-export function SendButton({ kind, percent, className, onSend, submitsForm = false, stopTarget, longPressStops, disabled = false }: SendButtonProps) {
+/**
+ * One button, bottom-aligned in every state, whose meaning follows `sendKind`.
+ * A change of kind is one move: the colours cross over, the label fades in
+ * (`Swap`, which is still when the same kind is drawn again) and the width
+ * eases (`useEasedWidth`).
+ */
+export function SendButton({ kind, percent, className, onSend, submitsForm = false, stopTarget, longPressStops, disabled = false, holdWidest = false }: SendButtonProps) {
   const ref = useRef<HTMLButtonElement>(null);
   useSendPointer(ref, longPressStops && kind === "send" && stopTarget ? () => startStop(stopTarget) : undefined);
+  useEasedWidth(ref, kind);
   const { label, aria } = sendContent(kind, percent);
   // A stop still arming keeps its look (no grey flash) and only ignores taps.
   const armed = useStopArmed(kind, ref);
   // Once a stop is under way the button already has the width of its widest
   // step, 强制停止: it does not grow under the finger when that step is offered.
-  const content = kind === "stopping" || kind === "force"
-    ? <span className="send-reserve" data-widest={t("compose2.force")}><span>{label}</span></span>
-    : label;
+  // One wrapper in every kind, so the label is the same node's child throughout
+  // and knows a change of kind from a first paint.
+  const reserve = holdWidest || kind === "stopping" || kind === "force";
+  const content = <span className={reserve ? "send-face send-reserve" : "send-face"} data-widest={reserve ? t("compose2.force") : undefined}>
+    <Swap on={kind} className="send-label">{label}</Swap>
+  </span>;
   const inert = kind === "busy" || kind === "stopping";
   const submits = submitsForm && (kind === "send" || kind === "enter");
   return <Button

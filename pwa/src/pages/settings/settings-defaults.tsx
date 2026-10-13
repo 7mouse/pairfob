@@ -1,4 +1,5 @@
 import { useHardwareKeyboard } from "../../app/input-mode";
+import { SegThumb } from "../../features/settings/seg-thumb";
 import { setComposeEnterSends, setDefaultComposeLive, setDefaultTermMode } from "../../features/settings/preferences-store";
 import { t } from "../../lib/i18n";
 import { TERM_MODE_OPTIONS, type TermMode } from "../../lib/terminal-mode";
@@ -34,11 +35,13 @@ export function SessionDefaults({ mode, live, enterSends }: { mode: TermMode; li
   return <SetGroup className="session-defaults" label={t("settings.defaults")} note={note}>
     <SetItem label={t("settings.mode")} trailing={
       <SegmentedControl className="set-seg" aria-label={t("set.modeAria")}>
+        <SegThumb />
         {TERM_MODE_OPTIONS.map(id => <SegmentedOption key={id} selected={mode === id}
           onClick={() => { if (mode !== id) setDefaultTermMode(id); }}>{TERM_MODE_LABEL[id]}</SegmentedOption>)}
       </SegmentedControl>} />
     <SetItem label={t("settings.input")} trailing={
       <SegmentedControl className="set-seg" aria-label={t("set.inputAria")}>
+        <SegThumb />
         {[false, true].map(value => <SegmentedOption key={String(value)} selected={live === value}
           onClick={() => { if (live !== value) setDefaultComposeLive(value); }}>{composeLabel(value)}</SegmentedOption>)}
       </SegmentedControl>} />

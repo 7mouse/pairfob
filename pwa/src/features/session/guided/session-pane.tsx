@@ -9,6 +9,8 @@ import { finishSessionPaint, type SessionHandlers } from "./view";
 import { sessionUIRevision, subscribeSessionUI } from "./ui-revision";
 import { morphingPane, queuedKind, shareOpening } from "../../../app/transition";
 import { useHardwareKeyboard } from "../../../app/input-mode";
+import { usePresence } from "../../../shared/react/use-presence";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 import { SessionAppNotice } from "../session-notice";
 import { SelectHint } from "./select-hint";
 import { SessionChrome } from "./session-chrome";
@@ -52,6 +54,8 @@ function SessionPaneView({ includeBack, handlers, scroll, parts = defaultParts }
   // The field follows the keyboard, not the layout: a landscape tablet is wide
   // and still types on glass, and a back button can sit beside a mouse.
   const phone = !useHardwareKeyboard();
+  // The hint outlives the mode by its exit.
+  const hint = usePresence(session.termSelect, MOTION_MS.press);
 
   useLayoutEffect(() => {
     const host = root.current;
@@ -69,7 +73,7 @@ function SessionPaneView({ includeBack, handlers, scroll, parts = defaultParts }
       <div className="term-stage">
         <Terminal model={shown.current} />
         <RowBar model={shown.current} />
-        {session.termSelect ? <SelectHint /> : null}
+        {hint.mounted ? <SelectHint leaving={hint.leaving} /> : null}
       </div>
       {/* The dock keeps its place while selecting so the buffer does not jump under the
           finger; it is inert until selection ends. */}

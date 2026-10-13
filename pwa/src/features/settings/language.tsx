@@ -1,5 +1,5 @@
 import { SegmentedControl, SegmentedOption } from "../../shared/ui/primitives";
-import { useSyncExternalStore } from "react";
+import { useSyncExternalStore, type ReactNode } from "react";
 import { clearNotice } from "../../app/notices-store";
 import { langPref, langRevision, setLangPref, subscribeLang, t, type LangPref } from "../../lib/i18n";
 
@@ -26,9 +26,11 @@ export function applyLanguage(next: LangPref): void {
   clearNotice();
 }
 
-export function LanguageControl({ className }: { className?: string }) {
+/** `children` is what the bar draws under its options (the settings bar's thumb). */
+export function LanguageControl({ className, children }: { className?: string; children?: ReactNode }) {
   useLang();
   return <SegmentedControl className={className} aria-label={t("settings.langAria")}>
+    {children}
     {LANG_OPTIONS.map(option => <SegmentedOption key={option.id} selected={langPref() === option.id} onClick={() => applyLanguage(option.id)}>
       {t(option.key)}
     </SegmentedOption>)}

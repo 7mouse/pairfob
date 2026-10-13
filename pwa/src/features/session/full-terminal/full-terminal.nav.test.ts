@@ -307,6 +307,8 @@ describe("complete-terminal remembers its mode per pane", () => {
     bootFullTerminal();
     expect(app.querySelector('button[aria-label="会话操作"]')).toBeTruthy();
     expect((app.querySelector(".full-terminal-exit")) === null).toBeTrue();
+    const arrival = () => document.documentElement.dataset.fallbackTransition;
+    resetTransitionState();
     await act(async () => { await leaveFullTerminal(); });
     expect(isFullTerminal()).toBe(false);
     expect(currentScreen()).toBe("pane");
@@ -314,9 +316,14 @@ describe("complete-terminal remembers its mode per pane", () => {
     expect(composeDraft()).toBe("");
     expect(app.querySelector(".dock")).toBeTruthy();
     expect(app.querySelector('button[aria-label="会话操作"]')).toBeTruthy();
+    // Another view of the same session: what is under its header fades in, opacity only.
+    expect(arrival()).toBe("view");
+    resetTransitionState();
     act(() => enterFullTerminal());
     expect(isFullTerminal()).toBe(true);
     expect(composeDraft()).toBe(DRAFT);
+    expect(arrival()).toBe("view");
+    resetTransitionState();
   });
 
   test("swipe-back from complete-terminal returns to the list", async () => {

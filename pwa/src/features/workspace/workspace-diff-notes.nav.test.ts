@@ -5,6 +5,16 @@ import { setLang } from "../../lib/i18n";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import type { LiveSession } from "../../lib/protocol/client";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
+/** The line a note's form or card stands under: what comes before everything the note keeps there. */
+const lineOver = (piece: Element | null | undefined): Element | null => {
+  let before = piece?.closest(".diff-note-fold")?.previousElementSibling ?? null;
+  while (before?.matches(".diff-note-fold")) before = before.previousElementSibling;
+  return before;
+};
+
 const { appRoot } = await import("../../app/dom-root.ts");
 const { appHost } = await import("../../app/host.ts");
 const { isAppMounted, mountApp, unmountApp } = await import("../../app/mount.tsx");
@@ -99,7 +109,7 @@ function rowContaining(text: string): HTMLElement {
 async function addNote(row: HTMLElement, body: string): Promise<void> {
   act(() => row.click());
   await settle();
-  const dialog = document.querySelector<HTMLFormElement>("form.diff-note-inline");
+  const dialog = document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`);
   if (!dialog) throw new Error("the note form did not open under its line");
   const textarea = dialog.querySelector("textarea");
   if (!textarea) throw new Error("note editor has no textarea");
@@ -151,7 +161,7 @@ describe("diff notes batch send", () => {
     await addNote(rowContaining("false"), "为什么是 false？");
     await addNote(rowContaining("tail"), "给导出加注释");
 
-    expect(app.querySelectorAll(".workspace-diff-note")).toHaveLength(2);
+    expect(app.querySelectorAll(`${UNDER} .workspace-diff-note`)).toHaveLength(2);
     expect(rowContaining("false").classList.contains("has-note")).toBeTrue();
     expect(app.querySelector(".workspace-notes-count")?.textContent).toContain("2");
 
@@ -214,12 +224,12 @@ describe("diff notes batch send", () => {
     await openDiff();
     act(() => rowContaining("false").click());
     await settle();
-    expect(document.querySelector<HTMLFormElement>("form.diff-note-inline")).toBeNull();
+    expect(document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(app.querySelector(".diff-comment-btn")).toBeNull();
     expect(app.querySelector(".workspace-diff-hint")).toBeNull();
     expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(0);
     expect(app.querySelector(".workspace-notes-send")).toBeNull();
-    expect(app.querySelector(".workspace-notes-bar")).toBeNull();
+    expect(app.querySelector(".workspace-notes-bar:not(.is-leaving)")).toBeNull();
   });
 
   test("disables send and explains when the selected pane has no agent", async () => {
@@ -265,17 +275,17 @@ describe("diff notes batch send", () => {
     const line = rowContaining("false");
     act(() => line.click());
     await settle();
-    const form = document.querySelector<HTMLFormElement>("form.diff-note-inline");
+    const form = document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`);
     // No dialog covers the diff: the line stays in view above its form, so nothing has to quote it.
     expect(document.querySelector("dialog[open]")).toBeNull();
     expect(form?.getAttribute("aria-label")).toContain("第 2 行");
-    expect(form?.previousElementSibling === rowContaining("false")).toBeTrue();
+    expect(lineOver(form) === rowContaining("false")).toBeTrue();
     expect(form?.querySelector(".diff-note-quote")).toBeNull();
     act(() => { form?.dispatchEvent(new happy.Event("submit", { bubbles: true, cancelable: true })); });
     await settle();
-    const textarea = document.querySelector<HTMLTextAreaElement>("form.diff-note-inline textarea");
+    const textarea = document.querySelector<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`);
     expect(textarea?.getAttribute("aria-invalid")).toBe("true");
-    expect(document.querySelector("form.diff-note-inline .notice-error")?.textContent).toContain("先写一条批注");
+    expect(document.querySelector(`${UNDER} form.diff-note-inline .notice-error`)?.textContent).toContain("先写一条批注");
   });
 
   test("marks the lines that take a note with a pencil, and only those", async () => {
@@ -304,7 +314,7 @@ describe("diff notes batch send", () => {
     expect(painted?.dataset.diffKey).toBe("src/app.ts:worktree");
     expect(painted?.scrollTop).toBe(48);
     expect(painted?.scrollLeft).toBe(12);
-    expect(app.querySelector(".diff-note-main")).toBeTruthy();
-    expect(app.querySelector(".diff-note-actions")).toBeTruthy();
+    expect(app.querySelector(`${UNDER} .diff-note-main`)).toBeTruthy();
+    expect(app.querySelector(`${UNDER} .diff-note-actions`)).toBeTruthy();
   });
 });

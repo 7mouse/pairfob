@@ -9,7 +9,8 @@ import { parkComposeView } from "../session/drafts/compose-drafts";
 import { leaveFullTerminal } from "../session/full-terminal/full-terminal";
 import { isAgentChat, isFullTerminal, openPaneId, sessionStore } from "../session/session-store";
 import { enterWorkspace, showWorkspaceBeside } from "./actions";
-import { inspectorOpen, setInspectorOpen } from "./inspector-store";
+import { MOTION_MS, motionMs } from "../../shared/ui/dom/motion";
+import { inspectorOpen, setInspectorLeaving, setInspectorOpen } from "./inspector-store";
 import { focusEnteringColumn, focusLeaving } from "./opener-focus";
 import { beginLeave } from "./store";
 import { dismissFilesDialogs } from "./surface-dialogs";
@@ -39,8 +40,30 @@ import { dismissFilesDialogs } from "./surface-dialogs";
 
 /** What the inspector bound the model to; null while the model is not its own. */
 let bound: { session: LiveSession; paneId: string } | null = null;
+/** The reader is opening the column in the commit under way; see `takeInspectorEntrance`. */
+let entering = false;
+
+/**
+ * Whether the column being drawn now is the one the reader just opened. Asked
+ * once by the column as it mounts: only then is its content seen arriving. A
+ * column that returns with the window's room, or with the session from the
+ * files screen, was already open and is drawn in place.
+ */
+export function takeInspectorEntrance(): boolean {
+  const taken = entering;
+  entering = false;
+  return taken;
+}
 let stopFollowing: (() => void) | null = null;
 let binding: Promise<void> = Promise.resolve();
+/** The close a leaving column is waiting for; see `leaveWorkspaceInspector`. */
+let leaving: number | null = null;
+
+function endLeave(): void {
+  if (leaving !== null) window.clearTimeout(leaving);
+  leaving = null;
+  setInspectorLeaving(false);
+}
 
 function release(): void {
   if (!bound) return;
@@ -52,6 +75,7 @@ function release(): void {
 }
 
 function shut(): void {
+  endLeave();
   setInspectorOpen(false);
   stopFollowing?.();
   stopFollowing = null;
@@ -103,7 +127,7 @@ function followSession(): () => void {
 /** Open or close the inspector beside the desk session. */
 export function toggleWorkspaceInspector(): void {
   if (inspectorOpen()) {
-    closeWorkspaceInspector();
+    leaveWorkspaceInspector();
     return;
   }
   // Opened with a key: the column takes the keyboard, as the screen would.
@@ -111,7 +135,10 @@ export function toggleWorkspaceInspector(): void {
   setInspectorOpen(true);
   stopFollowing ??= followSession();
   follow();
+  entering = true;
   commitView();
+  // Not drawn by that commit (parked, or no page to draw it on): nothing was opened to be seen.
+  entering = false;
   takeFocus();
 }
 
@@ -126,6 +153,35 @@ export function closeWorkspaceInspector(): void {
   shut();
   commitView();
   handBack();
+}
+
+/**
+ * The reader closing the column, by its Close, Esc, the files button or back:
+ * its content goes first (`is-leaving`, desk.scss) and the column then gives
+ * its room back in one step, as it took it, so the session beside it is
+ * resized once. `closeWorkspaceInspector` stays the close that is done when it
+ * returns, for whatever needs the column gone now.
+ *
+ * Where focus goes is settled as the press lands, not when the column has
+ * gone. A second press while it leaves changes nothing.
+ */
+export function leaveWorkspaceInspector(): void {
+  if (!inspectorOpen() || leaving !== null) return;
+  const wait = motionMs(MOTION_MS.press);
+  // Parked, or not beside a session: there is no column on the page to see leave.
+  if (!wait || !bound) {
+    closeWorkspaceInspector();
+    return;
+  }
+  const handBack = focusLeaving(".inspector");
+  setInspectorLeaving(true);
+  leaving = window.setTimeout(() => {
+    leaving = null;
+    if (!inspectorOpen()) return;
+    shut();
+    commitView();
+    handBack();
+  }, wait);
 }
 
 /**

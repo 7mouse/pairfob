@@ -11,7 +11,7 @@ import { QuotaScreen } from "../pages/quota/quota-page";
 import { SettingsScreen } from "../pages/settings/settings-page";
 import { WorkspaceScreen } from "../pages/workspace/screen";
 import { sessionHandlers } from "../features/session/pane-actions";
-import { closeWorkspaceInspector } from "../features/workspace/inspector";
+import { leaveWorkspaceInspector } from "../features/workspace/inspector";
 import { DeskShell } from "./layout/desk";
 export { TabBar } from "./layout/tab-bar";
 import { type FrameSnapshot, type SessionScroll } from "./frame";
@@ -21,7 +21,7 @@ import { type ShellLayout } from "./shell";
 /** Stable handler identity: these are module functions, not per-render closures. */
 const handlers = sessionHandlers();
 /** With the list hidden behind the inspector, the session's back button returns to it. */
-const railHiddenHandlers = { ...handlers, onBack: closeWorkspaceInspector };
+const railHiddenHandlers = { ...handlers, onBack: leaveWorkspaceInspector };
 
 const NO_SCROLL: SessionScroll = { top: 0, left: 0, bottom: true };
 
@@ -74,7 +74,7 @@ function deskChild(layout: ShellLayout, frame: FrameSnapshot): ReactNode {
   // has given its column to the inspector.
   const back = layout.shell.railHidden;
   const own = back ? railHiddenHandlers : handlers;
-  if (layout.deskChild === "full") return <FullTerminalRoute includeBack={back} onBack={back ? closeWorkspaceInspector : undefined} />;
+  if (layout.deskChild === "full") return <FullTerminalRoute includeBack={back} onBack={back ? leaveWorkspaceInspector : undefined} />;
   if (layout.deskChild === "chat") return <AgentChatPane includeBack={back} handlers={own} />;
   if (layout.deskChild === "session") {
     return <SessionPane includeBack={back} handlers={own} scroll={scrollOf(frame)} />;

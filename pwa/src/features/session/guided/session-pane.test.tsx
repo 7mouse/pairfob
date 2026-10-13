@@ -163,9 +163,26 @@ test("snapshot updates preserve the focused draft and selection while selection 
   expect(appRoot().querySelector(".term-stage > .select-hint") !== null).toBeTrue();
   expect(appRoot().querySelector(".dock-slot > .dock") !== null).toBeTrue();
   expect(appRoot().querySelector(".dock-slot")?.hasAttribute("inert")).toBeTrue();
+  const hint = appRoot().querySelector<HTMLElement>(".term-stage > .select-hint")!;
+  expect([hint.classList.contains("is-leaving"), hint.hasAttribute("inert")]).toEqual([false, false]);
   act(() => { setTermSelect(false); });
   paint();
   expect(appRoot().querySelector('[data-testid="buffer"]')?.textContent).toBe("later output");
+  // The mode is over at once (the dock is back in reach); only its hint stays, for its exit, out of reach.
+  expect(appRoot().querySelector(".dock-slot")?.hasAttribute("inert")).toBeFalse();
+  expectSameNode(appRoot().querySelector(".term-stage > .select-hint"), hint);
+  expect([hint.classList.contains("is-leaving"), hint.hasAttribute("inert")]).toEqual([true, true]);
+});
+
+test("the selection hint is gone once its exit is over", async () => {
+  paint();
+  act(() => { setTermSelect(true); });
+  paint();
+  act(() => { setTermSelect(false); });
+  paint();
+  expect(appRoot().querySelector(".select-hint.is-leaving")).not.toBeNull();
+  await act(() => new Promise<void>((done) => setTimeout(done, 160)));
+  expect(appRoot().querySelector(".select-hint")).toBeNull();
 });
 
 test("header actions and busy gating remain available in the expected order", () => {
@@ -186,7 +203,7 @@ test("header actions and busy gating remain available in the expected order", ()
   expect(appRoot().querySelector(".back")).toBeNull();
 });
 
-test("a passing notice floats between chrome and buffer without resetting the pane or the buffer", () => {
+test("a passing notice floats between chrome and buffer without resetting the pane or the buffer", async () => {
   paint();
   const pane = appRoot().querySelector(".pane-root");
   const stage = appRoot().querySelector(".term-stage");
@@ -201,6 +218,9 @@ test("a passing notice floats between chrome and buffer without resetting the pa
   expectSameNode(anchor.nextElementSibling, stage);
   expectSameNode(stage?.firstElementChild, buffer);
   act(clearNotice);
+  // Over, it stays for its exit in the same anchor, still taking no room, and then goes.
+  expectSameNode(appRoot().querySelector(".session-notice.is-leaving"), anchor);
+  await act(() => new Promise<void>((done) => setTimeout(done, 160)));
   expect(appRoot().querySelector("[data-react-notice]")).toBeNull();
   expect(appRoot().querySelector(".session-notice")).toBeNull();
   expectSameNode(appRoot().querySelector(".term-stage"), stage);

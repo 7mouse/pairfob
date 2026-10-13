@@ -1,8 +1,9 @@
 import type { KeyboardEvent } from "react";
 import { t } from "../../lib/i18n";
-import { Button } from "../../shared/ui/primitives";
+import { Button, Swap } from "../../shared/ui/primitives";
 import { showWorkspaceTab } from "./actions";
 import type { WorkspaceSnapshot, WorkspaceTab } from "./model";
+import { thumbAt } from "./thumb";
 
 /**
  * Files and changes as a tab list, for the screen's navigator and the
@@ -13,6 +14,9 @@ import type { WorkspaceSnapshot, WorkspaceTab } from "./model";
  * two and show the one they land on, as a tab list is expected to. Picking a
  * tab always lands on its list, so the current tab is also the way back from
  * an open file or diff.
+ *
+ * The chosen tab is marked by one thumb that slides to it (`thumb`), and the
+ * count of changes says when it changed.
  */
 export function WorkspaceTabStrip({ snapshot, order, kind, label }: {
   snapshot: WorkspaceSnapshot; order: readonly WorkspaceTab[]; kind: "workspace" | "inspector"; label: string;
@@ -33,13 +37,14 @@ export function WorkspaceTabStrip({ snapshot, order, kind, label }: {
     tabs[to].focus();
     if (order[to] !== snapshot.tab) showWorkspaceTab(order[to]);
   };
-  return <div className={`${kind}-tabs`} role="tablist" aria-label={label} onKeyDown={move}>
+  const counted = `${count}${snapshot.status?.truncated ? "+" : ""}`;
+  return <div className={`${kind}-tabs`} role="tablist" aria-label={label} style={thumbAt(order.indexOf(snapshot.tab), order.length)} onKeyDown={move}>
     {order.map((tab) => {
       const on = snapshot.tab === tab;
       return <Button key={tab} className={`${kind}-tab${on ? " on" : ""}`} role="tab" aria-selected={on} tabIndex={on ? 0 : -1}
         onClick={() => showWorkspaceTab(tab)}>
         {t(tab === "changes" ? "workspace.changes" : "workspace.files")}
-        {tab === "changes" && count > 0 && <span className="workspace-count">{`${count}${snapshot.status?.truncated ? "+" : ""}`}</span>}
+        {tab === "changes" && count > 0 && <Swap on={counted} className="workspace-count">{counted}</Swap>}
       </Button>;
     })}
   </div>;

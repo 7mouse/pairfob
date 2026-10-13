@@ -1,6 +1,7 @@
 import { LayoutDashboard, Plus, Search, Settings } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import { commandKOffered, useHardwareKeyboard } from "../../../app/input-mode";
+import { tabMarkClass, useTabMark } from "../../../app/layout/tab-bar-view";
 import { t } from "../../../lib/i18n";
 import { useObjectPress } from "../../../shared/ui/overlay";
 import { popoverTarget } from "../../../shared/ui/overlay/popover";
@@ -93,6 +94,7 @@ function needsUpdate(): boolean {
  */
 export function RailFoot({ view, actions, disabled = false }: { view: HerdViewModel; actions: HerdActions; disabled?: boolean }) {
   const update = useSyncExternalStore(subscribeDaemonUpdates, needsUpdate);
+  const dot = useTabMark(update ? true : undefined);
   return (
     <nav className="rail-nav" aria-label={t("tabs.aria")}>
       <Button className={`rail-nav-item${view.board.current ? " is-current" : ""}`}
@@ -104,7 +106,7 @@ export function RailFoot({ view, actions, disabled = false }: { view: HerdViewMo
         aria-current={view.settings.current ? "page" : undefined} disabled={disabled} onClick={actions.openSettings}>
         <span className="rail-nav-icon">
           <Settings size={16} aria-hidden="true" />
-          {update ? <span className="rail-nav-dot" aria-hidden="true" /> : null}
+          {dot ? <span className={tabMarkClass("rail-nav-dot", dot)} aria-hidden="true" /> : null}
         </span>
         <span>{view.settings.label}</span>
         {update ? <span className="sr-only">{t("tabs.updateAria")}</span> : null}

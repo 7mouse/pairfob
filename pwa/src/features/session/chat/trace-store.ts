@@ -31,6 +31,11 @@ export type ChatRecord = {
   agentTraceSig: string;
   agentTraceLoadState: AgentTraceLoadState;
   agentTraceTail: number;
+  /**
+   * Older pages put in front of the transcript, counted and never reset: the
+   * stream tells history arriving from work arriving by it.
+   */
+  agentTraceOlder: number;
   /** User bubble shown before the transcript has caught up. */
   agentTracePending: string;
   /** Trace snapshot immediately before the optimistic user turn was submitted. */
@@ -71,6 +76,7 @@ const chatDomain = createDomain<ChatRecord>("chat", {
   agentTraceSig: "",
   agentTraceLoadState: "cold",
   agentTraceTail: 0,
+  agentTraceOlder: 0,
   agentTracePending: "",
   agentTracePendingBase: [],
   agentTraceFollow: true,

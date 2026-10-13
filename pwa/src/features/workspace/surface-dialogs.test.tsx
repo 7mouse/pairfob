@@ -21,6 +21,9 @@ import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 import { inspectorOpen } from "./inspector-store";
 import { dismissFilesDialogs, ownFilesDialog } from "./surface-dialogs";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
 /**
  * What a files surface opened over the page leaves with it. A file's menu, the
  * question before a delete, the rename field and the branch sheet are about
@@ -328,13 +331,13 @@ describe("what is not theirs to close", () => {
     await press([...column()!.querySelectorAll<HTMLElement>(".inspector-tab")].find((tab) => tab.textContent?.includes("更改"))!);
     await press(find('aside.inspector [data-change="worktree:app.ts"]'));
     await press(find("aside.inspector .workspace-diff-line.diff-add"));
-    const field = find<HTMLTextAreaElement>("aside.inspector form.diff-note-inline textarea");
+    const field = find<HTMLTextAreaElement>(`aside.inspector ${UNDER} form.diff-note-inline textarea`);
     await act(async () => {
       field.value = "half written";
       field.dispatchEvent(new window.Event("input", { bubbles: true }));
     });
     await resize(800);
     await resize(1440);
-    expect(find<HTMLTextAreaElement>("aside.inspector form.diff-note-inline textarea").value).toBe("half written");
+    expect(find<HTMLTextAreaElement>(`aside.inspector ${UNDER} form.diff-note-inline textarea`).value).toBe("half written");
   });
 });

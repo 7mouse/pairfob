@@ -77,6 +77,11 @@
   touch-action: pan-x pan-y;
 }
 
+/* The tint of a picked row (below) comes and goes at a press's pace. Rows are
+   drawn again in place on every read, so a row whose pick did not change has
+   nothing to cross. */
+.term-line { transition: box-shadow var(--dur-1) var(--ease); }
+
 .term-line > span {
   flex: 0 0 auto;
   display: block;
@@ -152,7 +157,7 @@ html.page-zoomed :is(.term, .term-line) {
 }
 
 .term-ghost.is-rollback {
-  animation: term-ghost-out 120ms var(--ease) forwards;
+  animation: term-ghost-out var(--dur-1) var(--ease) forwards;
 }
 
 @keyframes term-ghost-out {
@@ -165,11 +170,16 @@ html.page-zoomed :is(.term, .term-line) {
   white-space: pre-wrap;
 }
 
+/* The ring of select mode arrives with the mode's hint and leaves with it
+   (row-actions.scss): in over an element's duration, out at an exit's. */
+.term { transition: box-shadow var(--dur-1) var(--ease); }
+
 .term.selecting {
   -webkit-user-select: text;
   user-select: text;
   -webkit-touch-callout: default;
   box-shadow: inset 0 0 0 2px rgba(110, 168, 254, 0.45);
+  transition-duration: var(--dur-2);
 }
 
 .term-jump,
@@ -217,10 +227,12 @@ html.page-zoomed :is(.term, .term-line) {
 }
 
 /* Leaving with the scroll, so the chip is not still sitting there once the
-   reader has arrived at the bottom. */
+   reader has arrived at the bottom. Whoever shows the chip keeps it drawn for
+   this exit (not `hidden`) and takes the class off when it is over; the end
+   state holds until then. */
 .term-jump.term-jump-out,
 .agent-jump.term-jump-out {
-  animation: term-jump-out var(--dur-2) var(--ease) forwards;
+  animation: term-jump-out var(--dur-1) var(--ease) forwards;
   pointer-events: none;
 }
 

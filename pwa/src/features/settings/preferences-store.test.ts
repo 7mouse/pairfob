@@ -5,8 +5,7 @@ import type { PairResult } from "../../lib/protocol/client";
 const { preferencesStore, paneTermMode, setPaneTermMode, paneComposeLive, setPaneComposeLive, setDefaultComposeLive,
   setDefaultTermMode, setTermFont, setTermGrid, setKeysExpanded, setPadKind, rememberPane, applyHerdTouches, togglePanePin,
   prunePanePreferences, prunePanePins, adoptDaemonPreferences, clampTermFont, termLineHeightPx, saveListGroup,
-  setListGroup, TERM_FONT_MAX, TERM_FONT_MIN, SCREEN_WAKE_KEY, loadScreenWake, setScreenWake, hydratePreferences } = await import("./preferences-store");
-const { emptyEnvironment } = await import("../../shared/model/domain-environment");
+  setListGroup, TERM_FONT_MAX, TERM_FONT_MIN } = await import("./preferences-store");
 const { attachLiveSession, computersStore, liveSession, setCredential } = await import("../computers/catalog-store");
 
 function credential(daemonId: string): PairResult {
@@ -54,6 +53,8 @@ describe("terminal and pad preferences", () => {
   });
 
   test("grid, keypad and list choices persist and publish to their own subscribers", () => {
+    // Start from a grouping other than the one picked below, whatever ran before.
+    setListGroup("flat");
     let publishes = 0;
     const release = preferencesStore.subscribe(() => { publishes += 1; });
 
@@ -238,23 +239,5 @@ describe("per-pane preferences", () => {
     setCredential(credential("d_bbbbbbbbbbbbbbbbbbbb"));
     adoptDaemonPreferences();
     expect(preferencesStore.get().paneActivated).toEqual({});
-  });
-});
-
-describe("screen wake", () => {
-  test("no choice until the reader makes one; a pick is kept on this device and unknown values are no choice", () => {
-    try {
-      expect(preferencesStore.get().screenWake).toBeNull();
-      expect(loadScreenWake(() => null)).toBeNull();
-      expect(loadScreenWake(() => "sometimes")).toBeNull();
-      setScreenWake("always");
-      expect(preferencesStore.get().screenWake).toBe("always");
-      expect(localStorage.getItem(SCREEN_WAKE_KEY)).toBe("always");
-      hydratePreferences(emptyEnvironment({ read: key => key === SCREEN_WAKE_KEY ? "off" : null }));
-      expect(preferencesStore.get().screenWake).toBe("off");
-    } finally {
-      localStorage.removeItem(SCREEN_WAKE_KEY);
-      hydratePreferences(emptyEnvironment());
-    }
   });
 });

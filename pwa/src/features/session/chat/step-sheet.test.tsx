@@ -10,6 +10,7 @@ import { attachLiveSession } from "../../computers/catalog-store";
 import { selectPane, setAgentChat } from "../session-store";
 import { openStepSheet } from "./step-sheet";
 import { applyTrace } from "./trace-store";
+import { COPIED_MS } from "../copy-confirm";
 
 const PANE = "sheet-pane";
 const sheet = () => document.querySelector<HTMLDialogElement>("dialog.step-sheet");
@@ -141,4 +142,27 @@ test("an open sheet follows its turn: a running step finishes in place and new s
   expect(sheet()!.textContent).toContain("all green");
   expect(requests).toEqual(["r1", "r1-done"]);
   expect(sheet()!.querySelector(".step-nav-pos")?.textContent).toBe(t("sheet.position", { i: 1, n: 2 }));
+});
+
+test("a section's copy is confirmed on its own button, in the shared copy faces, and the button is then itself again", async () => {
+  const copied: string[] = [];
+  const before = Object.getOwnPropertyDescriptor(navigator, "clipboard");
+  Object.defineProperty(navigator, "clipboard", { configurable: true, value: { writeText: async (text: string) => { copied.push(text); } } });
+  try {
+    await open({ type: "thinking", text: "Check the boot path first." });
+    const button = sheet()!.querySelector<HTMLButtonElement>(".step-copy")!;
+    const shown = () => [button.querySelector(".copy-ack")?.getAttribute("data-state"),
+      button.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent];
+    // Both labels are in the button from the start, so confirming does not change its width.
+    expect([...button.querySelectorAll(".copy-ack-face")].map((face) => face.textContent)).toEqual([t("sheet.copy"), t("sheet.copied")]);
+    expect(shown()).toEqual(["idle", t("sheet.copy")]);
+    await act(async () => { button.click(); await Promise.resolve(); await Promise.resolve(); });
+    expect(copied).toEqual(["Check the boot path first."]);
+    expect(shown()).toEqual(["copied", t("sheet.copied")]);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, COPIED_MS + 60)); });
+    expect(shown()).toEqual(["idle", t("sheet.copy")]);
+  } finally {
+    if (before) Object.defineProperty(navigator, "clipboard", before);
+    else delete (navigator as unknown as Record<string, unknown>).clipboard;
+  }
 });

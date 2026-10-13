@@ -59,6 +59,7 @@ import { sessionMayTakeFocus } from "../focus";
 import { agentEmptySpec, agentStreamSignature, type AgentEmptySpec } from "./model";
 import { publishAgentChatUI } from "./agent-chat-ui";
 import { captureTraceViewport, restoreTraceViewport } from "./viewport";
+import { glideToTail, glidingToTail, pinTail } from "./tail-glide";
 
 function fingerprint(items: readonly AgentTraceItem[]): string {
   return JSON.stringify(items);
@@ -73,8 +74,9 @@ export function composeEl(): HTMLTextAreaElement | null {
   return field instanceof HTMLTextAreaElement ? field : null;
 }
 
+/** At the latest turn, or on the way there after a send (`tail-glide`). */
 function atBottom(el: HTMLElement): boolean {
-  return el.scrollHeight - el.scrollTop - el.clientHeight < 32;
+  return glidingToTail(el) || el.scrollHeight - el.scrollTop - el.clientHeight < 32;
 }
 
 const TRACE_PAGE = 200;
@@ -118,6 +120,7 @@ function applyTracePage(page: AgentTracePage, older: boolean): boolean {
     const patch: Partial<ChatRecord> = {
       agentTraceItems: merged.items,
       agentTraceNext: page.nextCursor,
+      agentTraceOlder: chatSnapshot().agentTraceOlder + 1,
     };
     if (tailWasWholeView) patch.agentTraceTail = Math.max(0, chatSnapshot().agentTraceTail - merged.overlap);
     applyTrace(patch);
@@ -244,7 +247,7 @@ function syncOlderButton(): void { publishAgentChatUI(); }
 
 export function stickAgentStream(): void {
   const stream = streamEl();
-  if (stream && chatSnapshot().agentTraceFollow) stream.scrollTop = stream.scrollHeight;
+  if (stream && chatSnapshot().agentTraceFollow) pinTail(stream);
 }
 
 function syncAgentJump(): void { publishAgentChatUI(); }
@@ -609,6 +612,8 @@ function syncChatDock(): void { publishAgentChatUI(); }
 
 export function patchAgentChat(opts?: {
   follow?: boolean;
+  /** Reach the tail as one scroll instead of a jump: the reader was there and sent a prompt. */
+  glide?: boolean;
   older?: boolean;
   top?: number;
   height?: number;
@@ -640,7 +645,7 @@ export function patchAgentChat(opts?: {
   if (!ownerIsCurrent(session, paneId) || currentViewIncarnation() !== incarnation) return true;
   const painted = streamEl();
   if (!painted || painted !== stream) return true;
-  if (follow) painted.scrollTop = painted.scrollHeight;
+  if (follow) (opts?.glide ? glideToTail : pinTail)(painted);
   else if (!unchanged || opts?.older) {
     const restored = restoreTraceViewport(painted, viewport);
     if (!restored && opts?.older) painted.scrollTop = painted.scrollHeight - previousHeight + previousTop;
@@ -650,8 +655,8 @@ export function patchAgentChat(opts?: {
   return true;
 }
 
-function paintPromptOwner(): void {
-  if (!patchAgentChat({ follow: true })) commitView();
+function paintPromptOwner(glide = false): void {
+  if (!patchAgentChat({ follow: true, glide })) commitView();
 }
 
 function restoreOwnerComposeField(): void {
@@ -700,6 +705,9 @@ export async function submitAgentPrompt(): Promise<void> {
   const occupant = promptOccupant(selected);
   const progress = createPromptProgress(selected);
   const notice = visibleNotice();
+  const stream = streamEl();
+  // A reader at the tail sees their prompt scroll in; one further up is taken to it at once.
+  const wasAtTail = Boolean(stream && chatSnapshot().agentTraceFollow && atBottom(stream));
   batch(() => {
     setComposeDraft("");
     setPendingTurn(text, chatSnapshot().agentTraceItems);
@@ -707,7 +715,7 @@ export async function submitAgentPrompt(): Promise<void> {
     followTrace();
   });
   restoreOwnerComposeField();
-  paintPromptOwner();
+  paintPromptOwner(wasAtTail);
   try {
     await session.promptAgent({ pane_id: owner.draftScope.paneId, text: owner.text });
     if (promptRequestOwnsComputer(owner) && !promptOccupantIsCurrent(owner.draftScope.paneId, occupant)) return;

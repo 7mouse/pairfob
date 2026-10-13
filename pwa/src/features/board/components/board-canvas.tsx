@@ -8,7 +8,10 @@ import type { BoardCanvasModel, BoardTileView } from "../model/board-view";
 import { BoardAnsiPreview } from "./board-preview";
 import { BoardCanvasOverlays } from "./canvas-overlays";
 import { t } from "../../../lib/i18n";
+import { useKeptList } from "../../../shared/react/use-presence";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 
+import { useSettledOrder } from "./tile-order";
 import type { BoardCanvasController } from "./canvas-controller";
 export type { BoardCanvasController, BoardLayoutKind } from "./canvas-controller";
 
@@ -31,10 +34,13 @@ function BoardPaneTile({
   stageRef,
   previewPaint,
   highlighted,
+  phase,
 }: {
   tile: BoardTileView;
   /** Where the tile sits now: the snapshot box, or the live divider draft. */
   box: PaneBox;
+  /** What the layout change that drew this tile makes of it (`BoardTiles`). */
+  phase: TilePhase;
   controller: BoardCanvasController;
   viewportRef: RefObject<HTMLDivElement | null>;
   stageRef: RefObject<HTMLDivElement | null>;
@@ -48,14 +54,18 @@ function BoardPaneTile({
     const rect = element.getBoundingClientRect();
     controller.openMenu?.(tile.paneId, point ?? { x: rect.right - 12, y: rect.top + 32 }, element);
   };
+  const leaving = phase === "is-leaving";
   useLayoutEffect(() => {
-    controller.shareTileOpening(tile.paneId, tileRef.current);
+    // A tile on its way out is no pane to open from.
+    if (!leaving) controller.shareTileOpening(tile.paneId, tileRef.current);
   });
   return (
     <div
       ref={tileRef}
       role="group"
-      className={tile.className}
+      className={phase ? `${tile.className} ${phase}` : tile.className}
+      // Kept only to fade: not there for a press, a key or a screen reader.
+      inert={leaving}
       data-pane-id={tile.paneId}
       data-board-menu-target={highlighted || undefined}
       data-react-board-preview=""
@@ -111,6 +121,40 @@ function BoardPaneTile({
   );
 }
 
+/**
+ * `is-entering`: the pane joined a tab that was already drawn (a split) and
+ * fades in once its room is free. `is-leaving`: the pane is gone from the tab
+ * and is kept where it stood for its fade. `is-after-exit`: a tile that takes
+ * the room of one that is leaving, and waits for it before it travels.
+ */
+type TilePhase = "" | "is-entering" | "is-leaving" | "is-after-exit";
+
+/**
+ * One tab's tiles. New and gone are read from the tab's panes, never from a
+ * mount: the canvas keys this by tab, so the first tiles of a tab (a first
+ * paint, a switch) are just there, and a poll that repeats the same panes
+ * changes no class. A tile's travel to a new box is the stylesheet's, and a
+ * swap leaves the nodes where they are until they have travelled (`tile-order`).
+ */
+function BoardTiles({ canvas, boxes, ...shared }: {
+  canvas: BoardCanvasModel;
+  boxes: Map<string, PaneBox> | null;
+} & Pick<Parameters<typeof BoardPaneTile>[0], "controller" | "viewportRef" | "stageRef" | "previewPaint">) {
+  const tiles = useSettledOrder(useKeptList(canvas.tiles, (tile) => tile.paneId, MOTION_MS.press), (kept) => kept.key);
+  const closing = tiles.some((kept) => kept.leaving);
+  return tiles.map(({ item: tile, leaving, entering }) => (
+    <BoardPaneTile
+      key={tile.paneId}
+      tile={tile}
+      // A leaver keeps the box it had; nothing drafts a pane that is gone.
+      box={(leaving ? null : boxes?.get(tile.paneId)) ?? tile.box}
+      highlighted={!leaving && canvas.highlightedPaneId === tile.paneId}
+      phase={leaving ? "is-leaving" : entering ? "is-entering" : closing ? "is-after-exit" : ""}
+      {...shared}
+    />
+  ));
+}
+
 export function BoardCanvasView({
   canvas,
   controller,
@@ -157,21 +201,12 @@ export function BoardCanvasView({
       ) : (
         <div
           ref={stageRef}
-          className="board-stage"
+          // A divider under a finger moves its tiles at the finger's own pace.
+          className={draft && !draft.pending && draft.tabId === canvas.tabId ? "board-stage is-dragging" : "board-stage"}
           style={{ width: `${canvas.size!.width}px`, height: `${canvas.size!.height}px` }}
         >
-          {canvas.tiles.map((tile) => (
-            <BoardPaneTile
-              key={tile.paneId}
-              tile={tile}
-              box={boxes?.get(tile.paneId) ?? tile.box}
-              controller={controller}
-              viewportRef={viewportRef}
-              stageRef={stageRef}
-              previewPaint={previewPaint}
-              highlighted={canvas.highlightedPaneId === tile.paneId}
-            />
-          ))}
+          <BoardTiles key={canvas.tabId} canvas={canvas} boxes={boxes} controller={controller}
+            viewportRef={viewportRef} stageRef={stageRef} previewPaint={previewPaint} />
           <BoardCanvasOverlays canvas={canvas} controller={controller} viewportRef={viewportRef} stageRef={stageRef} />
         </div>
       )}

@@ -186,8 +186,7 @@
 
 /* One row that scrolls sideways; the fade says there is more past the edge. */
 .rail .attn-strip {
-  gap: 6px;
-  margin: 0;
+  --attn-gap: 6px;
   padding: 0 22px 8px 10px;
   -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
   mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
@@ -321,6 +320,7 @@
   color: var(--muted);
   font: 550 var(--text-secondary) var(--font);
   white-space: nowrap;
+  transition: color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
 }
 
 .rail-nav-item:active { background: var(--surface-2); }
@@ -382,9 +382,10 @@ html[data-kb="open"] .rail-nav { display: none; }
 
   .rail .daemon-update .btn-small { min-height: 30px; padding: 0 10px; border-radius: var(--r-sm); font-size: var(--text-secondary); }
 
-  /* Headings: 30px controls, and the tools step aside until the heading is
-     pointed at or holds keyboard focus. They collapse instead of leaving the
-     layout so a menu that closes can still hand focus back to its button. */
+  /* Headings: 30px controls, and the tools stay out of sight until the heading
+     is pointed at or holds keyboard focus. They are always laid out, so a menu
+     that closes can still hand focus back to its button, and they take no room:
+     pointing at a heading must not move its name, its path or its marks. */
   .rail .group-head .group-title,
   .rail .group-mark { min-height: 30px; }
 
@@ -394,23 +395,50 @@ html[data-kb="open"] .rail-nav { display: none; }
   .rail .group-head .group-title { border-radius: 6px; }
   .rail .group-mark:hover { text-decoration: underline; }
 
+  /* Each tool gives back the 30px it is wide, the first for the pair, so they
+     lie over the end of the path (of the name, in a heading without one),
+     before the marks: `herd-group.tsx` draws them in that order here. Like a
+     row's actions they fade in on the rail's own ground, and until shown they
+     take no click: a finger on a touch-screen laptop still lands on the heading. */
+  .rail .group-marks { order: 3; }
+  .rail .group-head:not(:has(.group-path)) .group-title { flex: 1 1 auto; }
+
   .rail .group-head .group-tool {
-    width: 0;
-    min-width: 0;
+    position: relative;
+    order: 2;
+    width: 30px;
+    min-width: 30px;
     height: 30px;
     min-height: 30px;
-    overflow: hidden;
+    margin-left: -30px;
     border-radius: var(--r-sm);
+    background-color: var(--bg);
     opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease);
+  }
+
+  .rail .group-head .group-tool:has(+ .group-tool) { margin-left: -60px; }
+  .rail .group-head .group-tool + .group-tool { margin-left: 0; }
+
+  /* The path ends under the first tool through a fade, not at a cut. */
+  .rail .group-head .group-tool:not(.group-tool + .group-tool)::before {
+    content: "";
+    position: absolute;
+    inset: 0 100% 0 auto;
+    width: 18px;
+    background: linear-gradient(to right, transparent, var(--bg));
+    pointer-events: none;
   }
 
   /* A menu opened from a tool makes the page behind it inert, so hover is lost:
      the trigger's mark keeps its tools drawn until the menu closes. */
   .rail .group-head:hover .group-tool,
   .rail .group-head:has(:focus-visible) .group-tool,
-  .rail .group-head:has([data-popover-open]) .group-tool { width: 30px; min-width: 30px; opacity: 1; }
+  .rail .group-head:has([data-popover-open]) .group-tool { opacity: 1; pointer-events: auto; }
 
-  .rail .group-head .group-tool:hover { background: var(--surface); color: var(--ink); }
+  .rail .group-head .group-tool:hover { background-color: var(--surface); color: var(--ink); }
+  .rail .group-head .group-tool:active:not(:disabled) { background-color: var(--surface-2); }
 
   /* Rows: 46px with a 28px mark, laid straight on the rail instead of in an
      inset card. Nothing slides here, so a row needs no opaque ground. */
@@ -425,9 +453,21 @@ html[data-kb="open"] .rail-nav { display: none; }
     background-color: transparent;
   }
 
-  .rail .card + .card .card-main { background-image: none; }
-  .rail .card:not(.sel):not(.is-blocked) .card-main:hover { background-color: var(--surface); }
+  .rail .card + .card .card-main,
+  .rail .herd-row + .herd-row .card-main { background-image: none; }
+  /* Pointed at anywhere, its actions included: they stand on this ground. */
+  .rail .card:not(.sel):not(.is-blocked):hover .card-main { background-color: var(--surface); }
   .rail .card:not(.sel):not(.is-blocked) .card-main:active { background-color: var(--surface-2); }
+
+  /* The ground a row is drawn on, for what lies over its trailing edge. The
+     same grounds as the rules that paint the row, in the order they win. */
+  .rail .card { --row-ground: var(--bg); }
+  .rail .card.in-board { --row-ground: #141b26; }
+  .rail .card:hover { --row-ground: var(--surface); }
+  .rail .card.is-blocked { --row-ground: #1c1a13; }
+  .rail .card.in-board.is-blocked { --row-ground: #221f16; }
+  .rail .card.sel { --row-ground: #16202e; }
+  .rail .card:not(.sel):not(.is-blocked):has(.card-main:active) { --row-ground: var(--surface-2); }
 
   .rail .card-name { font-size: var(--text-body); }
 
@@ -448,15 +488,30 @@ html[data-kb="open"] .rail-nav { display: none; }
 
   /* Row actions: the buttons a swipe uncovers on touch, as a cluster over the
      row's trailing edge. Shown while the row is pointed at or holds keyboard
-     focus; the row's text makes room and its dot steps aside. Always laid out,
-     so a closing menu can return focus to "more"; until shown they take no
+     focus: they fade in on the row's own ground, over the end of its text, and
+     the time and the dot fade out from under them. The row's text keeps its
+     width, so a pointer crossing the list truncates no title twice. Always laid
+     out, so a closing menu can return focus to "more"; until shown they take no
      click, so a finger on a touch-screen laptop still opens the row. */
   .rail .card-actions {
     inset: 0 6px 0 auto;
     z-index: 2;
     align-items: center;
     gap: 2px;
+    background-color: var(--row-ground);
     opacity: 0;
+    pointer-events: none;
+    transition: opacity var(--dur-1) var(--ease);
+  }
+
+  /* The text runs out under the cluster through a fade. Not part of any
+     button: a press on it is still a press on the row. */
+  .rail .card-actions::before {
+    content: "";
+    position: absolute;
+    inset: 0 100% 0 auto;
+    width: 26px;
+    background: linear-gradient(to right, transparent, var(--row-ground));
     pointer-events: none;
   }
 
@@ -495,17 +550,11 @@ html[data-kb="open"] .rail-nav { display: none; }
     white-space: nowrap;
   }
 
-  .rail .card:hover .card-main,
-  .rail .card:has(:focus-visible) .card-main,
-  .rail .card:has([data-popover-open]) .card-main { padding-right: 72px; }
-
-  .rail .card.is-unread:hover .card-main,
-  .rail .card.is-unread:has(:focus-visible) .card-main,
-  .rail .card.is-unread:has([data-popover-open]) .card-main { padding-right: 102px; }
+  .rail .card-side { transition: opacity var(--dur-1) var(--ease); }
 
   .rail .card:hover .card-side,
   .rail .card:has(:focus-visible) .card-side,
-  .rail .card:has([data-popover-open]) .card-side { display: none; }
+  .rail .card:has([data-popover-open]) .card-side { opacity: 0; }
 
   .rail-nav { padding-block: 6px; }
   .rail-nav-item { min-height: 32px; }

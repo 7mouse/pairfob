@@ -53,6 +53,7 @@ import {
   applyCameraTransform,
   fitCameraToViewport,
   settleCamera,
+  travelCamera,
   viewportCenter,
   zoomCameraAtPoint,
 } from "../../features/board/canvas/transform";
@@ -222,8 +223,9 @@ export function applyBoardTransform(stage: HTMLElement): void {
   applyCameraTransform(stage, readBoardCamera());
 }
 
+/** The toolbar's fit: asked for with one press, so the stage travels to it. */
 export function placeBoardStage(viewport: HTMLElement, stage: HTMLElement, layout: TabLayout): void {
-  settleCamera(stage, fitCameraToViewport(viewport, layout), writeBoardCamera);
+  travelCamera(stage, fitCameraToViewport(viewport, layout), writeBoardCamera);
 }
 
 export function zoomBoardAt(
@@ -233,8 +235,9 @@ export function zoomBoardAt(
   clientY: number,
   nextScale: number,
 ): void {
+  // A zoom button or a double click: one press, one travel.
   const next = zoomCameraAtPoint(readBoardCamera(), viewport, clientX, clientY, nextScale);
-  if (next) settleCamera(stage, next, writeBoardCamera);
+  if (next) travelCamera(stage, next, writeBoardCamera);
 }
 
 export function fitCurrentBoard(): void {

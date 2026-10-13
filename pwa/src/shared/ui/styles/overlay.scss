@@ -445,5 +445,19 @@ dialog.modal:has(~ dialog.modal.dialog-step[open])::backdrop { visibility: hidde
 
 /* Native close removes [open] before its queued close event unmounts the
    portal. Override the sheet's flex display during that gap so the closed
-   dialog cannot reappear in the document outside the top layer. */
-dialog.modal:not([open]) { display: none; }
+   dialog cannot reappear in the document outside the top layer.
+
+   One closed dialog is drawn on purpose: the centred card its owner keeps for
+   its exit (`data-card-exit`, overlay/modal.tsx; the exit is in
+   desk-dialog.scss). It is the card only as the desk form or from 900px, and
+   never an anchored popover; anywhere else it is the sheet or the menu, which
+   close at once. Its display is whatever it was open: a block, unless its own
+   rules say otherwise. */
+dialog.modal:not([open], [data-card-exit]),
+dialog.modal.popover:not([open]) { display: none; }
+
+dialog.modal:where([data-card-exit]:not([open])) { display: block; }
+
+@media (max-width: 899.98px) {
+  dialog.modal:not([open], .desk-form) { display: none; }
+}

@@ -27,7 +27,8 @@ const NOTE_LINE = "data-note-line";
 function noteLine(pin: string): HTMLElement | null {
   // Read off the attribute: a path is not something to build a selector from.
   return [...document.querySelectorAll<HTMLElement>(`[${NOTE_LINE}]`)].find((line) =>
-    line.getAttribute(NOTE_LINE) === pin && (typeof line.checkVisibility !== "function" || line.checkVisibility())) ?? null;
+    line.getAttribute(NOTE_LINE) === pin && !line.closest("[inert]")
+    && (typeof line.checkVisibility !== "function" || line.checkVisibility())) ?? null;
 }
 
 /**
@@ -41,7 +42,8 @@ export function returnToNoteLine(pin: string): void {
   // which would rest on its way back. A question still open keeps its focus.
   window.setTimeout(() => {
     const now = document.activeElement;
-    const lost = !now || now === document.body || !now.isConnected;
+    // The pressed control may still be on the page, in a card that is folding shut and out of reach.
+    const lost = !now || now === document.body || !now.isConnected || now.closest("[inert]") !== null;
     if (!lost || document.querySelector("dialog[open]")) return;
     noteLine(pin)?.focus({ preventScroll: true });
   }, 0);

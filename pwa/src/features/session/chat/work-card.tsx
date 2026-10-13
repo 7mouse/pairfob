@@ -1,23 +1,15 @@
-import {
-  Check, ChevronRight, CircleSlash, FileText, GitBranch, Globe, ListChecks, MessageCircleQuestionMark, Pencil, Plug, Search,
-  Sparkles, Terminal, TriangleAlert, WifiOff, Wrench, X, type LucideIcon,
-} from "lucide-react";
+import { Check, ChevronRight, CircleSlash, TriangleAlert, WifiOff, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { t } from "../../../lib/i18n";
 import type { AgentTraceItem, AgentTraceModel } from "../../../lib/operations";
-import {
-  categoryLabel, formatElapsed, stepCategory, stepObject, stepState, type StepCategory, type TurnOutcome, type TurnTone,
-} from "../../../lib/agent-trace-steps";
-import { Button, Spinner } from "../../../shared/ui/primitives";
+import { formatElapsed, stepCategory, stepState, type TurnOutcome, type TurnTone } from "../../../lib/agent-trace-steps";
+import { Button, Spinner, Swap } from "../../../shared/ui/primitives";
 import { daemonNow } from "../../../lib/agent-trace-clock";
 import type { DetailsState } from "./agent-chat-stream";
 import { modelSummary, TurnModelDetails } from "./turn-models";
 import { AgentDetails } from "./agent-details";
-
-const CATEGORY_ICON: Record<StepCategory, LucideIcon> = {
-  read: FileText, search: Search, edit: Pencil, command: Terminal, web: Globe, subtask: GitBranch,
-  plan: ListChecks, question: MessageCircleQuestionMark, mcp: Plug, think: Sparkles, other: Wrench,
-};
+import { StepList, useStepArrivals } from "./work-steps";
+import { useTurned } from "./use-turned";
 
 /** Live cards show the latest steps; earlier ones stay one tap away. */
 const LIVE_STEPS = 4;
@@ -25,11 +17,14 @@ const LIVE_STEPS = 4;
 const FILTER_FROM = 9;
 type Filter = "all" | "failed" | "edits";
 
+/** The turn's state at a glance. A result that arrives while the card is on screen pops in over the spinner it replaces. */
 function ToneMark({ tone }: { tone: TurnTone }) {
+  const settled = useTurned(tone !== "running");
   if (tone === "running") return <Spinner className="work-tone" />;
   const Icon = tone === "done" ? Check : tone === "error" ? X : tone === "waiting" ? TriangleAlert
     : tone === "interrupted" ? CircleSlash : tone === "stale" ? WifiOff : null;
-  return Icon ? <Icon className="work-tone" size={16} aria-hidden="true" /> : <span className="work-tone work-dot" aria-hidden="true" />;
+  const mark = `work-tone${settled ? " pop-in" : ""}`;
+  return Icon ? <Icon className={mark} size={16} aria-hidden="true" /> : <span className={`${mark} work-dot`} aria-hidden="true" />;
 }
 
 /** "2m 14s so far" while running (ticking), "Took 3m 5s" once done; "" under a second or without times. */
@@ -48,29 +43,6 @@ function useElapsed(start: number | undefined, end: number | undefined, live: bo
 }
 
 type OpenStep = (item: AgentTraceItem, steps: AgentTraceItem[]) => void;
-
-function StepRow({ item, verified, onOpen }: { item: AgentTraceItem; verified: boolean; onOpen: (item: AgentTraceItem) => void }) {
-  const category = stepCategory(item);
-  const Icon = CATEGORY_ICON[category];
-  const object = stepObject(item);
-  if (item.type === "assistant") {
-    return <li><Button className="work-step work-note" onClick={() => onOpen(item)}>
-      <span className="work-note-text">{item.text}</span>
-    </Button></li>;
-  }
-  const state = item.type === "tool" ? stepState(item, verified) : null;
-  const stateLabel = state ? t(`work.state.${state}`) : "";
-  const aria = state ? t("work.stepAria", { category: categoryLabel(category), object, state: stateLabel }) : `${categoryLabel(category)} ${object}`;
-  return <li><Button className={`work-step is-${category}${state ? ` is-${state}` : ""}`} aria-label={aria}
-    title={category === "subtask" ? t("work.subtaskHidden") : undefined} onClick={() => onOpen(item)}>
-    <Icon className="work-step-icon" size={15} aria-hidden="true" />
-    <span className={`work-step-text${item.type === "thinking" ? " is-prose" : ""}`}>{object || categoryLabel(category)}</span>
-    {state === "running" ? <Spinner className="work-step-state" />
-      : state === "error" ? <X className="work-step-state" size={15} aria-hidden="true" />
-      : state === "done" ? <Check className="work-step-state" size={15} aria-hidden="true" />
-      : state === "ended" ? <span className="work-step-state work-dot" aria-hidden="true" /> : null}
-  </Button></li>;
-}
 
 /**
  * Open while the turn runs. When it ends while the reader is scrolled up, it
@@ -92,11 +64,13 @@ function useHeldOpen(live: boolean, follow: boolean): boolean {
  * One card per turn between the prompt and the reply: a result-first header
  * and the ordered steps, each opening its own sheet. Running cards start open,
  * finished ones closed; a reader's own toggle is kept like any other details.
+ * `historyLoads` counts the older pages put in front of the transcript: when it
+ * changes, history moved in front of the card and none of its steps are new.
  */
-export function WorkCard({ traceKey, entries, outcome, live, follow = true, kept, verified, span, models, anchor, onOpen }: {
+export function WorkCard({ traceKey, entries, outcome, live, follow = true, kept, verified, span, models, anchor, historyLoads = 0, onOpen }: {
   traceKey: string; entries: AgentTraceItem[]; outcome: TurnOutcome; live: boolean; follow?: boolean; kept?: DetailsState;
   verified: boolean; models?: AgentTraceModel[]; span?: { start?: number; end?: number };
-  anchor: { anchor: string; ordinal: number; ordinalFromEnd: number }; onOpen: OpenStep;
+  anchor: { anchor: string; ordinal: number; ordinalFromEnd: number }; historyLoads?: number; onOpen: OpenStep;
 }) {
   const [all, setAll] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
@@ -109,28 +83,31 @@ export function WorkCard({ traceKey, entries, outcome, live, follow = true, kept
   const filters = entries.length >= FILTER_FROM && (failed.length > 0 || edits.length > 0);
   const filtered = filter === "failed" ? failed : filter === "edits" ? edits : entries;
   const hidden = live && !all && filter === "all" ? Math.max(0, filtered.length - LIVE_STEPS) : 0;
-  const shown = hidden ? filtered.slice(hidden) : filtered;
+  // Followed here, above the details' own key: the card's first tool renames it and remounts its rows.
+  const arrivals = useStepArrivals(filtered, hidden, `${filter}:${all ? "all" : "latest"}:${historyLoads}`);
   const openStep = (item: AgentTraceItem) => onOpen(item, entries);
   const chip = (value: Filter, label: string) => <Button className={`work-filter${filter === value ? " is-on" : ""}`}
     aria-pressed={filter === value} onClick={() => setFilter(value)}><span>{label}</span></Button>;
+  const body = entries.length > 0 || models !== undefined;
   return <AgentDetails traceKey={traceKey} className={`work-card is-${outcome.tone}`} auto={open} kept={kept}
-    dataTraceAnchor={anchor.anchor} dataTraceOrdinal={anchor.ordinal} dataTraceOrdinalEnd={anchor.ordinalFromEnd}>
-    <summary className="work-head">
+    dataTraceAnchor={anchor.anchor} dataTraceOrdinal={anchor.ordinal} dataTraceOrdinalEnd={anchor.ordinalFromEnd}
+    headClassName="work-head" head={<>
       <ToneMark tone={outcome.tone} />
       <span className="work-head-copy">
-        <span className="work-title">{outcome.title}</span>
-        {detail ? <span className={`work-detail${modelText ? " has-model" : ""}`} title={detail}>
+        {/* The words swap when the turn changes state. A step count and the elapsed second are the same state, replaced in place. */}
+        <Swap on={outcome.tone} className="work-title">{outcome.title}</Swap>
+        {detail ? <Swap on={outcome.tone} className={`work-detail${modelText ? " has-model" : ""}`} title={detail}>
           {modelText ? <>
             {elapsed && <span className="work-meta-fixed">{elapsed}{" · "}</span>}
             <span className="work-meta-model">{models?.length === 1 ? models[0].model : modelText}</span>
             {models?.length === 1 && models[0].effort && <span className="work-meta-fixed">{" · "}{models[0].effort}</span>}
             {outcome.detail && <span className="work-meta-outcome">{" · "}{outcome.detail}</span>}
           </> : detail}
-        </span> : null}
+        </Swap> : null}
       </span>
-      {(entries.length > 0 || models !== undefined) && <ChevronRight className="work-chevron" size={16} aria-hidden="true" />}
-    </summary>
-    {(entries.length > 0 || models !== undefined) && <div className="work-body" aria-live="off">
+      {body && <ChevronRight className="work-chevron" size={16} aria-hidden="true" />}
+    </>}>
+    {body && <div className="work-body" aria-live="off">
       {models !== undefined && <TurnModelDetails models={models} />}
       {filters && <div className="work-filters" role="group" aria-label={t("work.stepsAria")}>
         {chip("all", t("work.filterAll"))}
@@ -138,9 +115,7 @@ export function WorkCard({ traceKey, entries, outcome, live, follow = true, kept
         {edits.length > 0 && chip("edits", t("work.filterEdits", { n: edits.length }))}
       </div>}
       {hidden > 0 && <Button className="work-earlier" onClick={() => setAll(true)}>{t("work.earlier", { n: hidden })}</Button>}
-      <ol className="work-steps" aria-label={t("work.stepsAria")}>
-        {shown.map((item, index) => <StepRow key={`${filter}:${hidden + index}`} item={item} verified={verified} onOpen={openStep} />)}
-      </ol>
+      <StepList steps={filtered} hidden={hidden} listKey={filter} arrivals={arrivals} verified={verified} onOpen={openStep} />
     </div>}
   </AgentDetails>;
 }

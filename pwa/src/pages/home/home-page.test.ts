@@ -194,14 +194,18 @@ describe("home grouped list", () => {
     paint();
     const headings = () => [...app.querySelectorAll<HTMLButtonElement>(".group-title")];
     expect(headings().map(node => node.getAttribute("aria-expanded"))).toEqual(["true", "false", "false"]);
-    expect([...app.querySelectorAll<HTMLElement>(".herd-group-body")].map(node => node.hidden)).toEqual([false, true, true]);
+    // A folded group keeps its body in the tree, shut and out of reach.
+    const folds = () => [...app.querySelectorAll<HTMLElement>(".herd-group-fold")];
+    expect(folds().map(node => node.classList.contains("is-shut"))).toEqual([false, true, true]);
+    expect(folds().map(node => node.hasAttribute("inert"))).toEqual([false, true, true]);
     act(() => headings()[1].click());
     // Canonical owner getter: the fold landed in the preferences record.
     expect(preferencesStore.get().listGroupCollapsed.beta).toBe(false);
     // Subscription visibility: the typed fold published and the mounted list
     // re-rendered inside the click act — no manual commit makes it visible.
     expect(headings()[1].getAttribute("aria-expanded")).toBe("true");
-    expect((app.querySelectorAll(".herd-group-body")[1] as HTMLElement).hidden).toBe(false);
+    expect(folds()[1].classList.contains("is-shut")).toBe(false);
+    expect(folds()[1].hasAttribute("inert")).toBe(false);
     expect(app.querySelector(".section-title") === null).toBe(true);
   });
 });

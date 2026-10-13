@@ -20,6 +20,8 @@ import {
 import { lang, setLangPref, t } from "../../lib/i18n";
 import { parseTermMode } from "../../lib/terminal-mode";
 import { resetTransitionState } from "../../app/transition";
+import { setSettingsSection, settingsSection } from "../../features/settings/settings-section";
+import { travelSettingsSection } from "./section-travel";
 import { stopPolling } from "../../features/connection/controller";
 import type { PairResult } from "../../lib/protocol/client";
 import type { LiveSession } from "../../lib/protocol/session-types";
@@ -191,6 +193,32 @@ test("one computer row opens the list that both switches and adds, and back retu
   await click("返回");
   expect(currentScreen()).toBe("settings");
   expect(appRoot().querySelector(".settings-title")?.textContent).toBe("设置");
+});
+
+test("the computer page is one level under the overview: going in is a push of the page, back its pop", async () => {
+  bootHome();
+  await click(t("home.settings"));
+  const root = document.documentElement;
+  // Arriving in Settings is over; from here only a declared move may mark the document.
+  resetTransitionState();
+  const head = appRoot().querySelector<HTMLButtonElement>("button.cp-main")!;
+  act(() => head.click());
+  // The page is already drawn when the click returns, inside the declared transition.
+  expect(root.dataset.fallbackTransition).toBe("page-push");
+  expect(appRoot().querySelector(".settings-title")).toBeNull();
+  expect(appRoot().querySelector("button.cp-main")).toBeNull();
+  expect(settingsSection()).toBe("connection");
+  resetTransitionState();
+  await click("返回");
+  expect(root.dataset.fallbackTransition).toBe("page-pop");
+  expect(settingsSection()).toBe("overview");
+  expect(appRoot().querySelector(".settings-title")?.textContent).toBe("设置");
+  // The plain write is for an entry from elsewhere and for leaving: it declares nothing.
+  resetTransitionState();
+  act(() => setSettingsSection("connection"));
+  expect(root.dataset.fallbackTransition).toBeUndefined();
+  act(() => travelSettingsSection("connection"));
+  expect(root.dataset.fallbackTransition).toBeUndefined();
 });
 
 test("on a phone, the Sessions tab leaves settings for the list even if a pane is remembered", async () => {

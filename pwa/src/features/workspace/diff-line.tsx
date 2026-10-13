@@ -1,21 +1,23 @@
 import { useLayoutEffect, useRef, type MouseEvent, type ReactNode, type RefObject } from "react";
 import { PenLine } from "lucide-react";
-import { diffNoteTarget, type DiffNoteTarget } from "../../lib/diff-notes";
+import { diffNoteForPin, diffNoteScope, diffNoteTarget, type DiffNoteTarget } from "../../lib/diff-notes";
+import { sentDiffNoteAt } from "../../lib/diff-notes-sent";
 import type { WordRange } from "../../lib/diff-words";
 import { t } from "../../lib/i18n";
 import type { DiffLine, GitLayer } from "../../lib/workspace";
 import { deskPresentation } from "../../shared/ui/overlay/popover";
 import { Button } from "../../shared/ui/primitives";
-import { InlineNoteEditor, type InlineNote } from "./note-inline";
-import { ParkedNoteCard, type ParkedNote } from "./note-parked";
-import { DiffNoteCards, diffLineHasNote, diffNoteLineLabel, diffNotePinKey, openNoteEditorAllowed } from "./notes";
+import type { InlineNote } from "./note-inline";
+import type { ParkedNote } from "./note-parked";
+import { NotesUnder } from "./note-under";
+import { diffNoteLineLabel, diffNotePinKey, openNoteEditorAllowed } from "./notes";
 
 /**
  * One line of a patch, and the note it can take. The same line is drawn alone
  * across the diff, or as one side of a row of two (`diff-split`); either way
  * its number is the keyboard's way to it, a press anywhere on it opens the
  * note's form, and what the note leaves (the form, its card, a draft set
- * aside) stands under it.
+ * aside) stands under it (`note-under`).
  */
 
 /** What every line of one diff is given: whether it takes notes, and the note being written. */
@@ -44,7 +46,9 @@ export type HeldLine = {
 export function useLineNote(line: DiffLine | null, notes: LineNotes): HeldLine {
   const { path, layer, onEdit, inline, parked } = notes;
   const target = line && notes.noteable ? diffNoteTarget(path, layer, line) : null;
-  const noted = target ? diffLineHasNote(target) : false;
+  const saved = target ? diffNoteForPin(target) : undefined;
+  const sent = target && !saved ? sentDiffNoteAt(diffNoteScope(), target) : undefined;
+  const noted = saved !== undefined;
   const label = target ? t(noted ? "diffNotes.editTitle" : "diffNotes.addTitle", { line: target.line }) : undefined;
   const note = target && inline?.note && diffNotePinKey(inline.note.target) === diffNotePinKey(target) ? inline.note : null;
   const editing = note !== null;
@@ -52,7 +56,8 @@ export function useLineNote(line: DiffLine | null, notes: LineNotes): HeldLine {
   const wasEditing = useRef(false);
   // The editor took the keyboard from this line and hands it back here when it
   // closes, so focus never drops out of the column. If the reader has already
-  // moved on to another control, it stays with them. On the workspace screen
+  // moved on to another control, it stays with them: one still in the form as
+  // it folds shut, out of reach, is not that. On the workspace screen
   // that is for a mouse or the keyboard beside the list: a finger, and a phone,
   // are left where focus fell, as after any other answer (`note-line-focus`).
   useLayoutEffect(() => {
@@ -60,7 +65,7 @@ export function useLineNote(line: DiffLine | null, notes: LineNotes): HeldLine {
     wasEditing.current = editing;
     if (!closed) return;
     const active = document.activeElement;
-    if (active && active !== document.body && active.isConnected) return;
+    if (active && active !== document.body && active.isConnected && !active.closest("[inert]")) return;
     const number = numberRef.current;
     if (!number || (!number.closest(".workspace-inspector") && !deskPresentation())) return;
     number.focus({ preventScroll: true });
@@ -82,12 +87,7 @@ export function useLineNote(line: DiffLine | null, notes: LineNotes): HeldLine {
       if (selection && !selection.isCollapsed && event.currentTarget.contains(selection.anchorNode)) return;
       open();
     },
-    under: !target ? null : <>
-      {note && inline
-        ? <InlineNoteEditor note={note} onClose={inline.close} onSetAside={inline.setAside} />
-        : <DiffNoteCards target={target} onEdit={onEdit} />}
-      {waiting && <ParkedNoteCard parked={waiting} onResume={onEdit} />}
-    </>,
+    under: !target ? null : <NotesUnder target={target} saved={saved} sent={sent} note={note} inline={inline} waiting={waiting} onEdit={onEdit} />,
   };
 }
 

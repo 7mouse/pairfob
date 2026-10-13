@@ -60,6 +60,21 @@ export function panCamera(camera: BoardCamera, dx: number, dy: number): BoardCam
 }
 
 /**
+ * The camera `share` of the way from one to another (0 is `from`, 1 is `to`).
+ * Scale and pan move by the same share, so a zoom around a point keeps that
+ * point still the whole way.
+ */
+export function cameraBetween(from: BoardCamera, to: BoardCamera, share: number): BoardCamera {
+  const mix = (a: number, b: number) => a + (b - a) * share;
+  return { scale: mix(from.scale, to.scale), panX: mix(from.panX, to.panX), panY: mix(from.panY, to.panY), fitted: to.fitted };
+}
+
+/** Two cameras that draw the same picture. */
+export function sameCameraView(a: BoardCamera, b: BoardCamera): boolean {
+  return Math.abs(a.scale - b.scale) < 1e-6 && Math.abs(a.panX - b.panX) < 1e-3 && Math.abs(a.panY - b.panY) < 1e-3;
+}
+
+/**
  * Keep the board in its viewport: one rule for both axes and for every input
  * that moves it (a drag, a wheel, two fingers, a zoom, a reveal). On an axis
  * where the stage is larger than the viewport it slides from edge to edge and

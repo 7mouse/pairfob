@@ -14,17 +14,25 @@ import { showStatus } from "../../../app/notices-store";
 import { padKind, setQuickCommands } from "../../settings/preferences-store";
 import { addQuickCommand, arrangeCommandPad, moveQuickCommand, stepQuickCommand, QUICK_COMMAND_LIMIT,
   type QuickCommand } from "../../settings/quick-command-model";
-import { selectPadKind } from "./slash-pad";
+import { padKindTurnedFrom, selectPadKind } from "./slash-pad";
 import { insertQuickCommand, insertSlashCommand } from "./compose";
 import { PadChromeButton } from "../compose-focus";
 
 /** How long a deleted command can be brought back from the pad itself. */
 const UNDO_MS = 5000;
 
-/** 按键 | 命令, on the right of the pagination row so the primary row never changes shape. */
+/**
+ * 按键 | 命令, on the right of the pagination row so the primary row never changes shape.
+ * Its thumb slides to the pressed side (dock-switch.scss). Turning the pad draws
+ * a new switch with the new body, so the one drawn by that press is marked with
+ * the side it came from; every other paint of it is still.
+ */
 export function SessionPadModeBar({ onRepaint = () => undefined }: { onRepaint?: () => void }) {
   const current = padKind();
-  return <div className="pad-kind" role="group" aria-label={t("slash.padKind")}>
+  // Read once, as this switch is first drawn: later paints of it are not the turn.
+  const [from] = useState(padKindTurnedFrom);
+  return <div className="pad-kind" role="group" aria-label={t("slash.padKind")}
+    data-from={from === null ? undefined : from === "keys" ? "first" : "last"}>
     {(["keys", "slash"] as const).map(kind => <PadChromeButton
       key={kind} type="button" className="pad-kind-option" aria-pressed={current === kind ? "true" : "false"}
       onClick={() => selectPadKind(kind, onRepaint)}

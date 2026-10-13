@@ -5,6 +5,7 @@ import type { SplitDirection } from "../../lib/operations";
 import { highlightBoardPane } from "../../features/board/interaction-store";
 import { AgentKindGrid, kindName } from "../../features/operations/agent-kind-grid";
 import { AgentKindPickerPanel } from "../../features/operations/agent-kind-picker";
+import { SheetSwap } from "../../features/operations/sheet-swap";
 import { advertisedAgentKinds } from "../../features/operations/capabilities-store";
 import { splitSelectedPane, type SheetOutcome } from "../../features/operations/controller";
 import { loadCreateMemory, rememberCreate } from "../../features/operations/create-memory";
@@ -36,6 +37,10 @@ function BoardSplitSheet({ modal, card, direction, target, reveal }: {
   const [lastKind] = useState(() => loadLastAgentKind(kinds));
   const [kind, setKind] = useState(() => defaultAgentKind(kinds, lastKind, card.agent));
   const [picking, setPicking] = useState(false);
+  // The list stands in for the form as a page of the sheet does: the card eases
+  // between their heights (`SheetSwap`) and the form comes back from the left.
+  const [back, setBack] = useState(false);
+  const leavePicker = () => { setPicking(false); setBack(true); };
   const { operationBusy } = useCapabilities();
   const { networkOnline } = useConnection();
   const [pending, setPending] = useState(false);
@@ -78,15 +83,18 @@ function BoardSplitSheet({ modal, card, direction, target, reveal }: {
   // On the desk form Enter submits from a field or a chosen kind, as in every desk dialog.
   const onEnter = useDeskEnter(submit);
   if (picking) {
-    return <AgentKindPickerPanel kinds={kinds} memory={memory} selected={kind} onBack={() => setPicking(false)}
-      onPick={(next) => { setKind(next); setPicking(false); }} onPinsChange={setMemory} />;
+    return <SheetSwap key="picker">
+      <AgentKindPickerPanel kinds={kinds} memory={memory} selected={kind} onBack={leavePicker}
+        onPick={(next) => { setKind(next); leavePicker(); }} onPinsChange={setMemory} />
+    </SheetSwap>;
   }
   const title = agentTitle(card);
   const note = error || (pending ? "" : reason);
-  return <div className="create-sheet-body board-sheet board-split" onKeyDown={onEnter}>
+  return <SheetSwap key="form"><div className={`create-sheet-body board-sheet board-split${back ? " is-back" : ""}`} onKeyDown={onEnter}>
     <fieldset className="pane-fieldset" disabled={pending}>
       <h3 className="create-label">{t("create.what")}</h3>
-      <AgentKindGrid kinds={kinds} memory={memory} selected={kind} lastKind={lastKind} onSelect={setKind} onShowAll={() => setPicking(true)} />
+      <AgentKindGrid kinds={kinds} memory={memory} selected={kind} lastKind={lastKind} onSelect={setKind}
+        onShowAll={() => { setPicking(true); setBack(false); }} />
       {!kinds.length ? <p className="create-hint">{t("create.noKinds")}</p> : null}
       <p className="create-hint">{t("boardMenu.splitCwd")}</p>
     </fieldset>
@@ -100,7 +108,7 @@ function BoardSplitSheet({ modal, card, direction, target, reveal }: {
         {pending ? <><Spinner />{t("pm.creating")}</> : t("boardMenu.splitSubmit")}
       </Button>
     </div></SheetFooter>
-  </div>;
+  </div></SheetSwap>;
 }
 
 /** Placement picked a side: ask what to start there, then split that pane. */

@@ -258,7 +258,8 @@ export function FullTerminalPad({ options, onPage }: FullTerminalPadProps) {
     className={dense ? "full-terminal-pad is-dense" : "full-terminal-pad"}
     data-input-mode={live ? "live" : "compose"}
   >
-    <AttachmentTray compact={keyboardOpen} />
+    {/* Its height is terminal rows here: it never folds open or shut. */}
+    <AttachmentTray compact={keyboardOpen} instant />
     <FullTerminalPadControls optionsRef={optionsRef} padRef={padRef} collapsible={pointer} dense={dense} onPage={onPage} />
     {live && <div className="full-terminal-live-actions">
       <AttachButton labeled={!pointer && !dense} />

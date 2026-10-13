@@ -17,6 +17,16 @@ import { selectPane } from "../session/session-store";
 import { enterWorkspace, leaveWorkspace, loadGitDiff, refreshWorkspace } from "./index";
 import { clearOpenNotes } from "./note-drafts";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
+/** The line a note's form or card stands under: what comes before everything the note keeps there. */
+const lineOver = (piece: Element | null | undefined): Element | null => {
+  let before = piece?.closest(".diff-note-fold")?.previousElementSibling ?? null;
+  while (before?.matches(".diff-note-fold")) before = before.previousElementSibling;
+  return before;
+};
+
 /**
  * Notes outlive the reading of the diff they were written on, and a send
  * outlives the view it was pressed in: what the reader wrote goes along to the
@@ -91,15 +101,15 @@ const lineOf = (text: string): HTMLElement => {
   if (!found) throw new Error(`no diff line reads ${text}`);
   return found;
 };
-const form = () => document.querySelector<HTMLFormElement>("form.diff-note-inline");
-const field = () => one<HTMLTextAreaElement>("form.diff-note-inline textarea");
-const bar = () => one(".workspace-notes-bar");
-const noBar = () => document.querySelector(".workspace-notes-bar") === null;
+const form = () => document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`);
+const field = () => one<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`);
+const bar = () => one(".workspace-notes-bar:not(.is-leaving)");
+const noBar = () => document.querySelector(".workspace-notes-bar:not(.is-leaving)") === null;
 
 async function addNote(on: string, body: string): Promise<void> {
   await press(lineOf(on));
   await type(field(), body);
-  await press(one(".diff-note-inline-save"));
+  await press(one(`${UNDER} .diff-note-inline-save`));
 }
 
 beforeEach(async () => {
@@ -124,10 +134,10 @@ describe("a note still being written, when its file is read again at another rev
     live.change("src/app.ts", SHIFTED);
     await reread();
     // The editor is under the same line, two numbers further down, and nothing was lost.
-    expect(form()?.previousElementSibling === lineOf("true")).toBeTrue();
+    expect(lineOver(form()) === lineOf("true")).toBeTrue();
     expect(form()?.getAttribute("aria-label")).toBe("给第 4 行写批注");
     expect(field().value).toBe("half written");
-    await press(one(".diff-note-inline-save"));
+    await press(one(`${UNDER} .diff-note-inline-save`));
     expect(diffNotesFor("src/app.ts", "worktree").map((note) => [note.line, note.body, note.revision === diffNoteScope()?.revision]))
       .toEqual([[4, "half written", true]]);
   });
@@ -139,12 +149,12 @@ describe("a note still being written, when its file is read again at another rev
     await type(field(), "left for later");
     await act(async () => { field().dispatchEvent(new window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true })); });
     await settle();
-    expect(one(".workspace-diff-note.is-draft").textContent).toContain("left for later");
+    expect(one(`${UNDER} .workspace-diff-note.is-draft`).textContent).toContain("left for later");
     live.change("src/app.ts", SHIFTED);
     await reread();
-    const card = one(".workspace-diff-note.is-draft");
+    const card = one(`${UNDER} .workspace-diff-note.is-draft`);
     expect(card.textContent).toContain("left for later");
-    expect(card.previousElementSibling === lineOf("true")).toBeTrue();
+    expect(lineOver(card) === lineOf("true")).toBeTrue();
   });
 
   test("moves to the nearest line when its own was rewritten, and the reader is told to check", async () => {
@@ -154,7 +164,7 @@ describe("a note still being written, when its file is read again at another rev
     await type(field(), "about true");
     live.change("src/app.ts", REWRITTEN);
     await reread();
-    expect(form()?.previousElementSibling === lineOf("maybe")).toBeTrue();
+    expect(lineOver(form()) === lineOf("maybe")).toBeTrue();
     expect(field().value).toBe("about true");
     expect(visibleNotice()?.text).toBe("文件已更新，1 条批注所在的行有改动，请核对。");
   });
@@ -165,14 +175,14 @@ describe("a note still being written, when its file is read again at another rev
     await addNote("true", "why true");
     live.change("src/app.ts", REWRITTEN);
     await reread();
-    expect(one(".workspace-diff-note .diff-note-drift").textContent).toContain("true");
-    await press(one(".workspace-diff-note .diff-note-action"));
+    expect(one(`${UNDER} .workspace-diff-note .diff-note-drift`).textContent).toContain("true");
+    await press(one(`${UNDER} .workspace-diff-note .diff-note-action`));
     // Nothing was retyped, and there is still something to save: the note on the line as it reads now.
-    const save = one<HTMLButtonElement>(".diff-note-inline-save");
+    const save = one<HTMLButtonElement>(`${UNDER} .diff-note-inline-save`);
     expect(field().value).toBe("why true");
     expect(save.disabled).toBeFalse();
     await press(save);
-    expect(document.querySelector(".workspace-diff-note .diff-note-drift")).toBeNull();
+    expect(document.querySelector(`${UNDER} .workspace-diff-note .diff-note-drift`)).toBeNull();
     expect(diffNotesFor("src/app.ts", "worktree").map((note) => [note.body, note.snippet, note.drifted])).toEqual([["why true", "maybe", undefined]]);
   });
 
@@ -180,13 +190,13 @@ describe("a note still being written, when its file is read again at another rev
     const live = await boot();
     await openDiff("src/app.ts");
     await addNote("true", "saved");
-    await press(one(".workspace-diff-note .diff-note-action"));
+    await press(one(`${UNDER} .workspace-diff-note .diff-note-action`));
     await type(field(), "saved, then edited");
     live.change("src/app.ts", SHIFTED);
     await reread();
     expect(form()?.getAttribute("aria-label")).toBe("编辑第 4 行的批注");
     expect(field().value).toBe("saved, then edited");
-    await press(one(".diff-note-inline-save"));
+    await press(one(`${UNDER} .diff-note-inline-save`));
     expect(diffNotesFor("src/app.ts", "worktree").map((note) => [note.line, note.body])).toEqual([[4, "saved, then edited"]]);
   });
 });
@@ -254,7 +264,7 @@ describe("notes waiting on other files", () => {
     expect(rows).toEqual(["app.tssrc · 未暂存 · 1 条批注"]);
     await press(all("dialog[open] .menu-row")[0]);
     await settle();
-    expect(one(".workspace-diff-note .diff-note-body").textContent).toBe("about app");
+    expect(one(`${UNDER} .workspace-diff-note .diff-note-body`).textContent).toBe("about app");
     await openDiff("src/c.ts");
     await press(one(".workspace-notes-all"));
     await settle();
@@ -364,7 +374,7 @@ describe("a send", () => {
     expect(diffNotesFor("src/app.ts", "worktree")).toEqual([]);
     expect(bar().classList.contains("is-sent")).toBeTrue();
     expect(document.querySelector(".workspace-notes-send")).toBeNull();
-    expect(one(".workspace-diff-note.is-sent").textContent).toContain("why true");
+    expect(one(`${UNDER} .workspace-diff-note.is-sent`).textContent).toContain("why true");
   });
 
   for (const code of ["timeout", "unknown_outcome", "conflict"] as const) {
@@ -381,7 +391,7 @@ describe("a send", () => {
       // One call, no retry; the note is still pending and no record was written.
       expect(prompts).toHaveLength(1);
       expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(1);
-      expect(document.querySelector(".workspace-diff-note.is-sent")).toBeNull();
+      expect(document.querySelector(`${UNDER} .workspace-diff-note.is-sent`)).toBeNull();
       expect(visibleNotice()?.tone).toBe("error");
       // Nothing is left looking busy.
       expect(diffNoteSendOpen()).toBeFalse();
@@ -390,8 +400,8 @@ describe("a send", () => {
       expect(send.disabled).toBeFalse();
       expect(send.getAttribute("aria-busy")).toBeNull();
       expect(send.textContent).toBe("发给 Agent");
-      expect(one(".workspace-diff-note").classList.contains("is-sending")).toBeFalse();
-      expect(all<HTMLButtonElement>(".workspace-diff-note .diff-note-action").every((button) => !button.disabled)).toBeTrue();
+      expect(one(`${UNDER} .workspace-diff-note`).classList.contains("is-sending")).toBeFalse();
+      expect(all<HTMLButtonElement>(`${UNDER} .workspace-diff-note .diff-note-action`).every((button) => !button.disabled)).toBeTrue();
       // The reader decides: a second press is theirs to make.
       await press(send);
       await settle();
@@ -422,7 +432,7 @@ describe("notes belong to the Herdr session and the pane they were written for",
     await switchHerd(live, "b");
     expect(diffNoteCounts(liveSession(), "p1").size).toBe(0);
     await openDiff("src/app.ts");
-    expect(document.querySelector(".workspace-diff-note")).toBeNull();
+    expect(document.querySelector(`${UNDER} .workspace-diff-note`)).toBeNull();
     await openDiff("src/b.ts");
     expect(noBar()).toBeTrue();
     await addNote("true", "for session B");
@@ -437,7 +447,7 @@ describe("notes belong to the Herdr session and the pane they were written for",
     // B's agent going idle says nothing about what A's was never sent.
     await switchHerd(live, null);
     await openDiff("src/app.ts");
-    expect(one(".workspace-diff-note .diff-note-body").textContent).toBe("for session A");
+    expect(one(`${UNDER} .workspace-diff-note .diff-note-body`).textContent).toBe("for session A");
     expect(bar().textContent).toContain("1 条批注待发送");
   });
 
@@ -453,7 +463,7 @@ describe("notes belong to the Herdr session and the pane they were written for",
     await reread();
     expect(diffNoteCounts(liveSession(), "p1").size).toBe(0);
     await openDiff("src/app.ts");
-    expect(document.querySelector(".workspace-diff-note")).toBeNull();
+    expect(document.querySelector(`${UNDER} .workspace-diff-note`)).toBeNull();
     expect(noBar()).toBeTrue();
   });
 
@@ -481,7 +491,7 @@ describe("notes belong to the Herdr session and the pane they were written for",
     await act(async () => { setAgentStatus("idle"); });
     await settle();
     await openDiff("src/app.ts");
-    expect(document.querySelector(".workspace-diff-note")).toBeNull();
+    expect(document.querySelector(`${UNDER} .workspace-diff-note`)).toBeNull();
     expect(form()).toBeNull();
     expect(noBar()).toBeTrue();
   });

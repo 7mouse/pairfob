@@ -18,6 +18,16 @@ import { enterWorkspace, leaveWorkspace, loadGitDiff, refreshWorkspace, clearWor
 import { sendDiffNotesToAgent } from "../operations/controller";
 import { adoptDiffNoteScope, clearAllDiffNotes, diffNoteScope, diffNoteSendOpen, diffNotesFor } from "../../lib/diff-notes";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
+/** The line a note's form or card stands under: what comes before everything the note keeps there. */
+const lineOver = (piece: Element | null | undefined): Element | null => {
+  let before = piece?.closest(".diff-note-fold")?.previousElementSibling ?? null;
+  while (before?.matches(".diff-note-fold")) before = before.previousElementSibling;
+  return before;
+};
+
 const seedRestorer = new WorkspaceSnapshotRestorer();
 const revision = "a".repeat(64);
 const RICH_PATCH = "@@ -1,3 +1,3 @@\n keep\n-false\n+true\n tail\n";
@@ -83,7 +93,7 @@ function rowContaining(text: string): HTMLElement {
 async function addNote(row: HTMLElement, body: string): Promise<void> {
   await act(() => { row.click(); });
   await settle();
-  const dialog = document.querySelector<HTMLFormElement>("form.diff-note-inline");
+  const dialog = document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`);
   if (!dialog) throw new Error("the note form did not open under its line");
   const textarea = dialog.querySelector("textarea");
   if (!textarea) throw new Error("note editor has no textarea");
@@ -130,7 +140,7 @@ describe("React diff notes", () => {
     await act(async () => { await loadGitDiff("src/app.ts", "worktree"); });
     await act(() => { rowContaining("false").click(); });
     await settle();
-    const dialog = document.querySelector<HTMLFormElement>("form.diff-note-inline")!;
+    const dialog = document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`)!;
     const form = dialog;
     const textarea = dialog.querySelector("textarea")!;
     const view = appRoot().ownerDocument.defaultView!;
@@ -143,9 +153,9 @@ describe("React diff notes", () => {
       textarea.dispatchEvent(new view.KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true, cancelable: true }));
     });
     await settle();
-    expect(document.querySelector<HTMLFormElement>("form.diff-note-inline")).toBeNull();
+    expect(document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(1);
-    expect(appRoot().querySelector(".workspace-diff-note")?.textContent).toContain("why false");
+    expect(appRoot().querySelector(`${UNDER} .workspace-diff-note`)?.textContent).toContain("why false");
   });
 
   test("batches two line comments into one PromptAgent call and will not replay", async () => {
@@ -158,7 +168,7 @@ describe("React diff notes", () => {
     await act(async () => { await loadGitDiff("src/app.ts", "worktree"); });
     await addNote(rowContaining("false"), "为什么是 false？");
     await addNote(rowContaining("tail"), "给导出加注释");
-    expect(appRoot().querySelectorAll(".workspace-diff-note")).toHaveLength(2);
+    expect(appRoot().querySelectorAll(`${UNDER} .workspace-diff-note`)).toHaveLength(2);
     expect(rowContaining("false").classList.contains("has-note")).toBeTrue();
     const send = appRoot().querySelector<HTMLButtonElement>(".workspace-notes-send");
     expect(send?.disabled).toBeFalse();
@@ -264,8 +274,8 @@ describe("React diff notes", () => {
     await act(async () => { await loadGitDiff("src/app.ts", "worktree"); });
     await act(() => { rowContaining("false").click(); });
     await settle();
-    expect(document.querySelector<HTMLFormElement>("form.diff-note-inline")).toBeNull();
-    expect(appRoot().querySelector(".workspace-notes-bar")).toBeNull();
+    expect(document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`)).toBeNull();
+    expect(appRoot().querySelector(".workspace-notes-bar:not(.is-leaving)")).toBeNull();
 
     const live = liveFixture(async () => { throw new Error("must not send"); });
     await boot(live, { prompt_agent: true, hasAgent: false });
@@ -283,7 +293,7 @@ describe("React diff notes", () => {
     await act(() => { rowContaining("false").click(); });
     await settle();
     adoptDiffNoteScope({ session: original!.session, paneId: original!.paneId, revision: "b".repeat(64) });
-    const dialog = document.querySelector<HTMLFormElement>("form.diff-note-inline")!;
+    const dialog = document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`)!;
     const textarea = dialog.querySelector("textarea")!;
     const form = dialog;
     const view = appRoot().ownerDocument.defaultView!;
@@ -293,7 +303,7 @@ describe("React diff notes", () => {
       form.dispatchEvent(new view.Event("submit", { bubbles: true, cancelable: true }));
     });
     await settle();
-    expect(document.querySelector<HTMLFormElement>("form.diff-note-inline")).toBeNull();
+    expect(document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(0);
     adoptDiffNoteScope(original);
     expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(0);
@@ -306,7 +316,7 @@ describe("React diff notes", () => {
     await act(async () => { await loadGitDiff("src/app.ts", "worktree"); });
     await act(() => { rowContaining("false").click(); });
     await settle();
-    const field = document.querySelector<HTMLTextAreaElement>("form.diff-note-inline textarea")!;
+    const field = document.querySelector<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`)!;
     field.value = "old revision draft";
     live.gitDiff = async (_pane, path, layer) => ({
       path, layer, patch: "@@ -1 +1 @@\n-before\n+different\n",
@@ -321,7 +331,7 @@ describe("React diff notes", () => {
       await settle();
     }
     expect(diffNotesFor("src/app.ts", "worktree")).toHaveLength(0);
-    expect(document.querySelector<HTMLFormElement>("form.diff-note-inline")).toBeNull();
+    expect(document.querySelector<HTMLFormElement>(`${UNDER} form.diff-note-inline`)).toBeNull();
   });
 
   /** The agent edits the file while a note is waiting; the diff is read again. */
@@ -342,9 +352,9 @@ describe("React diff notes", () => {
 
     // Two lines added above: `true` is line 4 now.
     await fileChanges(live, "@@ -1,3 +1,5 @@\n+first\n+second\n keep\n-false\n+true\n tail\n");
-    const card = appRoot().querySelector<HTMLElement>(".workspace-diff-note")!;
+    const card = appRoot().querySelector<HTMLElement>(`${UNDER} .workspace-diff-note`)!;
     expect(card.querySelector(".diff-note-body")?.textContent).toBe("why true");
-    expect(card.previousElementSibling === rowContaining("true")).toBeTrue();
+    expect(lineOver(card) === rowContaining("true")).toBeTrue();
     expect(card.querySelector(".diff-note-drift")).toBeNull();
     expect(diffNotesFor("src/app.ts", "worktree").map((note) => note.line)).toEqual([4]);
     expect(appRoot().querySelector(".workspace-app-notice")?.textContent).toContain("批注已跟到新的行号");
@@ -361,14 +371,14 @@ describe("React diff notes", () => {
     await addNote(rowContaining("true"), "why true");
 
     await fileChanges(live, "@@ -1,3 +1,3 @@\n keep\n-false\n+maybe\n tail\n");
-    const card = appRoot().querySelector<HTMLElement>(".workspace-diff-note")!;
-    expect(card.previousElementSibling === rowContaining("maybe")).toBeTrue();
+    const card = appRoot().querySelector<HTMLElement>(`${UNDER} .workspace-diff-note`)!;
+    expect(lineOver(card) === rowContaining("maybe")).toBeTrue();
     expect(card.querySelector(".diff-note-drift")?.textContent).toBe("写批注后这一行变了。当时是：true");
     expect(appRoot().querySelector(".workspace-app-notice")?.textContent).toContain("1 条批注所在的行有改动");
 
     // Saved again on the line as it reads now, it is an ordinary note.
     await addNote(rowContaining("maybe"), "why maybe");
-    expect(appRoot().querySelector(".workspace-diff-note .diff-note-drift")).toBeNull();
+    expect(appRoot().querySelector(`${UNDER} .workspace-diff-note .diff-note-drift`)).toBeNull();
     expect(diffNotesFor("src/app.ts", "worktree").map((note) => [note.body, note.snippet])).toEqual([["why maybe", "maybe"]]);
   });
 });

@@ -11,10 +11,12 @@
  * expires on its own if no read arrives.
  */
 
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
+
 /** Never let a prediction outlive the read that should have replaced it. */
 export const ECHO_TIMEOUT_MS = 1_200;
-/** Long enough to see the undone characters leave, short enough not to lag. */
-export const ECHO_ROLLBACK_MS = 120;
+/** Long enough to see the undone characters leave (`.term-ghost.is-rollback`), short enough not to lag. */
+export const ECHO_ROLLBACK_MS = MOTION_MS.press;
 
 type Echo = {
   paneId: string;

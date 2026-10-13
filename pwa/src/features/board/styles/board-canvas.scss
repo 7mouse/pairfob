@@ -51,8 +51,44 @@
   text-align: left;
   -webkit-touch-callout: none;
   user-select: none;
-  transition: transform var(--dur-1) var(--ease), opacity var(--dur-2) var(--ease);
+  /* Where a tile stands is the layout. When a split, a close, a swap, a
+     committed divider or the computer moves it, it travels there, as the
+     layout preview in the pane sheet does, so the reader can follow each
+     session to its new place. The box is the same inline value on every
+     repaint, so a poll with the same layout moves nothing, and a tile drawn
+     for the first time (a first paint, another tab) has nowhere to travel
+     from. The camera moves the stage, never a tile. `min-*` are written with
+     the box and must travel with it, or a growing tile would jump.
+     The first six are the box, and `is-after-exit` below delays exactly
+     those; the last three let a lifted tile settle back (board-overlays.scss). */
+  transition:
+    left var(--dur-3) var(--ease), top var(--dur-3) var(--ease),
+    width var(--dur-3) var(--ease), height var(--dur-3) var(--ease),
+    min-width var(--dur-3) var(--ease), min-height var(--dur-3) var(--ease),
+    transform var(--dur-1) var(--ease), opacity var(--dur-2) var(--ease),
+    translate var(--dur-3) var(--ease-spring), scale var(--dur-2) var(--ease), box-shadow var(--dur-2) var(--ease);
 }
+
+/* A tile whose pane is gone is kept where it stood (board-canvas.tsx) and
+   fades first; the tiles that take its room wait for it, then travel. */
+.board-pane.is-leaving { opacity: 0; transition: opacity var(--dur-1) var(--ease); }
+
+.board-pane.is-after-exit {
+  transition-delay:
+    var(--dur-1), var(--dur-1), var(--dur-1), var(--dur-1), var(--dur-1), var(--dur-1),
+    0s, 0s, 0s, 0s, 0s;
+}
+
+/* A tile that joined a tab already on screen fades in once the others have
+   begun to make its room. */
+.board-pane.is-entering { animation: board-pane-in var(--dur-2) var(--ease) var(--dur-1) backwards; }
+
+@keyframes board-pane-in {
+  from { opacity: 0; }
+}
+
+/* While a finger drags a divider the tiles are at the finger: nothing eases. */
+.board-stage.is-dragging > .board-pane { transition: none; }
 
 /* A tap must be felt before the pane finishes opening. */
 .board-pane:active { transform: scale(0.985); }
@@ -64,8 +100,12 @@
    pane. */
 .board-pane:has(> .board-pane-more:active) { transform: none; }
 
+/* The box does not travel (the baseline keeps transitions to opacity and
+   colour), so nothing has to wait for a leaver either. */
 @media (prefers-reduced-motion: reduce) {
   .board-pane:active { transform: none; }
+  .board-pane.is-after-exit { transition-delay: 0s; }
+  .board-pane.is-entering { animation-delay: 0s; }
 }
 
 /* Rings sit above the tile's layers, at a fixed on-screen width. */

@@ -1,6 +1,7 @@
 import { t } from "../../lib/i18n";
 import { SetGroup, SetItem, SetNavItem } from "../../shared/ui/primitives";
 import type { QuotaModuleModel, QuotaProvider } from "./model";
+import { useArrivals } from "./arrivals";
 import { QuotaMeter } from "./quota-meter";
 
 /**
@@ -9,6 +10,9 @@ import { QuotaMeter } from "./quota-meter";
  * and failed reads are one line, never a strip of empty meters.
  */
 export function QuotaModuleView({ model, onOpen }: { model: QuotaModuleModel; onOpen: (provider?: QuotaProvider) => void }) {
+  // A row that joins a module already on screen has just been read: it fades in
+  // over the loading row and its bar grows. Rows drawn with the module stand still.
+  const rows = useArrivals(model.rows, row => row.provider);
   const all = <SetNavItem className="quota-all" label={t("quota.allRow")}
     value={model.noData ? t("quota.noDataCount", { n: model.noData }) : undefined} onClick={() => onOpen()} />;
   return <SetGroup className="quota-module" label={t("quota.title")} aside={model.updated}>
@@ -17,8 +21,9 @@ export function QuotaModuleView({ model, onOpen }: { model: QuotaModuleModel; on
       : model.state === "loading" ? [0, 1, 2].map(index => <SetItem key={index} className="is-skeleton" label={<span className="skel" />}
           sub={<span className="skel skel-short" />} trailing={<span className="quota-meter is-empty"><span className="quota-bar" /></span>} />)
       : <>
-          {model.rows.map(row => <SetNavItem key={row.provider} className="quota-row" chevron={false} label={row.name} sub={row.sub}
-            value={<QuotaMeter meter={row.meter} />} onClick={() => onOpen(row.provider)} />)}
+          {rows.map(({ item: row, arrive }) => <SetNavItem key={row.provider} className={`quota-row${arrive === undefined ? "" : " is-arriving"}`}
+            chevron={false} label={row.name} sub={row.sub}
+            value={<QuotaMeter meter={row.meter} arrive={arrive} />} onClick={() => onOpen(row.provider)} />)}
           {all}
         </>}
   </SetGroup>;

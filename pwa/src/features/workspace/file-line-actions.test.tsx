@@ -22,6 +22,16 @@ import { LINE_COPIED_MS } from "./file-line-actions";
 import { clearWorkspacePendingReveal, enterWorkspace, leaveWorkspace, loadWorkspaceFile, workspaceModel } from "./index";
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
+/** The line a note's form or card stands under: what comes before everything the note keeps there. */
+const lineOver = (piece: Element | null | undefined): Element | null => {
+  let before = piece?.closest(".diff-note-fold")?.previousElementSibling ?? null;
+  while (before?.matches(".diff-note-fold")) before = before.previousElementSibling;
+  return before;
+};
+
 /**
  * One line of an open file: a press picks it and opens the terminal row's own
  * bar over the code, to copy the line, quote it into the message to the agent,
@@ -356,9 +366,9 @@ describe("a note, on a line its changes show", () => {
     await settle();
     expect(workspaceModel.view).toBe("diff");
     expect(workspaceModel.diffLayer).toBe("worktree");
-    const form = one<HTMLFormElement>(".workspace-shell form.diff-note-inline");
+    const form = one<HTMLFormElement>(`.workspace-shell ${UNDER} form.diff-note-inline`);
     expect(form.getAttribute("aria-label")).toBe("给第 2 行写批注");
-    expect(form.previousElementSibling?.classList.contains("diff-add")).toBeTrue();
+    expect(lineOver(form)?.classList.contains("diff-add")).toBeTrue();
     expectSameNode(document.activeElement, form.querySelector("textarea"));
   });
 

@@ -1,7 +1,7 @@
 import { captureFileLinkOwner, openChatFile } from "../../workspace/file-links";
 import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
 import { renderMarkdown } from "../../../lib/agent-markdown";
-import { groupAgentTurns, replyText, turnKey, type AgentTurn } from "../../../lib/agent-trace-view";
+import { groupAgentTurns, replyText, submittedText, turnKey, type AgentTurn } from "../../../lib/agent-trace-view";
 import { pendingAsk, splitTurn, stepObject, turnOutcome, turnSpan, type TurnRef } from "../../../lib/agent-trace-steps";
 import type { AgentTraceItem } from "../../../lib/operations";
 import { t } from "../../../lib/i18n";
@@ -11,7 +11,8 @@ import { CompactionDivider, PendingCard, ReplyActions, TurnHead, type TraceAncho
 import { NeedsYouCard } from "./needs-you";
 import { turnModels } from "./turn-models";
 import { WorkCard } from "./work-card";
-import { confirmCopyOn } from "../copy-confirm";
+import { confirmCopyOn, layCopyFaces } from "../copy-confirm";
+import { useTurned } from "./use-turned";
 
 /** Copies `text`; resolves true once it is on the clipboard, so the pressed button can say so. */
 type CopyReply = (text: string, what?: "reply" | "code") => unknown;
@@ -66,7 +67,7 @@ function useCodeCopy(html: string, onCopy?: CopyReply) {
       const button = node.ownerDocument.createElement("button");
       button.type = "button";
       button.className = "md-copy";
-      button.textContent = t("reply.copyCode");
+      layCopyFaces(button, t("reply.copyCode"), t("reply.copied"));
       pre.replaceWith(frame);
       frame.append(pre, button);
     }
@@ -113,6 +114,8 @@ function AssistantReply({ items, final, anchor, part, onCopy }: {
   const text = replyText(items);
   const html = renderMarkdown(text, true);
   const code = useCodeCopy(html, final ? onCopy : undefined);
+  // The turn ended on this reply: its actions come in after the card above has folded.
+  const finished = useTurned(final);
   return <article {...anchorData(anchor, part)} className={`agent-assistant${final ? " agent-assistant-final" : " agent-assistant-intermediate"}`}>
     {/* The existing Markdown parser returns sanitized allowlisted HTML. */}
     <div ref={code.root} className="agent-md" onClick={event => {
@@ -122,7 +125,7 @@ function AssistantReply({ items, final, anchor, part, onCopy }: {
         void openChatFile(link.getAttribute('data-file-ref')!, fileOwner);
       } else code.onClick(event);
     }} dangerouslySetInnerHTML={code.markup} />
-    {final && <ReplyActions text={text} onCopy={onCopy} />}
+    {final && <ReplyActions text={text} onCopy={onCopy} arriving={finished} />}
   </article>;
 }
 
@@ -141,7 +144,51 @@ type TurnState = {
   live: boolean; waiting: boolean; stale: boolean; verified: boolean; pending?: PromptProgressNote;
   /** Another turn follows; partial: older pages hold this turn's start. */
   hasNext: boolean; partial: boolean; follow: boolean;
+  /** The reader sent this turn's prompt just now, in front of this stream. */
+  sent: boolean;
+  /** Counts older history put in front of the transcript (see `AgentStream`). */
+  historyLoads: number;
 };
+
+/**
+ * A turn's place for React: its prompt, and which of the turns with that
+ * prompt it is. The transcript's own key (`turnKey`) also names the turn's
+ * first step, so it changes when that step arrives, and an index changes when
+ * older history loads: either would remount a turn that only went on, and a
+ * remounted card cannot be seen changing. A prompt keeps this place from the
+ * moment it is sent until its turn is over.
+ */
+function turnSlots(turns: readonly AgentTurn[]): string[] {
+  const taken = new Map<string, number>();
+  return turns.map((turn) => {
+    const prompt = turn.user ? `${turn.user.type === "command" ? "c" : "u"}:${submittedText(turn.user.text || "")}` : "none";
+    const nth = taken.get(prompt) ?? 0;
+    taken.set(prompt, nth + 1);
+    return `${prompt}:${nth}`;
+  });
+}
+
+/**
+ * The prompt the reader sent while this stream was on screen, for as long as
+ * it waits to be recorded. A prompt already pending when the stream was first
+ * drawn was not seen leaving the field, and once older history has moved the
+ * transcript nothing in it is an arrival.
+ */
+function useSentPrompt(turns: readonly AgentTurn[], historyLoads: number): string | null {
+  const pending = turns.find((turn) => turn.user?.pending)?.user?.text ?? null;
+  const state = useRef<{ pending: string | null; historyLoads: number; sent: string | null } | null>(null);
+  state.current ??= { pending, historyLoads, sent: null };
+  const seen = state.current;
+  if (seen.pending !== pending) {
+    seen.pending = pending;
+    seen.sent = pending;
+    seen.historyLoads = historyLoads;
+  } else if (seen.historyLoads !== historyLoads) {
+    seen.historyLoads = historyLoads;
+    seen.sent = null;
+  }
+  return seen.sent;
+}
 
 function TraceTurn({ turn, state, anchor, kept, onCopy, onTerminal, onAnswered, onOpenStep }: {
   turn: AgentTurn; state: TurnState; anchor: TraceAnchor; kept?: DetailsState; onCopy?: CopyReply; onTerminal?: () => void;
@@ -159,14 +206,16 @@ function TraceTurn({ turn, state, anchor, kept, onCopy, onTerminal, onAnswered, 
   if (state.partial) outcome.detail = [t("work.partial"), outcome.detail].filter(Boolean).join(" · ");
   const models = turnModels(turn.items);
   const card = models !== undefined || entries.length > 0 || interrupted || (live && !state.pending);
+  // The agent stopped to ask while this turn was on screen: its card is raised, not just drawn.
+  const asked = useTurned(live && waiting);
   return <>
-    {turn.user && <TurnHead item={turn.user} anchorData={anchorData(anchor, "user")} />}
-    {state.pending && !turn.items.length && <PendingCard {...state.pending} />}
+    {turn.user && <TurnHead item={turn.user} anchorData={anchorData(anchor, "user")} arriving={state.sent} />}
+    {state.pending && !turn.items.length && <PendingCard {...state.pending} arriving={state.sent} />}
     {card && <WorkCard traceKey={workKey(turn)} entries={entries} outcome={outcome} live={live} follow={state.follow} kept={kept}
-      verified={state.verified} models={models} span={turnSpan(turn.user, turn.items)}
+      verified={state.verified} models={models} span={turnSpan(turn.user, turn.items)} historyLoads={state.historyLoads}
       onOpen={(item, steps) => onOpenStep(item, steps, { key: anchor.key, ordinal: anchor.ordinal })}
       anchor={{ anchor: `${anchor.key}:work`, ordinal: anchor.ordinal, ordinalFromEnd: anchor.ordinalFromEnd }} />}
-    {live && waiting && <NeedsYouCard ask={pendingAsk(turn.items)} onTerminal={onTerminal} onAnswered={onAnswered} />}
+    {live && waiting && <NeedsYouCard ask={pendingAsk(turn.items)} raised={asked} onTerminal={onTerminal} onAnswered={onAnswered} />}
     {reply.length > 0 && <AssistantReply items={reply} final={!live} anchor={anchor} part="reply" onCopy={onCopy} />}
     {compacted && <CompactionDivider />}
   </>;
@@ -195,17 +244,24 @@ function turnAnchor(turn: AgentTurn, index: number, turns: readonly AgentTurn[])
   return { key, ordinal, ordinalFromEnd };
 }
 
+/**
+ * `historyLoads` counts the older pages put in front of the transcript. The
+ * stream reads a change in it as history arriving: nothing drawn by that paint
+ * is news, whatever its place in a list says.
+ */
 export function AgentStream({ items, working, waiting = false, stale = false, verified = false, follow = true, hasOlder = false,
-  progress, empty, busy, kept,
+  historyLoads = 0, progress, empty, busy, kept,
   onRetry, onTerminal, onAnswered, onNeedOlder, onFollow, onCopyReply, onOpenStep, truncated, older, streamRef, signature }: {
   items: AgentTraceItem[]; working: boolean; waiting?: boolean; stale?: boolean; verified?: boolean; progress?: PromptProgressNote | null;
-  follow?: boolean; hasOlder?: boolean;
+  follow?: boolean; hasOlder?: boolean; historyLoads?: number;
   empty: AgentEmptySpec; busy?: boolean; kept?: DetailsState;
   onRetry?: () => void; onTerminal?: () => void; onAnswered?: () => void; onNeedOlder?: () => void; onFollow?: (follow: boolean, stream: HTMLElement) => void;
   onCopyReply?: CopyReply; onOpenStep?: OpenStep; truncated?: boolean;
   older?: ReactNode; streamRef?: Ref<HTMLDivElement>; signature?: string;
 }) {
   const turns = groupAgentTurns(items);
+  const slots = turnSlots(turns);
+  const sent = useSentPrompt(turns, historyLoads);
   const openStep = onOpenStep ?? (() => undefined);
   return <div ref={streamRef} className="agent-stream" role="log" aria-label={t("chat.streamAria")}
     aria-busy={busy === true} tabIndex={0} data-sig={signature} onScroll={event => {
@@ -225,9 +281,10 @@ export function AgentStream({ items, working, waiting = false, stale = false, ve
         const last = index === turns.length - 1;
         const live = working && empty.kind !== "unavailable" && last && turn.items.at(-1)?.type !== "interrupt";
         const pending = turn.user?.pending && progress ? progress : undefined;
-        return <TraceTurn key={`${turnKey(turn)}:${index}`} turn={turn} anchor={turnAnchor(turn, index, turns)}
+        return <TraceTurn key={slots[index]} turn={turn} anchor={turnAnchor(turn, index, turns)}
           state={{ live, waiting: waiting && last, stale, verified, pending, follow,
-            hasNext: !last, partial: index === 0 && hasOlder && !turn.user }}
+            hasNext: !last, partial: index === 0 && hasOlder && !turn.user,
+            sent: turn.user?.pending === true && sent !== null, historyLoads }}
           kept={kept} onCopy={onCopyReply} onTerminal={onTerminal} onAnswered={onAnswered} onOpenStep={openStep} />;
       })}
     </div>

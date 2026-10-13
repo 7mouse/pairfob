@@ -22,6 +22,10 @@ import { isAgentChat, isFullTerminal, openPaneId, selectPane, setAgentChat, setF
 import { clearWorkspacePendingReveal, enterWorkspace, leaveWorkspace, loadGitDiff, loadWorkspaceFile, showWorkspaceTab, workspaceModel } from "./index";
 import { closeWorkspaceInspector, expandWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 import { inspectorOpen } from "./inspector-store";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
+
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
 
 const seedRestorer = new WorkspaceSnapshotRestorer();
 const revision = "a".repeat(64);
@@ -65,6 +69,14 @@ function liveFixture({ git = true, promptAgent }: Fixture = {}) {
     ...(promptAgent ? { promptAgent } : {}),
   };
 }
+
+/** The reader's close lets the column's content go first; the column is gone once that is over. */
+const columnGone = () => act(async () => {
+  const deadline = Date.now() + MOTION_MS.press + 1000;
+  do { await new Promise((resolve) => setTimeout(resolve, 20)); } while (document.querySelector("aside.inspector") && Date.now() < deadline);
+  // Focus is handed back a turn after the close.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+});
 
 async function settle(): Promise<void> {
   await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, 0)); });
@@ -252,6 +264,10 @@ describe("the inspector beside the desk session", () => {
     const incarnation = currentViewIncarnation();
 
     await click(".inspector-close");
+    // The reader's close: the column is still there, marked and out of the pointer's way, while its content goes.
+    expect(inspectorOpen()).toBeTrue();
+    expect(column()?.classList.contains("is-leaving")).toBeTrue();
+    await columnGone();
     expect(inspectorOpen()).toBeFalse();
     expect(column()).toBeNull();
     expect(appRoot().classList.contains("inspector")).toBeFalse();
@@ -334,7 +350,7 @@ describe("the inspector beside the desk session", () => {
     expect(workspaceModel.view).toBe("diff");
     expect(workspaceModel.detailPath).toBe("app.ts");
     expect(inColumn(".inspector-switch-file").textContent).toBe("app.tsM");
-    expect(inColumn(".workspace-diff-note").textContent).toContain("kept");
+    expect(inColumn(`${UNDER} .workspace-diff-note`).textContent).toContain("kept");
     // The session never noticed.
     expect(currentViewIncarnation()).toBe(incarnation);
     expect(composeDraft()).toBe("half a thought");
@@ -380,6 +396,7 @@ describe("the inspector beside the desk session", () => {
     expect(column()).toBeNull();
     await open();
     await click(".inspector-close");
+    await columnGone();
     await resize(800);
     await resize(1440);
     expect(inspectorOpen()).toBeFalse();
@@ -566,14 +583,14 @@ describe("the inspector beside the desk session", () => {
     await settle();
     // Written in place: the editor is a form under the line, not a dialog over the page.
     expect(document.querySelector("dialog[open]")).toBeNull();
-    const textarea = inColumn<HTMLTextAreaElement>(".workspace-diff form.diff-note-inline textarea");
+    const textarea = inColumn<HTMLTextAreaElement>(`.workspace-diff ${UNDER} form.diff-note-inline textarea`);
     await act(async () => {
       textarea.value = "why true";
       textarea.dispatchEvent(new window.Event("input", { bubbles: true }));
       textarea.form?.dispatchEvent(new window.Event("submit", { bubbles: true, cancelable: true }));
     });
     await settle();
-    expect(inColumn(".workspace-diff-note").textContent).toContain("why true");
+    expect(inColumn(`${UNDER} .workspace-diff-note`).textContent).toContain("why true");
 
     await click(".workspace-notes-send");
     await settle();

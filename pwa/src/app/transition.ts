@@ -11,7 +11,24 @@ import { isDesk } from "./viewport";
  * navigation has to declare one, and everything else stays `none`. Getting that
  * backwards would animate the screen while someone is typing into a terminal.
  */
-export type TransitionKind = "push" | "pop" | "fade" | "expand" | "none";
+export type TransitionKind = "push" | "pop" | "fade" | "expand" | "view" | "page-push" | "page-pop" | "none";
+
+/*
+ * Three kinds are moves inside what stays on screen, and say so, so the part
+ * that stays is not moved with the rest:
+ *
+ * - `view`: another view of the same session (guided, chat, the complete
+ *   terminal). Its header is the same header; what is under it arrives.
+ * - `page-push` / `page-pop`: one page deeper under the same tab, and back
+ *   (Settings to a computer's page). The tab bar is the same bar.
+ */
+
+/** What a declared kind becomes on the layout in front of the reader. */
+function effectiveKind(kind: TransitionKind): TransitionKind {
+  if (kind === "view") return kind;
+  // On a desk layout the pane is already beside the list, so nothing travels.
+  return isDesk() ? "fade" : kind;
+}
 
 /**
  * Mirrors `state.Screen`, declared here so this module imports nothing from
@@ -134,11 +151,11 @@ export function withTransition(kind: TransitionKind, paint: () => void): void {
     paint();
     return;
   }
-  // On a desk layout the pane is already beside the list, so nothing travels.
-  const effective: TransitionKind = isDesk() ? "fade" : kind;
+  const effective = effectiveKind(kind);
   const root = document.documentElement;
   const start = (document as ViewTransitionDocument).startViewTransition;
-  if (typeof start !== "function") {
+  // The moves inside a screen have no captured pair to animate: arrival only.
+  if (typeof start !== "function" || kind === "view" || kind === "page-push" || kind === "page-pop") {
     // Older WebKit: animate the arriving screen only. Cloning a live terminal
     // grid to animate the outgoing one costs more than the effect is worth.
     runFallbackTransition(effective, paint);
@@ -184,7 +201,7 @@ export function withSynchronousTransition(kind: TransitionKind, paint: () => voi
     paint();
     return;
   }
-  runFallbackTransition(isDesk() ? "fade" : kind, paint);
+  runFallbackTransition(effectiveKind(kind), paint);
 }
 
 /** Long enough for the arrival animation, matching --dur-4 plus a frame. */
@@ -259,6 +276,8 @@ function settleMorph(): void {
 }
 
 function inView(element: HTMLElement): boolean {
+  // A row of a folded group is laid out and clipped away: it has a box and nothing to land on.
+  if (element.closest("[inert]")) return false;
   const rect = element.getBoundingClientRect();
   if (rect.width <= 0 || rect.height <= 0) return false;
   const height = window.visualViewport?.height ?? window.innerHeight;

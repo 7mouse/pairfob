@@ -7,8 +7,8 @@ import { computerTitle } from "../../lib/computer-catalog";
 import { t } from "../../lib/i18n";
 import { leaveSettings } from "../../features/settings/actions";
 import { useLang } from "../../features/settings/language";
-import { screenWake, screenWakeMode } from "../../features/session/screen-wake-lifecycle";
 import { setSettingsSection, settingsSection, subscribeSettingsSection } from "../../features/settings/settings-section";
+import { travelSettingsSection } from "./section-travel";
 import { herdStatusOf } from "../../features/connection/herd-status";
 import { AppNotice } from "../../app/notice";
 import { BackBar } from "../../shared/ui/primitives";
@@ -38,12 +38,11 @@ function useSettingsView() {
   useLayoutEffect(() => {
     if (section !== "overview") window.scrollTo(0, 0);
   }, [section]);
-  const wake = useSyncExternalStore(screenWake.subscribe, screenWake.get);
-  return { connection, runtime, preferences, computers, section, wake };
+  return { connection, runtime, preferences, computers, section };
 }
 
 export function SettingsContent({ withBack }: { withBack: boolean }) {
-  const { connection, runtime, preferences, computers, section, wake } = useSettingsView();
+  const { connection, runtime, preferences, computers, section } = useSettingsView();
   useLang();
   // Project the status row from the same published snapshots the surrounding
   // panel reads. The live handle is the snapshot's opaque identity; a staged
@@ -67,7 +66,7 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
   };
   const computerName = runtime.herdHost || (computers.credential ? computerTitle(computers.credential) : t("settings.currentComputer"));
   const link = linkState(status, network, connected);
-  const back = section === "overview" ? (withBack ? leaveSettings : null) : () => setSettingsSection("overview");
+  const back = section === "overview" ? (withBack ? leaveSettings : null) : () => travelSettingsSection("overview");
   const named = useNameUnderBar(section === "connection");
   const title = section === "connection" ? (named ? computerName : t("settings.computer")) : t("settings.title");
   return (
@@ -92,11 +91,6 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
             pushEnabled: runtime.pushEnabled,
             pushSubscribed: runtime.pushSubscribed,
             error: runtime.pushConfigError,
-          },
-          screenWake: {
-            mode: screenWakeMode(preferences.screenWake),
-            supported: wake.status !== "unsupported",
-            denied: wake.denied,
           },
           desk: withBack,
         }} />

@@ -17,6 +17,7 @@ import { setHerdSessionList } from "../../herd-sessions/store";
 import type { LiveSession } from "../../../lib/protocol/session-types";
 import { HerdSessionRow } from "../../herd-sessions/herd-session-row";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 import { bindOverlayOrigin, overlayOrigin } from "../../../shared/ui/overlay/origin";
 import type { HerdActions } from "../actions";
 import { workspaceMenuModel } from "../model/object-menu";
@@ -167,7 +168,7 @@ describe("herd screen presentation", () => {
   test("the desktop rail is a fixed head, search and foot around the one region that scrolls", () => {
     paint(model({ agents: [agent("wait", "alpha", "blocked"), agent("p2", "beta")] }), "rail");
     expect([...app().querySelector(".rail")!.children].map((node) => node.className))
-      .toEqual(["rail-head", "rail-search", "attn-wrap", "rail-list", "rail-nav"]);
+      .toEqual(["rail-head", "rail-search", "fold attn-wrap", "rail-list", "rail-nav"]);
     // The list, and only the list, sits in the scrolling region.
     expect(app().querySelector(".rail-list > .herd-list")).not.toBeNull();
     expect(app().querySelectorAll(".rail .herd-list")).toHaveLength(1);
@@ -305,7 +306,7 @@ describe("herd screen presentation", () => {
     expect(app().querySelector(".rail-nav [aria-current]")).toBeNull();
   });
 
-  test("the needs-you strip lists waiting rows first and opens a pane directly", () => {
+  test("the needs-you strip lists waiting rows first and opens a pane directly", async () => {
     paint(model({ agents: [agent("done", "alpha", "done"), agent("wait", "beta", "blocked"), terminal("sh", "beta")] }));
     const tickets = [...app().querySelectorAll<HTMLButtonElement>(".attn-ticket")];
     expect(tickets.map((node) => node.querySelector(".attn-ticket-name")?.textContent)).toEqual(["wait", "done"]);
@@ -319,9 +320,16 @@ describe("herd screen presentation", () => {
     expect(app().querySelector(".attn-wrap")?.hasAttribute("inert")).toBe(false);
     act(() => tickets[0].click());
     expect(calls).toEqual(["attention:wait"]);
-    // Nothing waiting, no strip.
+    // Nothing waiting: the strip shuts over what it held, out of reach, and is gone once it has.
     paint(model());
+    const wrap = app().querySelector<HTMLElement>(".attn-wrap")!;
+    expect(wrap.classList.contains("is-shut")).toBe(true);
+    expect(wrap.hasAttribute("inert")).toBe(true);
+    expect(app().querySelector(".attn-count")?.textContent).toBe("2");
+    expect([...app().querySelectorAll(".attn-ticket")].every((node) => node.classList.contains("is-leaving"))).toBe(true);
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, MOTION_MS.panel + 40)); });
     expect(app().querySelector(".attn-strip")).toBeNull();
+    expect(app().querySelector(".attn-wrap")).not.toBeNull();
   });
 
   test("scrolling folds the header: the strip steps back and the pill takes its place", async () => {

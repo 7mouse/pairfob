@@ -9,7 +9,7 @@ import { unreachableHop } from "../../features/connection/connection-path";
 import { connectFailure, setRetryingUnreachable } from "../../features/connection/connection-store";
 import { pointerFine } from "../../app/input-mode";
 import { MenuChoice, showActionSheet } from "../../shared/ui/overlay";
-import { Button, StatusDot } from "../../shared/ui/primitives";
+import { Button, StatusDot, Swap } from "../../shared/ui/primitives";
 import { CommandLine } from "../../features/dashboard/components/herd-empty";
 import { ConnectionPathCard } from "./connection-path-card";
 
@@ -115,12 +115,23 @@ export function UnreachableBody({ retrying }: { retrying: boolean }) {
       </section>
       <div className="conn-retry-dock">
         <Button className="btn btn-primary conn-retry" disabled={retrying} onClick={retryUnreachable}>
-          {retrying ? <span className="spinner conn-retry-spin" aria-hidden="true" /> : <RefreshCw size={18} aria-hidden="true" />}
-          {retrying ? t("unreach.retrying") : t("unreach.retryNow")}
+          {/* One box for the mark and one cell for both labels (the other one is
+              `data-reserve`, drawn unseen), so starting a retry resizes nothing. */}
+          <span className="conn-retry-mark" aria-hidden="true">
+            {retrying ? <span className="spinner conn-retry-spin" /> : <RefreshCw size={18} />}
+          </span>
+          <span className="conn-retry-label" data-reserve={retrying ? t("unreach.retryNow") : t("unreach.retrying")}>
+            <Swap on={retrying ? "retrying" : "idle"}>{retrying ? t("unreach.retrying") : t("unreach.retryNow")}</Swap>
+          </span>
         </Button>
-        <small className="conn-retry-note" aria-live="polite">
-          {retrying ? " " : t("unreach.autoRetry", { n: String(left) })}
-          {retrying ? null : <>{" · "}<Button className="text-link conn-retry-add" onClick={beginAddComputer}>{t("unreach.add")}</Button></>}
+        {/* A retry has no countdown, and another computer cannot be added while
+            one runs (`beginAddComputer`). The way out keeps its place, held, so
+            the line under the button is never an empty one and nothing above
+            it moves. */}
+        <small className="conn-retry-note">
+          <span aria-live="polite">{retrying ? null : t("unreach.autoRetry", { n: String(left) })}</span>
+          {retrying ? null : " · "}
+          <Button className="text-link conn-retry-add" disabled={retrying} onClick={beginAddComputer}>{t("unreach.add")}</Button>
         </small>
       </div>
     </>

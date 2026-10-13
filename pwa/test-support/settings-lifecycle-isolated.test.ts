@@ -110,11 +110,12 @@ test("persistent manual copy label follows language repaint", () => {
   act(() => setLang("zh"));
   act(() => render(ManualUpdateHelp));
   const before = appRoot().querySelector("button")!;
-  expect(before.textContent).toBe(t("update.copyCommand"));
+  const says = () => before.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent;
+  expect(says()).toBe(t("update.copyCommand"));
   act(() => setLang("en"));
   act(() => render(ManualUpdateHelp));
   expectSameNode(appRoot().querySelector("button"), before);
-  expect(before.textContent).toBe(t("update.copyCommand"));
+  expect(says()).toBe(t("update.copyCommand"));
 });
 
 test("compact later hides even if browser storage is unavailable", async () => {

@@ -137,8 +137,11 @@ describe("guided dock driven by a mouse beside the list", () => {
     expect(modeOption("组字")?.getAttribute("aria-pressed")).toBe("true");
     expect(modeOption("实时")?.getAttribute("aria-pressed")).toBe("false");
 
+    // The switch is one node through the change, so its thumb slides to the pressed side.
+    const track = root().querySelector(".dock-mode-switch");
     await act(async () => { modeOption("实时")!.click(); await Promise.resolve(); await Promise.resolve(); });
     expect(composeLive()).toBeTrue();
+    expectSameNode(root().querySelector(".dock-mode-switch"), track);
     // The current mode's line leads; a narrow column drops the other one whole.
     expect([...root().querySelectorAll(".dock-mode-hint span")].map((el) => el.textContent))
       .toEqual(["实时：每个键都发到会话，F6 移出", "组字：写完再发，Enter 发送"]);

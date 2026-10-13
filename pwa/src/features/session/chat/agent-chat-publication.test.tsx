@@ -577,7 +577,7 @@ test("a Cursor session shows finished steps as ended, never as a verified succes
     tabs: [{ tab_id: "w1:t1", workspace_id: "w1", label: "main" }],
     panes: [{ pane_id: "p1", workspace_id: "w1", tab_id: "w1:t1", cwd: "/repo", agent, agent_status: "idle", history_available: true }],
   });
-  const card = () => appRoot().querySelector("details.work-card")?.className;
+  const card = () => appRoot().querySelector(".work-card")?.className;
   // Codex records how its commands ended, so with trace_labels a done step is a success.
   await act(async () => mount());
   expect(card()).toBe("work-card is-done");

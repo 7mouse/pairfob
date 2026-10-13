@@ -17,11 +17,41 @@
   background: var(--line-strong);
 }
 
+/* The bar is a length: a refreshed share travels there from the old one. The
+   width is the same inline value on every repaint, so a poll moves nothing. */
 .quota-bar i {
   display: block;
   height: 100%;
   border-radius: 99px;
   background: var(--accent);
+  transition: width var(--dur-3) var(--ease), background-color var(--dur-3) var(--ease);
+}
+
+/* A meter that was just read (`is-arriving`, see `arrivals.ts`) grows from
+   nothing, each row one step after the one above it, the list cards' rhythm. */
+.quota-meter.is-arriving .quota-bar i {
+  animation: quota-grow var(--dur-4) var(--ease) backwards;
+  animation-delay: calc(min(var(--quota-i, 0), 6) * 40ms);
+}
+
+@keyframes quota-grow {
+  from { width: 0; }
+}
+
+/* The row or card it came in fades in over the loading row it replaces. */
+.quota-row.is-arriving,
+.quota-card.is-arriving { animation: fade-in var(--dur-2) var(--ease); }
+
+/* The refresh control turns its mark once for each press (`pages/quota`). */
+.quota-refresh > svg.is-turning { animation: quota-turn var(--dur-4) var(--ease); }
+
+@keyframes quota-turn {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quota-meter.is-arriving .quota-bar i,
+  .quota-refresh > svg.is-turning { animation: none; }
 }
 
 .quota-meter.is-warn .quota-bar i { background: var(--warn); }

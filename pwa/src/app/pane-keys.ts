@@ -8,7 +8,7 @@ import { handlePaneKey } from "../features/session/guided/compose";
 import { controlKeepsKey, inspectorToggleHasFocus, sessionChosenTakes, sessionControlHasFocus, sessionHoldsKeys }
   from "../features/session/key-target";
 import { isAgentChat, isFullTerminal, termSelect } from "../features/session/session-store";
-import { closeWorkspaceInspector } from "../features/workspace/inspector";
+import { leaveWorkspaceInspector } from "../features/workspace/inspector";
 import { declineModifiedPress } from "../shared/ui/dom/plain-press";
 import { dismissPopovers } from "../shared/ui/overlay/popover";
 import { moveKeyboardToColumn } from "./column-keys";
@@ -80,7 +80,7 @@ export function bindPaneKeys(signal: AbortSignal, openPalette: () => void = open
     event.stopImmediatePropagation();
     if (!closes) return;
     closingEscape = true;
-    closeWorkspaceInspector();
+    leaveWorkspaceInspector();
   }, { capture: true, signal });
   document.addEventListener("keyup", (event) => {
     if (event.key === "Escape") closingEscape = false;

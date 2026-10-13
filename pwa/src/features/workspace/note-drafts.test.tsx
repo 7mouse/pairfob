@@ -19,6 +19,16 @@ import { selectPane, setAgentChat, setFullTerminal } from "../session/session-st
 import { clearWorkspacePendingReveal, closeWorkspaceDetail, enterWorkspace, leaveWorkspace, loadGitDiff, workspaceModel } from "./index";
 import { closeWorkspaceInspector, expandWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
+/** The line a note's form or card stands under: what comes before everything the note keeps there. */
+const lineOver = (piece: Element | null | undefined): Element | null => {
+  let before = piece?.closest(".diff-note-fold")?.previousElementSibling ?? null;
+  while (before?.matches(".diff-note-fold")) before = before.previousElementSibling;
+  return before;
+};
+
 /**
  * A half-written line note belongs to its pane, diff and line. The inspector
  * and the workspace screen both show it as the form under its line, or as the
@@ -157,22 +167,22 @@ async function leaveScreen(): Promise<void> {
 
 /** The form under the line in the inspector; null while none is open. */
 function inline(): HTMLTextAreaElement | null {
-  return column()?.querySelector<HTMLTextAreaElement>("form.diff-note-inline textarea") ?? null;
+  return column()?.querySelector<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`) ?? null;
 }
 
 /** The screen's card for a note that was set aside, not saved yet. */
 function card(): HTMLElement | null {
-  return appRoot().querySelector<HTMLElement>(".workspace-shell .workspace-diff-note.is-draft");
+  return appRoot().querySelector<HTMLElement>(`.workspace-shell ${UNDER} .workspace-diff-note.is-draft`);
 }
 
 /** The form under the line on the workspace screen; null while none is open. */
 function screenField(): HTMLTextAreaElement | null {
-  return appRoot().querySelector<HTMLTextAreaElement>(".workspace-shell form.diff-note-inline textarea");
+  return appRoot().querySelector<HTMLTextAreaElement>(`.workspace-shell ${UNDER} form.diff-note-inline textarea`);
 }
 
 /** The column's card for a note left with Escape. */
 function columnCard(): HTMLElement | null {
-  return column()?.querySelector<HTMLElement>(".workspace-diff-note.is-draft") ?? null;
+  return column()?.querySelector<HTMLElement>(`${UNDER} .workspace-diff-note.is-draft`) ?? null;
 }
 
 function escapeKey(target: Element): void {
@@ -236,14 +246,14 @@ describe("a half-written note, from the inspector to the workspace screen and ba
     // The same form, under the same line; no dialog covers the diff.
     expect(document.querySelector("dialog[open]")).toBeNull();
     expect(screenField()?.value).toBe("half written");
-    expect(screenField()?.closest("form")?.previousElementSibling === onScreen(".workspace-diff-line.diff-add")).toBeTrue();
-    expect(onScreen("form.diff-note-inline").getAttribute("aria-label")).toBe("给第 2 行写批注");
-    expect(onScreen(".diff-note-inline-save").hasAttribute("disabled")).toBeFalse();
+    expect(lineOver(screenField()) === onScreen(".workspace-diff-line.diff-add")).toBeTrue();
+    expect(onScreen(`${UNDER} form.diff-note-inline`).getAttribute("aria-label")).toBe("给第 2 行写批注");
+    expect(onScreen(`${UNDER} .diff-note-inline-save`).hasAttribute("disabled")).toBeFalse();
     // It waits there: the reader pressed the files button since, so the keyboard is theirs to bring.
     expectDifferentNode(document.activeElement, screenField());
     // Not a saved note: nothing to send yet.
     expect(diffNotesFor("app.ts", "worktree")).toHaveLength(0);
-    expect(appRoot().querySelector(".workspace-notes-bar")).toBeNull();
+    expect(appRoot().querySelector(".workspace-notes-bar:not(.is-leaving)")).toBeNull();
 
     await resize(1440);
     // Widening does not leave the screen, and the form is still there.
@@ -251,8 +261,8 @@ describe("a half-written note, from the inspector to the workspace screen and ba
     expect(screenField()?.value).toBe("half written");
     await leaveScreen();
     expect(inline()?.value).toBe("half written");
-    expect(inline()?.closest("form")?.previousElementSibling === inColumn(".workspace-diff-line.diff-add")).toBeTrue();
-    expect(inColumn(".diff-note-inline-save").hasAttribute("disabled")).toBeFalse();
+    expect(lineOver(inline()) === inColumn(".workspace-diff-line.diff-add")).toBeTrue();
+    expect(inColumn(`${UNDER} .diff-note-inline-save`).hasAttribute("disabled")).toBeFalse();
   });
 
   test("expanding the column into the screen carries it too", async () => {
@@ -289,11 +299,11 @@ describe("a half-written note, from the inspector to the workspace screen and ba
 
     await openScreen();
     expect(screenField()?.value).toBe("begun on the screen");
-    expect(screenField()?.closest("form")?.previousElementSibling === onScreen(".workspace-diff-line.diff-delete")).toBeTrue();
+    expect(lineOver(screenField()) === onScreen(".workspace-diff-line.diff-delete")).toBeTrue();
     await leaveScreen();
     await resize(1440);
     expect(inline()?.value).toBe("begun on the screen");
-    expect(inline()?.closest("form")?.previousElementSibling === inColumn(".workspace-diff-line.diff-delete")).toBeTrue();
+    expect(lineOver(inline()) === inColumn(".workspace-diff-line.diff-delete")).toBeTrue();
     // Brought back, it waits: the keyboard stays where the reader left it.
     expectDifferentNode(document.activeElement, inline());
   });
@@ -400,8 +410,8 @@ describe("the column's editor, back after the window had no room for it", () => 
 
       await press(inColumn(".workspace-diff-line.diff-delete"));
       // Still the one note of this diff, under the line it was written on.
-      expect(column()!.querySelectorAll("form.diff-note-inline")).toHaveLength(1);
-      expect(inColumn("form.diff-note-inline").previousElementSibling === inColumn(".workspace-diff-line.diff-add")).toBeTrue();
+      expect(column()!.querySelectorAll(`${UNDER} form.diff-note-inline`)).toHaveLength(1);
+      expect(lineOver(inColumn(`${UNDER} form.diff-note-inline`)) === inColumn(".workspace-diff-line.diff-add")).toBeTrue();
       expect(inline() === field).toBeTrue();
       expectSameNode(document.activeElement, field);
       // The next words go after the ones already there, not in front of them.
@@ -474,30 +484,30 @@ describe("an answer on either side lets go of the note on both", () => {
 
   test("Cancel on the card", async () => {
     await parked("never mind");
-    await press(onScreen(".diff-note-discard"));
+    await press(onScreen(`${UNDER} .diff-note-discard`));
     expect(card()).toBeNull();
     expect(diffNotesFor("app.ts", "worktree")).toHaveLength(0);
     await backInColumn();
     expect(inline()).toBeNull();
-    expect(column()?.querySelector(".workspace-diff-note")).toBeNull();
+    expect(column()?.querySelector(`${UNDER} .workspace-diff-note`)).toBeNull();
   });
 
   test("Save on the card saves the words as they stand", async () => {
     await parked("  keep this  ");
-    await press(onScreen(".diff-note-keep"));
+    await press(onScreen(`${UNDER} .diff-note-keep`));
     expect(card()).toBeNull();
     expect(diffNotesFor("app.ts", "worktree").map((note) => [note.line, note.body])).toEqual([[2, "keep this"]]);
-    expect(onScreen(".workspace-diff-note .diff-note-body").textContent).toBe("keep this");
+    expect(onScreen(`${UNDER} .workspace-diff-note .diff-note-body`).textContent).toBe("keep this");
     expect(onScreen(".workspace-notes-count").textContent).toBe("1 条批注待发送");
     await backInColumn();
     expect(inline()).toBeNull();
-    expect(inColumn(".workspace-diff-note").textContent).toContain("keep this");
+    expect(inColumn(`${UNDER} .workspace-diff-note`).textContent).toContain("keep this");
   });
 
   test("Cancel in the screen's form", async () => {
     await open("never mind");
     await type(screenField()!, "never mind at all");
-    await press(onScreen(".diff-note-inline-cancel"));
+    await press(onScreen(`${UNDER} .diff-note-inline-cancel`));
     expect(screenField()).toBeNull();
     expect(card()).toBeNull();
     await backInColumn();
@@ -514,13 +524,13 @@ describe("an answer on either side lets go of the note on both", () => {
     expect(diffNotesFor("app.ts", "worktree").map((note) => note.body)).toEqual(["almost there"]);
     await backInColumn();
     expect(inline()).toBeNull();
-    expect(inColumn(".workspace-diff-note").textContent).toContain("almost there");
+    expect(inColumn(`${UNDER} .workspace-diff-note`).textContent).toContain("almost there");
   });
 
   test("Save or Cancel in the column, for a note the screen was showing", async () => {
     await open("in the column");
     await backInColumn();
-    await press(inColumn(".diff-note-inline-cancel"));
+    await press(inColumn(`${UNDER} .diff-note-inline-cancel`));
     await resize(800);
     await openScreen();
     expect(screenField()).toBeNull();
@@ -533,7 +543,7 @@ describe("an answer on either side lets go of the note on both", () => {
     await openScreen();
     expect(screenField()).toBeNull();
     expect(card()).toBeNull();
-    expect(onScreen(".workspace-diff-note .diff-note-body").textContent).toBe("saved in the column");
+    expect(onScreen(`${UNDER} .workspace-diff-note .diff-note-body`).textContent).toBe("saved in the column");
   });
 });
 
@@ -543,12 +553,12 @@ describe("the screen's form around a note in progress", () => {
     await setAsideInColumn("half written");
     await resize(800);
     await openScreen();
-    await press(onScreen(".diff-note-resume"));
+    await press(onScreen(`${UNDER} .diff-note-resume`));
     expect(screenField()?.value).toBe("half written");
     expectSameNode(document.activeElement, screenField());
     expect([screenField()?.selectionStart, screenField()?.selectionEnd]).toEqual([12, 12]);
-    expect(onScreen(".diff-note-inline-save").hasAttribute("disabled")).toBeFalse();
-    expect(onScreen("form.diff-note-inline .diff-note-count").textContent).toBe("12 / 2000");
+    expect(onScreen(`${UNDER} .diff-note-inline-save`).hasAttribute("disabled")).toBeFalse();
+    expect(onScreen(`${UNDER} form.diff-note-inline .diff-note-count`).textContent).toBe("12 / 2000");
     // The form shows it now, so the card does not say it twice.
     expect(card()).toBeNull();
   });
@@ -561,10 +571,10 @@ describe("the screen's form around a note in progress", () => {
     const field = screenField()!;
     await press(onScreen(".workspace-diff-line.diff-delete"));
     // Still the one note of this diff, under the line it was written on, and now with the keyboard.
-    expect(appRoot().querySelectorAll(".workspace-shell form.diff-note-inline")).toHaveLength(1);
+    expect(appRoot().querySelectorAll(`.workspace-shell ${UNDER} form.diff-note-inline`)).toHaveLength(1);
     expect(screenField() === field).toBeTrue();
     expect(field.value).toBe("not dropped");
-    expect(field.closest("form")?.previousElementSibling === onScreen(".workspace-diff-line.diff-add")).toBeTrue();
+    expect(lineOver(field.closest("form")) === onScreen(".workspace-diff-line.diff-add")).toBeTrue();
     expectSameNode(document.activeElement, field);
   });
 
@@ -578,11 +588,11 @@ describe("the screen's form around a note in progress", () => {
     await escape(inline()!);
     await resize(800);
     await openScreen();
-    const cards = [...appRoot().querySelectorAll(".workspace-shell .workspace-diff-note")];
+    const cards = [...appRoot().querySelectorAll(`.workspace-shell ${UNDER} .workspace-diff-note`)];
     expect(cards.map((item) => [item.classList.contains("is-draft"), item.querySelector(".diff-note-body")?.textContent]))
       .toEqual([[false, "first"], [true, "first, reworded"]]);
     expect(card()?.querySelector(".diff-note-resume")?.getAttribute("aria-label")).toBe("编辑第 2 行的批注");
-    await press(onScreen(".diff-note-keep"));
+    await press(onScreen(`${UNDER} .diff-note-keep`));
     expect(diffNotesFor("app.ts", "worktree").map((note) => note.body)).toEqual(["first, reworded"]);
     expect(card()).toBeNull();
   });
@@ -596,11 +606,11 @@ describe("the screen's form around a note in progress", () => {
     await resize(800);
     await openScreen();
     expect(screenField()?.value).toBe("first, reworded");
-    expect(onScreen("form.diff-note-inline").getAttribute("aria-label")).toBe("编辑第 2 行的批注");
-    expect(appRoot().querySelector(".workspace-shell .workspace-diff-note")).toBeNull();
+    expect(onScreen(`${UNDER} form.diff-note-inline`).getAttribute("aria-label")).toBe("编辑第 2 行的批注");
+    expect(appRoot().querySelector(`.workspace-shell ${UNDER} .workspace-diff-note`)).toBeNull();
     // Cancel puts the saved note back as it was.
-    await press(onScreen(".diff-note-inline-cancel"));
-    expect(onScreen(".workspace-diff-note .diff-note-body").textContent).toBe("first");
+    await press(onScreen(`${UNDER} .diff-note-inline-cancel`));
+    expect(onScreen(`${UNDER} .workspace-diff-note .diff-note-body`).textContent).toBe("first");
     expect(diffNotesFor("app.ts", "worktree").map((note) => note.body)).toEqual(["first"]);
   });
 
@@ -612,13 +622,13 @@ describe("the screen's form around a note in progress", () => {
     await openScreen();
     expect(card()).toBeNull();
     expect(screenField()?.value).toBe("");
-    expect(screenField()?.closest("form")?.previousElementSibling === onScreen(".workspace-diff-line.diff-add")).toBeTrue();
+    expect(lineOver(screenField()) === onScreen(".workspace-diff-line.diff-add")).toBeTrue();
     // Nothing would be lost, so another line simply takes the form.
     await press(onScreen(".workspace-diff-line.diff-delete"));
-    expect(appRoot().querySelectorAll(".workspace-shell form.diff-note-inline")).toHaveLength(1);
+    expect(appRoot().querySelectorAll(`.workspace-shell ${UNDER} form.diff-note-inline`)).toHaveLength(1);
     expect(screenField()?.value).toBe("");
-    expect(screenField()?.closest("form")?.previousElementSibling === onScreen(".workspace-diff-line.diff-delete")).toBeTrue();
-    expect(onScreen("form.diff-note-inline").getAttribute("aria-label")).toBe("给第 2 行写批注");
+    expect(lineOver(screenField()) === onScreen(".workspace-diff-line.diff-delete")).toBeTrue();
+    expect(onScreen(`${UNDER} form.diff-note-inline`).getAttribute("aria-label")).toBe("给第 2 行写批注");
   });
 
   test("with no note in progress a press opens it empty, and nothing is kept after Cancel", async () => {
@@ -630,9 +640,9 @@ describe("the screen's form around a note in progress", () => {
     await press(onScreen(".workspace-diff-line.diff-add"));
     expect(screenField()?.value).toBe("");
     expectSameNode(document.activeElement, screenField());
-    expect(onScreen(".diff-note-inline-save").hasAttribute("disabled")).toBeTrue();
+    expect(onScreen(`${UNDER} .diff-note-inline-save`).hasAttribute("disabled")).toBeTrue();
     await type(screenField()!, "typed, then cancelled");
-    await press(onScreen(".diff-note-inline-cancel"));
+    await press(onScreen(`${UNDER} .diff-note-inline-cancel`));
     expect(screenField()).toBeNull();
     expect(card()).toBeNull();
     await press(onScreen(".workspace-diff-line.diff-add"));
@@ -653,12 +663,12 @@ describe("Escape leaves an editor without an answer, like every other way out", 
     // The diff under the note stayed open: the key was the note's.
     expect(workspaceModel.view).toBe("diff");
     expect(card()?.querySelector(".diff-note-body")?.textContent).toBe("begun on the screen");
-    expect(card()?.previousElementSibling === onScreen(".workspace-diff-line.diff-delete")).toBeTrue();
+    expect(lineOver(card()) === onScreen(".workspace-diff-line.diff-delete")).toBeTrue();
     expect(diffNotesFor("app.ts", "worktree")).toHaveLength(0);
 
-    await press(onScreen(".diff-note-resume"));
+    await press(onScreen(`${UNDER} .diff-note-resume`));
     expect(screenField()?.value).toBe("begun on the screen");
-    await press(onScreen(".diff-note-inline-cancel"));
+    await press(onScreen(`${UNDER} .diff-note-inline-cancel`));
     expect(screenField()).toBeNull();
     expect(card()).toBeNull();
   });
@@ -691,7 +701,7 @@ describe("Escape leaves an editor without an answer, like every other way out", 
 
     // Taken up again on the screen and left when the screen goes: the editor was open, so the column opens it.
     await change(() => expandWorkspaceInspector());
-    await press(onScreen(".diff-note-resume"));
+    await press(onScreen(`${UNDER} .diff-note-resume`));
     await type(screenField()!, "aside, and more");
     await leaveScreen();
     expect(columnCard()).toBeNull();

@@ -1,15 +1,16 @@
 import { topDialogBack } from "../shared/ui/overlay/back";
 import { closeWorkspaceDetail } from "../features/workspace/actions";
 import { workspaceBackAction } from "../features/workspace/back";
-import { closeWorkspaceInspector } from "../features/workspace/inspector";
+import { leaveWorkspaceInspector } from "../features/workspace/inspector";
 import { getWorkspaceSnapshot, subscribeWorkspace } from "../features/workspace/store";
 import { listBeside } from "../features/workspace/list-beside";
 import { leaveComputers } from "../features/computers/actions";
 import { computersBackTarget } from "../features/computers/model";
 import { openPaneId } from "../features/session/session-store";
 import { leaveSettings } from "../features/settings/actions";
-import { setSettingsSection, settingsSection, subscribeSettingsSection } from "../features/settings/settings-section";
+import { settingsSection, subscribeSettingsSection } from "../features/settings/settings-section";
 import { leaveBoardForList } from "../pages/board/board-bridge";
+import { travelSettingsSection } from "../pages/settings/section-travel";
 import { goBackFromPane } from "../features/session/pane-actions";
 import { currentScreen, computersFrom, goToScreen } from "./navigation-store";
 import { getAppFrame } from "./frame";
@@ -27,12 +28,12 @@ export function systemBackAction(): (() => void | Promise<void>) | null {
     // A column's detail has its own Close; a wide workspace header leaves the
     // whole screen. A narrow screen uncovers the list, then climbs folders.
     if (workspace.view !== "browser" && (layout.shell.inspector || !listBeside())) return closeWorkspaceDetail;
-    return screen === "workspace" ? workspaceBackAction(workspace, listBeside()) : closeWorkspaceInspector;
+    return screen === "workspace" ? workspaceBackAction(workspace, listBeside()) : leaveWorkspaceInspector;
   }
   if (screen === "pane") return () => goBackFromPane();
   if (screen === "board" && layout.shell.railHidden) return leaveBoardForList;
   if (screen === "settings") {
-    if (settingsSection() !== "overview") return () => setSettingsSection("overview");
+    if (settingsSection() !== "overview") return () => travelSettingsSection("overview");
     return layout.shell.desk ? leaveSettings : null;
   }
   if (screen === "computers") return () => leaveComputers(computersBackTarget({

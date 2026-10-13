@@ -1,4 +1,4 @@
-import { expectSameNode } from "../../../test-support/node-identity";
+import { expectDifferentNode, expectSameNode } from "../../../test-support/node-identity";
 import { happy, resetBoardTestDOM } from "../../../test-support/dom";
 import { beforeEach, afterEach, describe, expect, test } from "bun:test";
 import { act } from "react";
@@ -366,6 +366,24 @@ test("quota refresh keeps focus on the refresh button across a loading repaint",
   const again = appRoot().querySelector(".quota-refresh");
   expect(again).toBeInstanceOf(HTMLButtonElement);
   expectSameNode(document.activeElement, again);
+});
+
+test("the refresh mark turns once for each press, and not because a read is under way", async () => {
+  mountLiveOn("quota");
+  useSession(async () => [sample()]);
+  await act(async () => { await refreshAgentQuota(); });
+  const mark = () => appRoot().querySelector(".quota-refresh > svg")!;
+  // A read the page started itself turns nothing.
+  expect(mark().classList.contains("is-turning")).toBeFalse();
+  const first = mark();
+  await act(async () => appRoot().querySelector<HTMLButtonElement>(".quota-refresh")!.click());
+  await settle();
+  // The read is back already; the mark is a new node, so its turn plays whole.
+  expect(mark().classList.contains("is-turning")).toBeTrue();
+  expectDifferentNode(mark(), first);
+  const turned = mark();
+  await act(async () => { await refreshAgentQuota(); });
+  expectSameNode(mark(), turned);
 });
 
 describe("Cursor CLI quota auth states", () => {

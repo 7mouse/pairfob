@@ -25,13 +25,14 @@ test("each turn retains its own model beside elapsed time, steps and reply", () 
   paint(turn("first", first));
   const oldCard = appRoot().querySelector(".work-card");
   paint([...turn("first", first), ...turn("second", second)]);
-  const cards = [...appRoot().querySelectorAll<HTMLDetailsElement>(".work-card")];
+  const cards = [...appRoot().querySelectorAll<HTMLElement>(".work-card")];
   expect(cards[0]).toBe(oldCard);
   expect(cards[0].querySelector(".work-detail")?.textContent).toContain("gpt-5 · high");
   expect(cards[1].querySelector(".work-detail")?.textContent).toContain("gpt-5-mini · low");
   expect(cards[0].querySelector(".work-detail")?.textContent).toContain(t("work.elapsed", { time: "1 分 12 秒" }));
   expect(cards[0].querySelectorAll(".work-step")).toHaveLength(1);
-  act(() => { cards[0].open = true; });
+  act(() => cards[0].querySelector<HTMLButtonElement>("button.work-head")!.click());
+  expect(cards[0].querySelector(".fold")?.hasAttribute("inert")).toBeFalse();
   expect(cards[0].querySelector(".work-models")?.textContent).toContain("Thinking efforthigh");
   expect(appRoot().querySelectorAll(".agent-assistant-final")).toHaveLength(2);
 });

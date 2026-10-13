@@ -8,6 +8,9 @@ import { workspaceLive, type FixtureChange } from "../../../test-support/workspa
 import { loadGitDiff, loadWorkspaceFile, showWorkspaceTab, workspaceModel } from "./index";
 import { workspaceWrap } from "./prefs";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
 /**
  * The keys of the files and changes: along the list, through the changed
  * files, wrapping an open file, sending the notes of an open diff, and what
@@ -132,19 +135,19 @@ describe("an open diff or file by keyboard", () => {
 });
 
 describe("sending the notes of an open diff by keyboard", () => {
-  const field = () => one<HTMLTextAreaElement>("form.diff-note-inline textarea");
+  const field = () => one<HTMLTextAreaElement>(`${UNDER} form.diff-note-inline textarea`);
 
   test("from the note being typed, the key saves it and sends it with the rest; it does not only save", async () => {
     await bootWorkspaceScreen(live(), { capabilities: { prompt_agent: true } });
     await openDiff("src/app.ts");
     await press(one(".diff-delete .diff-comment-btn"));
     await type(field(), "why remove this");
-    await press(one(".diff-note-inline-save"));
+    await press(one(`${UNDER} .diff-note-inline-save`));
     await press(one(".diff-add .diff-comment-btn"));
     await type(field(), "and why add that");
     const sent = await key("Enter", { metaKey: true, shiftKey: true }, field());
     expect(sent.defaultPrevented).toBeTrue();
-    expect(document.querySelector("form.diff-note-inline")).toBeNull();
+    expect(document.querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(prompts).toHaveLength(1);
     expect(prompts[0]).toContain("why remove this");
     expect(prompts[0]).toContain("and why add that");
@@ -156,7 +159,7 @@ describe("sending the notes of an open diff by keyboard", () => {
     await press(one(".diff-add .diff-comment-btn"));
     await type(field(), "only saved");
     await key("Enter", { metaKey: true }, field());
-    expect(document.querySelector("form.diff-note-inline")).toBeNull();
+    expect(document.querySelector(`${UNDER} form.diff-note-inline`)).toBeNull();
     expect(prompts).toEqual([]);
     expect(one(".workspace-notes-send").hasAttribute("disabled")).toBeFalse();
   });
@@ -166,11 +169,11 @@ describe("sending the notes of an open diff by keyboard", () => {
     await openDiff("src/app.ts");
     await press(one(".diff-delete .diff-comment-btn"));
     await type(field(), "a saved one");
-    await press(one(".diff-note-inline-save"));
+    await press(one(`${UNDER} .diff-note-inline-save`));
     await press(one(".diff-add .diff-comment-btn"));
     const sent = await key("Enter", { ctrlKey: true, shiftKey: true }, field());
     expect(sent.defaultPrevented).toBeTrue();
-    expect(document.querySelector("form.diff-note-inline")).not.toBeNull();
+    expect(document.querySelector(`${UNDER} form.diff-note-inline`)).not.toBeNull();
     expect(prompts).toEqual([]);
   });
 });

@@ -86,10 +86,6 @@
   line-height: 1.4;
 }
 
-.agent-stream summary {
-  touch-action: pan-y pinch-zoom;
-}
-
 /*
   Lives in the stream, not the chrome. A pinned sibling covers the first
   turns and stays on screen while the reader is at the latest message.
@@ -246,6 +242,8 @@
   font: 400 0.92rem/1.55 var(--font);
   color: var(--ink);
   overflow-wrap: anywhere;
+  // A note under a running card becomes the reply when the turn ends: its ink arrives, it is not swapped.
+  transition: color var(--dur-3) var(--ease);
 }
 
 .agent-md > :first-child { margin-top: 0; }
@@ -402,6 +400,9 @@
   margin-top: 8px;
 }
 
+// The turn ended in front of the reader: the actions come in once the card above has folded.
+.agent-reply-actions.is-arriving { animation: fade-in var(--dur-2) var(--ease) var(--dur-3) backwards; }
+
 // Looks 28px tall; the padding-box keeps the tap target at 44px.
 .agent-reply-copy {
   display: inline-flex;
@@ -435,9 +436,8 @@
   .agent-reply-copy:hover { color: var(--ink); }
 }
 
-// A copy is confirmed on the button that was pressed (copy-confirm.ts), under the pointer too.
-.md-copy[data-copied],
-.agent-reply-copy[data-copied] { color: var(--ok); }
+// A copy is confirmed on the button that was pressed (copy-confirm.ts): both labels share its cell, in the shared copy faces.
+.agent-reply-copy .copy-ack-face { gap: 5px; }
 
 // Delivery status for the last prompt, on the stream's gutter above compose.
 .agent-progress {

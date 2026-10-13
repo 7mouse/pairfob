@@ -191,10 +191,12 @@ describe("wide with a mouse: the code is typed on the page", () => {
     Object.defineProperty(navigator, "clipboard", { value: { writeText: async (text: string) => { written.push(text); } }, configurable: true });
     await mountConnect();
     const copy = appRoot().querySelector<HTMLButtonElement>(".connect-command-copy")!;
-    expect(copy.textContent).toBe(t("empty.copy"));
+    // The button holds every wording so its width never changes; one of them is showing.
+    const says = () => copy.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent;
+    expect(says()).toBe(t("empty.copy"));
     await act(async () => copy.click());
     expect(written).toEqual(["pairfob pair"]);
-    expect(copy.textContent).toBe(t("empty.copied"));
+    expect(says()).toBe(t("empty.copied"));
   });
 
   test("a handshake keeps both columns: the code is shown read-only and only Cancel is offered", async () => {

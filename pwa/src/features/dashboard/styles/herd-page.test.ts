@@ -35,3 +35,20 @@ describe("phone list targets", () => {
     expect(rules(".icon-btn")).toMatch(/min-(?:width|height):\s*44px/);
   });
 });
+
+describe("the needs-you strip in motion", () => {
+  test("the fold is what runs to the screen's edges: the strip inside it must not be cut 18px short", () => {
+    expect(rules(".herd-head .attn-wrap")).toMatch(/margin:\s*0 -18px/);
+    expect(rules(".attn-strip")).not.toMatch(/margin/);
+    expect(rules(".attn-strip")).toMatch(/padding:\s*6px 18px 12px/);
+  });
+
+  test("a ticket joins and leaves by width, the exit a step shorter, and is clipped only while it moves", () => {
+    expect(rules(".attn-ticket.is-entering")).toMatch(/animation:\s*attn-ticket-in var\(--dur-3\) var\(--ease\) backwards/);
+    const leaving = rules(".attn-ticket.is-leaving");
+    expect(leaving).toMatch(/animation:\s*attn-ticket-out var\(--dur-2\) var\(--ease\) forwards/);
+    expect(leaving).toMatch(/pointer-events:\s*none/);
+    // At rest the ticket is not clipped: its reach for a finger goes past its box.
+    expect(rules(".attn-ticket")).not.toMatch(/clip-path|overflow/);
+  });
+});

@@ -1,4 +1,5 @@
 import { resetBoardTestDOM } from "../../../../test-support/dom";
+import { expectSameNode } from "../../../../test-support/node-identity";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act } from "react";
@@ -6,7 +7,7 @@ import { appRoot } from "../../../app/dom-root";
 import { setLang, t } from "../../../lib/i18n";
 import type { HerdActions } from "../actions";
 import { herdEmptyView } from "../model/herd-view";
-import { HerdEmpty } from "./herd-empty";
+import { CommandLine, HerdEmpty } from "./herd-empty";
 
 /**
  * The empty list on the phone page and in the desk rail. The page is the whole
@@ -86,4 +87,21 @@ test("offline or reconnecting: the page notes what follows above still rows, the
     expect(app().querySelector(".herd-empty-note")).toBeNull();
     expect(app().querySelector(".herd-skeleton.is-still")).not.toBeNull();
   }
+});
+
+test("copying the command is confirmed on the button's own face, so the command beside it is not cut again", async () => {
+  const written: string[] = [];
+  Object.defineProperty(navigator, "clipboard", { value: { writeText: async (text: string) => { written.push(text); } }, configurable: true });
+  act(() => renderReact(<CommandLine command="pairfob doctor" />));
+  const button = app().querySelector<HTMLButtonElement>(".herd-empty-copy")!;
+  const face = button.querySelector<HTMLElement>(".copy-ack")!;
+  // The three labels share one cell from the start; only which one shows changes.
+  expect([...face.children].map((node) => node.textContent)).toEqual([t("empty.copy"), t("empty.copied"), t("empty.copyFailed")]);
+  expect(face.dataset.state).toBe("idle");
+  await act(async () => button.click());
+  expect(written).toEqual(["pairfob doctor"]);
+  expectSameNode(app().querySelector(".herd-empty-copy"), button);
+  expect(face.dataset.state).toBe("copied");
+  expect(face.querySelector(".is-copied")?.getAttribute("aria-hidden")).toBe("false");
+  expect(face.querySelector(".is-idle")?.getAttribute("aria-hidden")).toBe("true");
 });

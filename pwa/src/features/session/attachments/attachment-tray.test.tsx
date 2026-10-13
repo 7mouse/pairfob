@@ -67,9 +67,15 @@ function tray(): HTMLElement | null {
   return appRoot().querySelector<HTMLElement>(".attach-tray");
 }
 
+/** A file's thumbnail in the tray; one playing its exit is no longer that. */
 function chip(name: string): HTMLButtonElement {
-  return appRoot().querySelector<HTMLButtonElement>(`.attach-chip[aria-label^="${name}"]`)!;
+  return appRoot().querySelector<HTMLButtonElement>(`.attach-chip-wrap:not(.is-leaving) > .attach-chip[aria-label^="${name}"]`)!;
 }
+
+const wraps = () => [...appRoot().querySelectorAll<HTMLElement>(".attach-chip-wrap")];
+const fold = () => appRoot().querySelector<HTMLElement>(".attach-fold");
+/** Long enough for any exit here: a thumbnail's, the action bar's, the tray's own. */
+const exitOver = () => act(() => new Promise<void>((done) => setTimeout(done, 300)));
 
 function buttonByText(text: string, root: ParentNode = appRoot()): HTMLButtonElement | undefined {
   return [...root.querySelectorAll<HTMLButtonElement>("button")].find((button) => button.textContent === text);
@@ -223,7 +229,10 @@ describe("attachment tray", () => {
     await act(async () => { acceptPastedFiles([file("a.txt")]); await pump(); });
     expect(uploads).toEqual(["a.txt"]);
     await act(async () => { appRoot().querySelector<HTMLButtonElement>(".attach-chip-x")!.click(); });
-    expect(appRoot().querySelector(".attach-chip")).toBeNull();
+    // Out of the tray at once; what is left of it is only closing, out of reach.
+    expect(chip("a.txt")).toBeNull();
+    expect(wraps().map((wrap) => [wrap.classList.contains("is-leaving"), wrap.hasAttribute("inert")])).toEqual([[true, true]]);
+    expect(appRoot().querySelector("[data-att]")).toBeNull();
     expect(tray()!.textContent).toContain("Removed a.txt; upload cancelled");
     expect(sendAttachmentsState().total).toBe(0);
     release(); hold = null;
@@ -244,6 +253,10 @@ describe("attachment tray", () => {
     await act(async () => { appRoot().querySelector<HTMLButtonElement>(".attach-chip-x")!.click(); });
     await act(async () => { await new Promise((resolve) => realSetTimeout(resolve, UNDO_REMOVE_MS + 50)); });
     expect(queueSnapshot(key)!.items).toHaveLength(0);
+    // The tray shuts over what it last held, and is gone when it has shut.
+    expect(fold()?.classList.contains("is-shut")).toBe(true);
+    expect(fold()?.hasAttribute("inert")).toBe(true);
+    await exitOver();
     expect(tray()).toBeNull();
   }, UNDO_REMOVE_MS + 5000);
 
@@ -255,6 +268,11 @@ describe("attachment tray", () => {
     const pop = appRoot().querySelector<HTMLElement>(".attach-pop")!;
     expect([...pop.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Preview", "Put in message", "Remove"]);
     act(() => chip("a.txt").click());
+    // Closed, the bar leaves with what it showed, out of reach, and then goes.
+    expectSameNode(appRoot().querySelector(".attach-pop.is-leaving"), pop);
+    expect(pop.hasAttribute("inert")).toBe(true);
+    expect([...pop.querySelectorAll("button")].map((b) => b.textContent)).toEqual(["Preview", "Put in message", "Remove"]);
+    await exitOver();
     expect(appRoot().querySelector(".attach-pop")).toBeNull();
   });
 
@@ -361,5 +379,136 @@ describe("attachment tray", () => {
     expect(viewer.querySelector(".attach-viewer-name")!.textContent).toBe("b.txt");
     act(() => buttonByText("Info", viewer)!.click());
     expect(viewer.querySelector(".attach-info")!.textContent).toContain(pathOf("b.txt"));
+    // Closing plays its exit first: the dialog is kept, marked, and then goes.
+    act(() => viewer.querySelector<HTMLButtonElement>('[aria-label="Close preview"]')!.click());
+    expect([viewer.open, viewer.dataset.phase]).toEqual([true, "closing"]);
+    await exitOver();
+    expect(document.querySelector("dialog.attach-viewer")).toBeNull();
   });
+});
+
+describe("a picture opened from its thumbnail", () => {
+  const onScreen = (left: number, top: number, width: number, height: number) =>
+    ({ left, top, width, height, right: left + width, bottom: top + height, x: left, y: top, toJSON: () => ({}) }) as DOMRect;
+
+  async function openPicture(place: DOMRect): Promise<{ viewer: HTMLDialogElement; picture: HTMLImageElement; moves: Keyframe[][] }> {
+    renderReact(<AttachmentTray />);
+    await act(async () => { acceptPastedFiles([file("p.jpg", "image/jpeg")]); });
+    await settle();
+    chip("p.jpg").getBoundingClientRect = () => place;
+    act(() => chip("p.jpg").click());
+    act(() => buttonByText("Preview")!.click());
+    const viewer = document.querySelector<HTMLDialogElement>("dialog.attach-viewer")!;
+    const picture = viewer.querySelector<HTMLImageElement>(".attach-viewer-img")!;
+    const moves: Keyframe[][] = [];
+    Object.assign(picture, { animate: (frames: Keyframe[]) => { moves.push(frames); return { cancel: () => undefined }; } });
+    picture.getBoundingClientRect = () => onScreen(15, 310, 360, 180);
+    return { viewer, picture, moves };
+  }
+
+  /** The source has decoded: the picture has its size. */
+  function loaded(picture: HTMLImageElement): void {
+    Object.defineProperties(picture, { complete: { configurable: true, value: true }, naturalWidth: { configurable: true, value: 720 } });
+    act(() => { picture.dispatchEvent(new happy.Event("load") as unknown as Event); });
+  }
+
+  test("waits out of sight for its size, then grows out of that thumbnail, once", async () => {
+    const { picture, moves } = await openPicture(onScreen(20, 700, 56, 56));
+    expect(picture.hasAttribute("data-grounded")).toBe(true);
+    expect(moves).toEqual([]);
+    loaded(picture);
+    expect(picture.hasAttribute("data-grounded")).toBe(false);
+    expect(moves).toHaveLength(1);
+    expect(moves[0][0].transform).toBe("translate(-147.0px, 328.0px) scale(0.3111)");
+    expect(moves[0][1].transform).toBe("none");
+    // Drawn again, or loaded again, it is where it is: nothing flies twice.
+    renderReact(<AttachmentTray />);
+    loaded(picture);
+    expect(moves).toHaveLength(1);
+    expect(picture.hasAttribute("data-grounded")).toBe(false);
+  });
+
+  test("with its thumbnail off the screen there is only the fade: drawn at once, nothing flies", async () => {
+    const { picture, moves } = await openPicture(onScreen(-200, 700, 56, 56));
+    expect(picture.hasAttribute("data-grounded")).toBe(false);
+    loaded(picture);
+    expect(moves).toEqual([]);
+  });
+});
+
+describe("what changes in the tray is shown changing", () => {
+  test("a tray drawn with its files in it is simply there: nothing opens, joins or pops", async () => {
+    await act(async () => { acceptPastedFiles([file("a.txt")]); });
+    await settle();
+    renderReact(<AttachmentTray />);
+    expect(fold()!.className).toBe("fold attach-fold is-rest");
+    expect(wraps().map((wrap) => wrap.className)).toEqual(["attach-chip-wrap"]);
+    expect(appRoot().querySelector(".attach-chip-badge.is-ok")!.classList.contains("pop-in")).toBe(false);
+    expect(appRoot().querySelector(".attach-chip-cover")).toBeNull();
+  });
+
+  test("the first file opens the tray by its height and joins by its width; a repaint adds nothing", async () => {
+    setSessionTransport("relay");
+    renderReact(<AttachmentTray />);
+    expect(fold()).toBeNull();
+    await act(async () => { adoptIncoming(key, scope, [file("a.txt")]); });
+    // Opening: clipped while it moves, open from shut on its first frame.
+    expect(fold()!.className).toBe("fold fold-appear attach-fold");
+    expect(wraps().map((wrap) => wrap.className)).toEqual(["attach-chip-wrap is-entering"]);
+    const first = { fold: fold(), wrap: wraps()[0] };
+    await exitOver();
+    // At rest the clip is off, so the action bar and the × areas reach out of it.
+    expect(fold()!.classList.contains("is-rest")).toBe(true);
+    renderReact(<AttachmentTray />);
+    expectSameNode(fold(), first.fold);
+    expectSameNode(wraps()[0], first.wrap);
+    // A second file joins the row; the first one does not join again.
+    await act(async () => { adoptIncoming(key, scope, [file("b.txt")]); });
+    expectSameNode(wraps()[0], first.wrap);
+    expect(wraps()[1].classList.contains("is-entering")).toBe(true);
+  });
+
+  test("a removed file closes in the place it had, so the one after it slides instead of jumping", async () => {
+    await act(async () => { acceptPastedFiles([file("a.txt"), file("b.txt")]); });
+    await settle();
+    renderReact(<AttachmentTray />);
+    const [a, b] = wraps();
+    await act(async () => { a.querySelector<HTMLButtonElement>(".attach-chip-x")!.click(); });
+    expect(wraps()).toHaveLength(2);
+    expectSameNode(wraps()[0], a);
+    expectSameNode(wraps()[1], b);
+    expect([a.className, b.className]).toEqual(["attach-chip-wrap is-leaving", "attach-chip-wrap"]);
+    await exitOver();
+    expect(wraps()).toHaveLength(1);
+    expectSameNode(wraps()[0], b);
+  });
+
+  test("a file that finishes under the reader loses its cover over a moment and its done mark pops", async () => {
+    let release!: () => void;
+    hold = new Promise((resolve) => { release = resolve; });
+    renderReact(<AttachmentTray />);
+    await act(async () => { acceptPastedFiles([file("a.txt")]); await pump(); });
+    const cover = appRoot().querySelector<HTMLElement>(".attach-chip-cover")!;
+    expect(cover.classList.contains("is-leaving")).toBe(false);
+    release(); hold = null;
+    await settle();
+    expect(chip("a.txt").classList.contains("is-ready")).toBe(true);
+    expectSameNode(appRoot().querySelector(".attach-chip-cover.is-leaving"), cover);
+    expect(appRoot().querySelector(".attach-chip-badge.is-ok")!.classList.contains("pop-in")).toBe(true);
+    await exitOver();
+    expect(appRoot().querySelector(".attach-chip-cover")).toBeNull();
+  });
+
+  test("in the complete terminal the tray is there or it is not, in one frame", async () => {
+    setSessionTransport("relay");
+    renderReact(<AttachmentTray instant />);
+    await act(async () => { adoptIncoming(key, scope, [file("a.txt")]); });
+    // Its height is terminal rows: no opening, and at rest from the frame it is drawn.
+    expect(fold()!.className).toBe("fold attach-fold is-rest is-instant");
+    await act(async () => { appRoot().querySelector<HTMLButtonElement>(".attach-chip-x")!.click(); });
+    const realSetTimeout = globalThis.setTimeout;
+    await act(async () => { await new Promise((resolve) => realSetTimeout(resolve, UNDO_REMOVE_MS + 50)); });
+    expect(fold()).toBeNull();
+    expect(tray()).toBeNull();
+  }, UNDO_REMOVE_MS + 5000);
 });

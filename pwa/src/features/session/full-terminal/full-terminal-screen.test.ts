@@ -212,6 +212,10 @@ describe("react complete-terminal shell", () => {
     expect(root.querySelector(":scope > .session-notice > .notice-error")?.textContent).toBe(t("compose2.tooLong"));
     expectSameNode(root.querySelector(".full-terminal-host"), host);
     act(() => clearNotice());
+    // Over, it stays for its exit in the anchor of no height it floated in: the host keeps every row meanwhile.
+    expect(root.querySelector(":scope > .session-notice")?.className).toBe("session-notice is-leaving");
+    expectSameNode(root.querySelector(".full-terminal-host"), host);
+    await act(() => new Promise<void>((done) => setTimeout(done, 160)));
     expect([...root.children].map((el) => el.className.split(" ")[0])).toEqual(["chrome", "full-terminal-host", "full-terminal-pad"]);
   });
 

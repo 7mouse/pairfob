@@ -49,6 +49,15 @@ export function hostBrief(host: HerdHostView): readonly string[] {
   return host.brief ?? host.line.split(STATUS_JOIN);
 }
 
+/**
+ * What the status line says, apart from its figures. A latency that ticks from
+ * one poll to the next is the same status; the line marks a change only when
+ * this differs.
+ */
+export function hostStatusKey(host: HerdHostView): string {
+  return `${host.tone}\u0000${host.line.replace(/\d+/g, "")}`;
+}
+
 export type HerdModelInput = {
   /** The published card list; a domain snapshot is read-only by contract. */
   agents: readonly DashboardAgentCard[];
@@ -61,6 +70,8 @@ export type HerdModelInput = {
   selectedPaneId: string;
   /** Attention consumed once by the paint boundary that built this input. */
   attention: HerdPaint;
+  /** Which list this is, counted by the paint boundary; see `HerdViewModel.epoch`. */
+  listEpoch?: number;
   liveness: RuntimeLiveness;
   status: HerdStatus;
   /** The session's first runtime read is still in flight. */
@@ -173,8 +184,14 @@ export type HerdViewModel = {
   groupIds: string[];
   /** Grouped modes render an accordion; flat renders bare section titles. */
   grouped: boolean;
-  /** Replay the card entrance because the list shape changed. */
+  /** Replay the card entrance: this is another list, not the last one with a row more or less. */
   stagger: boolean;
+  /**
+   * Which list this is. It moves on when the list is built again (a first
+   * paint, a regroup, another computer); while it holds, a row that was not
+   * there before is a new session and one that is gone was closed.
+   */
+  epoch: number;
   empty: HerdEmptyView | null;
   /** Nothing read yet: the list shows placeholder rows, never an empty-state claim. */
   loading: boolean;
@@ -453,6 +470,7 @@ export function buildHerdViewModel(input: HerdModelInput): HerdViewModel {
     groupIds: views.map((group) => group.id),
     grouped,
     stagger: input.attention.stagger,
+    epoch: input.listEpoch ?? 0,
     empty: input.agents.length || loading ? null : herdEmptyView({ ...input, hostName: input.host.name }),
     loading,
     status: input.status,

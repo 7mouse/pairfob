@@ -21,7 +21,7 @@ import { liveSession } from "../../computers/catalog-store";
 import { termCols, termFit, termFontPx, setPaneTermMode, setTermGrid, type TermCols, type TermFit } from "../../settings/preferences-store";
 import { isFullTerminal, openPaneId, setAgentChat, setFullTerminal } from "../session-store";
 import { commitView } from "../../../app/host";
-import { applyComposeDraft, bumpViewIncarnation, captureComposeDraft, currentViewIncarnation, switchComposeView } from "../drafts/compose-drafts";
+import { applyComposeDraft, bumpViewIncarnation, captureComposeDraft, currentViewIncarnation, declareViewSwitch, switchComposeView } from "../drafts/compose-drafts";
 import { haptic } from "../../../lib/dom";
 import { messageCopy } from "../../../lib/notices";
 import { hardwareKeyboard, hasTouch } from "../../../app/input-mode";
@@ -568,7 +568,10 @@ export function leaveFullTerminal(opts?: { rememberGuided?: boolean; paint?: boo
       const to = bumpViewIncarnation();
       result.transition = { from, to };
       applyComposeDraft();
-      if (paint) commitView();
+      if (paint) {
+        declareViewSwitch();
+        commitView();
+      }
     } finally {
       if (seq === leaveSeq) leaving = null;
     }

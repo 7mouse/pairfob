@@ -1,0 +1,60 @@
+// The dock's two-way switches (按键 | 命令 in the pad, 组字 | 实时 under a
+// mouse-driven field): the sliding thumb of the shared segmented control
+// (shared/ui/styles/seg.scss) on their own classes. They are pairs of toggle
+// buttons, not a radio group, and far smaller than a `.seg`, so they take its
+// mechanics and not its markup: one thumb moved by the pressed option's index,
+// and the labels' colour easing with it.
+
+/// The track. Its two options share its width equally, so the thumb is half of
+/// what the padding leaves and one of its own widths is the pitch.
+/// `$option` is the option's class; `$pad` the track's padding; `$radius` the
+/// option's corner, which the thumb takes.
+@mixin track($option, $pad, $radius) {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+
+  &::before {
+    content: "";
+    position: absolute;
+    top: $pad;
+    bottom: $pad;
+    left: $pad;
+    width: calc((100% - 2 * #{$pad}) / 2);
+    border-radius: $radius;
+    background: var(--surface-2);
+    transition: transform var(--dur-2) var(--ease);
+    pointer-events: none;
+  }
+
+  &:has(> #{$option}:last-child[aria-pressed="true"])::before { transform: translateX(100%); }
+  &:not(:has(> #{$option}[aria-pressed="true"]))::before { opacity: 0; }
+
+  /* A switch drawn anew by the very press that turned it (the pad swaps its
+     whole body between keys and commands) has no thumb to move: it is told
+     which side the choice came from (`data-from`) and slides in from there.
+     Drawn for any other reason it carries no such mark and is still. */
+  &[data-from="first"]::before { animation: dock-switch-from-first var(--dur-2) var(--ease); }
+  &[data-from="last"]::before { animation: dock-switch-from-last var(--dur-2) var(--ease); }
+}
+
+/// An option: over the thumb, with the thumb as its only ground.
+@mixin option {
+  position: relative;
+  background: transparent;
+  transition: color var(--dur-2) var(--ease);
+}
+
+@keyframes dock-switch-from-first {
+  from { transform: translateX(0); }
+}
+
+@keyframes dock-switch-from-last {
+  from { transform: translateX(100%); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pad-kind[data-from]::before,
+  .dock-mode-switch[data-from]::before { animation: none; }
+}

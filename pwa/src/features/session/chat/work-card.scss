@@ -10,17 +10,41 @@
   overflow: hidden;
 }
 
+// The card's one line. With steps to show it is the button that opens them.
 .work-head {
+  width: 100%;
   min-height: 48px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 6px 12px;
-  cursor: pointer;
-  list-style: none;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  // A finger that lands on it still pans the transcript.
+  touch-action: pan-y pinch-zoom;
 }
 
-.work-head::-webkit-details-marker { display: none; }
+// As a control it answers a press the way a step row does.
+button.work-head {
+  cursor: pointer;
+  transition: background-color var(--dur-1) var(--ease);
+}
+
+button.work-head:active { background: var(--surface-2); }
+
+@media (hover: hover) and (pointer: fine) {
+  button.work-head:hover { background: var(--surface-2); }
+}
+
+// The card clips at its corners and the folding body clips its rows, so a ring
+// drawn outside these controls would be cut: it is drawn inside them.
+.work-head:focus-visible,
+.work-step:focus-visible,
+.work-earlier:focus-visible { outline-offset: -2px; }
 
 .work-head-copy {
   flex: 1 1 auto;
@@ -75,7 +99,7 @@
   transition: transform var(--dur-1) var(--ease);
 }
 
-.work-card[open] .work-chevron { transform: rotate(90deg); }
+.work-head[aria-expanded="true"] .work-chevron { transform: rotate(90deg); }
 
 .work-body {
   border-top: 1px solid var(--line);
@@ -87,6 +111,29 @@
   padding: 0;
   list-style: none;
 }
+
+/*
+  A step that joins a full list pushes it up by the rows it displaces (StepList
+  moves the track). The rows travel inside this window; the card's own box is
+  final from the first frame, so the transcript under it moves once.
+*/
+.work-steps-window {
+  overflow: hidden;
+  overflow: clip;
+}
+
+.work-steps-track { position: relative; }
+
+// The rows that were pushed out, standing just above the list for the length of the move.
+.work-steps-pushed {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+}
+
+// The newcomer itself. Travel comes from the track, so under reduced motion this fade is all that is left.
+.work-steps > .is-arriving { animation: fade-in var(--dur-2) var(--ease); }
 
 .work-step {
   width: 100%;
@@ -102,12 +149,20 @@
   text-align: left;
   font: inherit;
   cursor: pointer;
+  // The running tint leaves as the step's result arrives.
+  transition: background-color var(--dur-2) var(--ease);
 }
 
-.work-step:active { background: var(--surface-2); }
+.work-step:active {
+  background: var(--surface-2);
+  transition-duration: var(--dur-1);
+}
 
 @media (hover: hover) and (pointer: fine) {
-  .work-step:hover { background: var(--surface-2); }
+  .work-step:hover {
+    background: var(--surface-2);
+    transition-duration: var(--dur-1);
+  }
 }
 
 .work-step.is-running { background: rgba(110, 168, 254, 0.07); }
@@ -222,6 +277,34 @@
   border: 1px solid rgba(255, 178, 36, 0.28);
 }
 
+/*
+  Raised in front of the reader (NeedsYouCard `raised`): after the card has
+  risen in, the one sweep a row on the session list takes when it starts
+  waiting, in this card's hue. The highlight moves as a background for the
+  reason given there; it fades at the end because this class stays on the card.
+*/
+.needs-card.is-raised::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 22%, rgba(255, 178, 36, 0.2) 50%, transparent 78%) no-repeat;
+  background-size: 300% 100%;
+  opacity: 0;
+  animation: needs-sweep calc(var(--dur-2) + var(--dur-3)) var(--ease) var(--dur-2);
+}
+
+@keyframes needs-sweep {
+  from { background-position: 100% 0; opacity: 1; }
+  80% { opacity: 1; }
+  to { background-position: 0 0; opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .needs-card.is-raised::after { animation: none; }
+}
+
 .needs-card::before {
   content: "";
   position: absolute;
@@ -301,6 +384,14 @@
   color: var(--ink);
   text-align: left;
   font: 400 var(--text-body)/1.4 var(--font);
+  transition: border-color var(--dur-1) var(--ease), background-color var(--dur-1) var(--ease), transform var(--dur-1) var(--ease);
+}
+
+// A choice here often approves a command: the press has to be felt.
+.needs-option:active:not(:disabled) { transform: scale(0.98); }
+
+@media (prefers-reduced-motion: reduce) {
+  .needs-option:active:not(:disabled) { transform: none; }
 }
 
 .needs-option.is-chosen {
@@ -318,6 +409,7 @@
   background: var(--surface-2);
   color: var(--muted);
   font: 600 var(--text-caption)/1 var(--mono);
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease);
 }
 
 .needs-option.is-chosen .needs-option-number {
@@ -350,6 +442,13 @@
 
 .needs-note > .spinner { width: 12px; height: 12px; }
 .needs-note.is-warn { color: var(--warn); }
+
+// What came of the answer (sent, refused, changed): new each time it is said.
+.needs-outcome { animation: fade-in var(--dur-2) var(--ease); }
+
+// Its line is a fold that is always in the card, over the actions and in their
+// row (`.needs-foot`), so shut it adds no gap; open, the line carries the gap.
+.needs-fold .needs-outcome { padding-bottom: 10px; }
 
 .needs-actions {
   display: flex;
@@ -392,6 +491,9 @@
   border-color: rgba(255, 178, 36, 0.35);
   color: var(--warn);
 }
+
+// Sent just now: it rises in half a beat behind its bubble.
+.pending-card.is-following { animation-delay: calc(var(--dur-1) / 2); }
 
 // Step sheet: the session menu's sheet frame with a step's arguments and output.
 .step-pager {
@@ -508,6 +610,8 @@
   color: var(--muted);
   font: 500 var(--text-caption)/1 var(--font);
 }
+
+.step-copy .copy-ack-face { gap: 4px; }
 
 .step-code,
 .step-prose {

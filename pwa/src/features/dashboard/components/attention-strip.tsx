@@ -1,7 +1,11 @@
 import { useEffect, useRef } from "react";
 import { t } from "../../../lib/i18n";
-import { AgentAvatar, Button } from "../../../shared/ui/primitives";
+import { useKeptList, usePresence } from "../../../shared/react/use-presence";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
+import { AgentAvatar, Button, Fold, Swap } from "../../../shared/ui/primitives";
 import type { HerdAttentionItem } from "../model/herd-view";
+
+const ticketKey = (item: HerdAttentionItem) => item.paneId;
 
 /** One notch of a line-mode wheel, in pixels. */
 const WHEEL_LINE_PX = 16;
@@ -23,9 +27,16 @@ function wheelSideways(strip: HTMLElement, event: WheelEvent): void {
 
 /**
  * "Needs you" shortcuts. Each ticket opens its pane directly; the rows stay in
- * their own workspace, so this strip never changes the list's structure. It is
- * absent when nothing waits on the reader. The outer wrapper is what the header
- * collapses while it folds, so the strip can shrink away instead of vanishing.
+ * their own workspace, so this strip never changes the list's structure.
+ *
+ * The wrapper is a fold that is shut while nothing waits on the reader and
+ * while the header has folded it away: the first ticket opens it and the last
+ * one shuts it by height, so the list under it is moved, not jumped. The strip
+ * inside is drawn while there is a ticket and for as long as the fold takes to
+ * shut over the last one. A ticket that joins a strip already drawn comes in by
+ * width and one that goes is kept for its way out (`is-entering` /
+ * `is-leaving`); the count marks its own change. Shut, the strip is out of
+ * reach, as is a ticket on its way out.
  */
 export function AttentionStrip({ items, onOpen, onLocate, hidden = false, wheel = false }: {
   items: readonly HerdAttentionItem[];
@@ -47,6 +58,11 @@ export function AttentionStrip({ items, onOpen, onLocate, hidden = false, wheel 
 }) {
   const strip = useRef<HTMLDivElement>(null);
   const shown = items.length > 0;
+  const drawn = usePresence(shown, MOTION_MS.panel).mounted;
+  const tickets = useKeptList(items, ticketKey, MOTION_MS.element);
+  // A strip shutting over its last ticket still says how many there were.
+  const count = useRef(items.length);
+  if (shown) count.current = items.length;
   useEffect(() => {
     const node = strip.current;
     if (!wheel || !node) return;
@@ -54,21 +70,21 @@ export function AttentionStrip({ items, onOpen, onLocate, hidden = false, wheel 
     const onWheel = (event: WheelEvent) => wheelSideways(node, event);
     node.addEventListener("wheel", onWheel, { passive: false });
     return () => node.removeEventListener("wheel", onWheel);
-  }, [wheel, shown]);
-  if (!shown) return null;
+  }, [wheel, drawn]);
   const label = <>
     {t("list.needsYouTitle")}
-    <span className="attn-count">{items.length}</span>
+    <Swap on={count.current} className="attn-count">{count.current}</Swap>
   </>;
   return (
-    <div className="attn-wrap" aria-hidden={hidden || undefined} inert={hidden || undefined}>
-      <div ref={strip} className="attn-strip" role="group" aria-label={t("list.needsYouAria")}>
+    <Fold className="attn-wrap" open={shown && !hidden}>
+      {drawn ? <div ref={strip} className="attn-strip" role="group" aria-label={t("list.needsYouAria")}>
         {onLocate ? (
-          <Button className="attn-strip-label" aria-label={t("rail.nextAttention", { count: String(items.length) })}
+          <Button className="attn-strip-label" aria-label={t("rail.nextAttention", { count: String(count.current) })}
             onClick={onLocate}>{label}</Button>
         ) : <span className="attn-strip-label">{label}</span>}
-        {items.map((item) => (
-          <Button key={item.paneId} className={`attn-ticket is-${item.kind}`} data-pane-id={item.paneId}
+        {tickets.map(({ item, entering, leaving }) => (
+          <Button key={item.paneId} data-pane-id={item.paneId} inert={leaving}
+            className={`attn-ticket is-${item.kind}${entering ? " is-entering" : ""}${leaving ? " is-leaving" : ""}`}
             onClick={(event) => onOpen(item.paneId, event.currentTarget)}>
             <AgentAvatar kind={item.agentKind} size="sm" />
             <span className="attn-ticket-name">{item.title}</span>
@@ -76,7 +92,7 @@ export function AttentionStrip({ items, onOpen, onLocate, hidden = false, wheel 
             <span className={`attn-ticket-dot is-${item.kind}`} aria-hidden="true" />
           </Button>
         ))}
-      </div>
-    </div>
+      </div> : null}
+    </Fold>
   );
 }

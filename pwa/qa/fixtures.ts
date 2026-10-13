@@ -22,7 +22,7 @@ import { releaseBoardScroll } from "../src/pages/board/pane-scroll";
 import { phase, setNetworkOnline } from "../src/features/connection/connection-store";
 import { currentScreen } from "../src/app/navigation-store";
 import { isAgentChat, isFullTerminal, paneFollow, termSelect } from "../src/features/session/session-store";
-import { scenes, resetFixtureBaseline, applyScene, afterScenePaint, sceneSource, terminalSceneReadiness } from "./scenes";
+import { scenes, resetFixtureBaseline, applyScene, afterScenePaint, sceneSource, terminalSceneReadiness, applyFocusedStatus, applyExtraSessions } from "./scenes";
 import { createSession, type FixtureSession } from "./session";
 import { renderTerminalShell, disposeTerminalShell } from "./terminal-shell";
 import { calls, errors, record, settlePaint } from "./environment";
@@ -253,6 +253,19 @@ export async function createFixtureAPI(language: "zh" | "en", initialScene: stri
     setConnected(value) { session.setConnected(value); setNetworkOnline(value); },
     emit(event) { session.emit(event); },
     appendChatTurn() { session.appendChatTurn(); },
+    appendChatStep() { session.appendChatStep(); },
+    async setExtraSessions(count) {
+      applyExtraSessions(count);
+      commitView();
+      await settlePaint();
+      return snapshot();
+    },
+    async setAgentStatus(status) {
+      applyFocusedStatus(status);
+      commitView();
+      await settlePaint();
+      return snapshot();
+    },
     async refreshChat() {
       await refreshAgentTrace();
       commitView();

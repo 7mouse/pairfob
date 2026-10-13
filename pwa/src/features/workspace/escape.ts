@@ -2,7 +2,7 @@ import { useEffect, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { currentScreen } from "../../app/navigation-store";
 import { closeWorkspaceDetail, leaveWorkspace } from "./actions";
 import { closeOpenFind } from "./file-find";
-import { closeWorkspaceInspector } from "./inspector";
+import { leaveWorkspaceInspector } from "./inspector";
 import { setScreenNoteAside } from "./note-inline";
 import { getWorkspaceSnapshot } from "./store";
 
@@ -38,7 +38,7 @@ function closeTop(surface: "screen" | "column"): void {
   if (closeOpenFind()) return;
   if (getWorkspaceSnapshot().view !== "browser") closeWorkspaceDetail();
   else if (surface === "screen") leaveWorkspace();
-  else closeWorkspaceInspector();
+  else leaveWorkspaceInspector();
 }
 
 /**

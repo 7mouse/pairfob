@@ -348,12 +348,15 @@ html.page-zoomed .full-terminal-host .full-terminal-pan {
   background: var(--accent);
   font-size: var(--text-lead);
   font-weight: 660;
-  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+  /* The same crossing of kinds as the guided dock's button (dock.scss). */
+  transition: transform var(--dur-1) var(--ease), background-color var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
 }
 
 .full-terminal-compose-send:active {
   transform: scale(0.95);
   background: var(--accent-deep);
+  transition-duration: var(--dur-1);
 }
 
 .full-terminal-host.kb-off .xterm-helper-textarea {

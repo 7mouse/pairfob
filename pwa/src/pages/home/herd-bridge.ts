@@ -72,7 +72,7 @@ const attentionListeners = new Set<() => void>();
  * closes over mutable module state, so a retained paint would otherwise start
  * reporting a later presentation's marks without a new snapshot or notify.
  */
-function freezeHerdPaint(paint: HerdPaint, agents: readonly DashboardAgentCard[]): HerdPaint {
+function freezeHerdPaint(paint: HerdPaint, agents: readonly DashboardAgentCard[], stagger: boolean): HerdPaint {
   const marks: Record<string, StatusMark> = Object.create(null);
   const dismissing: Record<string, boolean> = Object.create(null);
   for (const agent of agents) {
@@ -80,7 +80,7 @@ function freezeHerdPaint(paint: HerdPaint, agents: readonly DashboardAgentCard[]
     dismissing[agent.paneId] = paint.isDismissing(agent.paneId);
   }
   return Object.freeze({
-    stagger: paint.stagger,
+    stagger,
     completed: Object.freeze(paint.completed.slice()) as unknown as string[],
     markOf: (paneId: string): StatusMark => marks[paneId] ?? "",
     isDismissing: (paneId: string) => dismissing[paneId] === true,
@@ -99,9 +99,33 @@ export function readHerdAttention(): HerdPaint {
   return attention;
 }
 
-/** Test seam: forget the consumed attention so a suite starts unseen. */
+/**
+ * The list the last presentation showed: its grouping and its rows, how many
+ * lists there have been, and the count subscribers were last told.
+ */
+type Roster = { mode: string; ids: ReadonlySet<string>; epoch: number; published: number };
+const NO_ROSTER: Roster = { mode: "", ids: new Set(), epoch: 0, published: 0 };
+let roster = NO_ROSTER;
+
+/** Test seam: forget the consumed attention, and the list it was consumed for, so a suite starts unseen. */
 export function resetHerdAttentionSnapshot(): void {
   attention = NO_ATTENTION;
+  roster = NO_ROSTER;
+}
+
+/**
+ * Whether this presentation shows another list than the last one did, as
+ * opposed to that list with a session more or less. Another grouping builds
+ * the list again, and so does a list that shares no row with the one before:
+ * the first rows after none, another computer, another Herdr session. Only
+ * then does the whole list replay its entrance; within one list a row that
+ * joins or leaves moves alone (`HerdViewModel.epoch`).
+ */
+function openRoster(agents: readonly DashboardAgentCard[], mode: string): boolean {
+  const ids = new Set(agents.map((agent) => agent.paneId));
+  const rebuilt = ids.size > 0 && (mode !== roster.mode || ![...ids].some((id) => roster.ids.has(id)));
+  roster = { mode, ids, epoch: roster.epoch + Number(rebuilt), published: roster.published };
+  return rebuilt;
 }
 
 function attentionSignature(paint: HerdPaint, agents: readonly DashboardAgentCard[]): string {
@@ -206,6 +230,7 @@ export function readHerdInput(painted: HerdPaint): HerdModelInput {
     groupCollapsed: preferences.listGroupCollapsed,
     selectedPaneId: openPaneId(),
     attention: painted,
+    listEpoch: roster.epoch,
     liveness: herdLivenessModel(reachability),
     status,
     reading: runtime.identityPending,
@@ -272,6 +297,7 @@ export function presentHerdView(): HerdViewModel {
   const agents = liveAgents();
   const group = listGroup();
   const consumed = openHerdPaint([...agents], group);
+  const rebuilt = openRoster(agents, group);
   if (consumed.completed.length && document.visibilityState === "visible") haptic(COMPLETION_HAPTIC_MS);
   if (group !== "flat") {
     const groups = groupAgents([...agents], group, listActivation(paneActivated(), agents, dashboardStore.get().snapshotLoaded), panePinned());
@@ -279,10 +305,11 @@ export function presentHerdView(): HerdViewModel {
     const synced = syncGroupCollapsed(groups, collapsed);
     if (!sameCollapsed(synced, collapsed)) setListGroupCollapsed(synced);
   }
-  const snapshot = freezeHerdPaint(consumed, agents);
+  const snapshot = freezeHerdPaint(consumed, agents, rebuilt);
   // Publish only when a subscriber would render something different. Comparison
   // uses the captured marks, not the live closures, so idle→working is visible.
-  if (attentionSignature(snapshot, agents) !== attentionSignature(attention, agents)) {
+  if (attentionSignature(snapshot, agents) !== attentionSignature(attention, agents) || roster.epoch !== roster.published) {
+    roster = { ...roster, published: roster.epoch };
     attention = snapshot;
     for (const listener of [...attentionListeners]) listener();
   }

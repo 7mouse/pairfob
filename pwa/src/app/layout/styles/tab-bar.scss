@@ -32,6 +32,8 @@
   color: var(--muted);
   font: 500 var(--text-caption) var(--font);
   cursor: pointer;
+  /* The bar stays while the page under it changes, so the tab itself answers. */
+  transition: color var(--dur-1) var(--ease);
 }
 
 .tab-bar-item.on { color: var(--ink); }

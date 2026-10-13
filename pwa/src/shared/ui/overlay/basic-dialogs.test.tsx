@@ -4,6 +4,7 @@ import { afterEach, beforeEach, expect, spyOn, test } from "bun:test";
 import { act } from "react";
 import { askConfirm, askText, showHelp } from "./basic-dialogs";
 import { setLang, t } from "../../../lib/i18n";
+import { MOTION_MS } from "../dom/motion";
 import { tabStops } from "./tab-stops";
 
 beforeEach(async () => { await resetTestDOM(); setLang("zh"); });
@@ -203,6 +204,11 @@ test("the desk form adds a corner close that cancels; the sheet has none", async
     expect(done.textContent).toBe(t("desk.gotIt"));
     expectSameNode(document.activeElement, done);
     act(() => done.click());
+    // Closed and answered at once; the card itself is kept for its exit, out of reach, then gone.
+    const leaving = document.querySelector<HTMLDialogElement>("dialog.help")!;
+    expect(leaving.open).toBeFalse();
+    expect(leaving.hasAttribute("inert")).toBeTrue();
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, MOTION_MS.press + 30)); });
     expect(document.querySelector("dialog.help")).toBeNull();
   });
 });

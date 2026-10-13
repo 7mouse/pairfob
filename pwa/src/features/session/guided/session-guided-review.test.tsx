@@ -356,7 +356,9 @@ test("actual route hides row actions while output is frozen and quotes current o
     expect(patchSessionScreen()).toBe("patched");
   });
   expect(appRoot().querySelector(".term")?.textContent).toContain("old visible line");
-  expect(appRoot().querySelector(".row-bubble")).toBeNull();
+  // Hidden means out of reach: what is left of the bubble is only playing its exit.
+  expect(appRoot().querySelector(".row-bubble:not(.is-leaving)")).toBeNull();
+  expect(appRoot().querySelector(".row-bubble")?.hasAttribute("inert") ?? true).toBeTrue();
   expect(paneRow()).toBeNull();
   act(() => toggleTermSelect(false));
   act(() => { setPaneRow(0); commitTest(); });

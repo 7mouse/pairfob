@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { t } from "../../../lib/i18n";
 import { Button } from "../../../shared/ui/primitives";
-import { prefersReducedMotion } from "../../../shared/ui/dom/motion";
+import { MOTION_MS, motionMs, prefersReducedMotion } from "../../../shared/ui/dom/motion";
 import { rememberedScroll, useRememberedScroll } from "../../../shared/ui/dom/remembered-scroll";
 import { preferencesStore, setListGroupCollapsed } from "../../settings/preferences-store";
 // AppNotice is the connected App notice (chrome barrel seam); HerdBanners is the
@@ -28,10 +28,18 @@ import { closeOpenSwipeRow, closeSwipeRowOutside } from "./swipe-row";
 const FOLD_PX = 120;
 const UNFOLD_PX = 12;
 
-/** Reveal a row the reader asked for: open its group, then scroll it into view. */
+/**
+ * Reveal a row the reader asked for: open its group, then scroll it into view.
+ * A group that had to be opened takes a moment to (its body unfolds), and until
+ * then its rows are where the shut body keeps them: the scroll waits for the
+ * body, so it goes to where the row ends up.
+ */
 function useReveal(view: HerdViewModel, root: React.RefObject<HTMLElement | null>) {
   const [request, setRequest] = useState(0);
   const target = useRef<string | null>(null);
+  const unfolding = useRef(false);
+  const scroll = useRef(0);
+  useEffect(() => () => window.clearTimeout(scroll.current), []);
   useLayoutEffect(() => {
     if (!target.current) return;
     if (!view.groups.some(group => !group.collapsed && group.cards.some(card => card.paneId === target.current))) return;
@@ -39,11 +47,19 @@ function useReveal(view: HerdViewModel, root: React.RefObject<HTMLElement | null
       .find(item => item.dataset.paneId === target.current);
     if (!node) return;
     target.current = null;
-    node.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    const show = () => {
+      if (node.isConnected) node.scrollIntoView({ behavior: prefersReducedMotion() ? "auto" : "smooth", block: "center" });
+    };
+    const wait = unfolding.current ? motionMs(MOTION_MS.panel) : 0;
+    unfolding.current = false;
+    window.clearTimeout(scroll.current);
+    if (wait) scroll.current = window.setTimeout(show, wait);
+    else show();
     node.focus({ preventScroll: true });
   }, [request, view, root]);
   return (paneId: string, groupId: string) => {
     target.current = paneId;
+    unfolding.current = view.groups.some(group => group.id === groupId && group.collapsed);
     setListGroupCollapsed({ ...preferencesStore.get().listGroupCollapsed, [groupId]: false });
     setRequest(value => value + 1);
   };

@@ -1,5 +1,8 @@
+import { useRef } from "react";
 import { useAppNotice } from "../../app/notice";
 import type { Notice } from "../../app/notices-store";
+import { usePresence } from "../../shared/react/use-presence";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
 import { Feedback } from "../../shared/ui/primitives";
 
 /**
@@ -15,6 +18,10 @@ import { Feedback } from "../../shared/ui/primitives";
  * One that stays keeps its place in the page: it is there until the reader does
  * something about it, and a float left over the first lines would hide them for
  * as long.
+ *
+ * A floating notice that is over leaves as it came: it stays for an exit's
+ * length with the words it had (`is-leaving`) and then goes. One replaced by
+ * another is the same line saying something new, and plays nothing.
  */
 
 /**
@@ -35,10 +42,18 @@ export function noticeKeepsItsPlace(notice: Notice): boolean {
  * floats, the ones that stay included.
  */
 export function SessionNotice({ value, inPage = false, afloat = false }: { value: Notice | null; inPage?: boolean; afloat?: boolean }) {
-  if (!value) return null;
-  const notice = <Feedback value={value} appNotice />;
-  if (!afloat && (inPage || noticeKeepsItsPlace(value))) return notice;
-  return <div className="session-notice">{notice}</div>;
+  const floats = value !== null && (afloat || !(inPage || noticeKeepsItsPlace(value)));
+  const presence = usePresence(floats, MOTION_MS.press);
+  const floated = useRef<Notice | null>(null);
+  if (floats) floated.current = value;
+  // One that takes its place in the page replaces the float outright.
+  else if (value) floated.current = null;
+  if (value && !floats) return <Feedback value={value} appNotice />;
+  const shown = value ?? (presence.leaving ? floated.current : null);
+  if (!shown) return null;
+  return <div className={presence.leaving ? "session-notice is-leaving" : "session-notice"}>
+    <Feedback value={shown} appNotice />
+  </div>;
 }
 
 /** The application notice as a session places it; it repaints alone when the notice changes. */

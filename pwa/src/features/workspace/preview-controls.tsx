@@ -3,6 +3,7 @@ import { t } from "../../lib/i18n";
 import { Button } from "../../shared/ui/primitives";
 import type { WorkspaceSnapshot } from "./model";
 import { PREVIEW_WIDTHS, setPreviewWidth, usePreviewWidth, type PreviewWidth } from "./prefs";
+import { thumbAt } from "./thumb";
 
 export const isHTMLFile = (path: string) => /\.html?$/i.test(path);
 type PreviewMode = "preview" | "source";
@@ -73,7 +74,8 @@ const WIDTH_CHOICES: readonly PreviewWidth[] = [...PREVIEW_WIDTHS, "auto"];
 
 function WidthSwitch() {
   const chosen = usePreviewWidth();
-  return <span className="workspace-layer-switch workspace-preview-width" role="group" aria-label={t("preview.width")}>
+  return <span className="workspace-layer-switch workspace-preview-width" role="group" aria-label={t("preview.width")}
+    style={thumbAt(WIDTH_CHOICES.indexOf(chosen), WIDTH_CHOICES.length)}>
     {WIDTH_CHOICES.map((width) => <Button key={width} aria-pressed={chosen === width}
       aria-label={width === "auto" ? undefined : t("preview.widthPx", { width })}
       onClick={() => setPreviewWidth(width)}>{width === "auto" ? t("preview.widthAuto") : String(width)}</Button>)}
@@ -83,7 +85,8 @@ function WidthSwitch() {
 export function PreviewSwitch({ controls }: { controls: PreviewControls }) {
   const widths = usePreviewWidthOffered() && controls.mode === "preview";
   return <>
-    <span className="workspace-layer-switch workspace-preview-switch" role="group" aria-label={t("preview.title")}>
+    <span className="workspace-layer-switch workspace-preview-switch" role="group" aria-label={t("preview.title")}
+      style={thumbAt(controls.mode === "preview" ? 0 : 1, 2)}>
       <Button aria-pressed={controls.mode === "preview"} onClick={() => controls.select("preview")}>{t("preview.preview")}</Button>
       <Button aria-pressed={controls.mode === "source"} onClick={() => controls.select("source")}>{t("preview.source")}</Button>
     </span>

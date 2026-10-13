@@ -121,6 +121,10 @@
   height: 11px;
   border-width: 2px;
   border-color: #0b0e13;
+  /* The reader is on this session when its status changes: the dot crosses to
+     the new colour with the status word (session-chrome.tsx), where a cut is
+     easy to miss in the corner of an avatar. */
+  transition: background-color var(--dur-2) var(--ease);
 }
 
 .chrome-copy {
@@ -282,12 +286,20 @@ html[data-kb="open"] .chrome-avatar .agent-avatar {
 
 .session-notice > .notice-status { background: linear-gradient(notice.$status-tint, notice.$status-tint), var(--surface); }
 
+/* Over, it goes back up the way it came (session-notice.tsx keeps it that long). */
+.session-notice.is-leaving > .notice { animation: session-notice-out var(--dur-1) var(--ease) forwards; }
+
 @keyframes session-notice-in {
   from { opacity: 0; transform: translateY(-4px); }
 }
 
+@keyframes session-notice-out {
+  to { opacity: 0; transform: translateY(-4px); }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .session-notice > .notice { animation: none; }
+  .session-notice.is-leaving > .notice { animation: none; }
 }
 
 /* --- Wide layout --------------------------------------------------------------------- */

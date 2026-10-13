@@ -6,13 +6,23 @@
  * failed). Tapping one opens an action bar above the tray with only the
  * actions that apply; × removes with undo; a long press drags it to reorder.
  * On send, the compose path reads the tray through attachments-send.ts.
+ *
+ * What changes in it is shown changing. The tray folds open with its first
+ * file and shut after its last (`tray-fold`); a thumbnail joins and leaves by
+ * its width, so the ones beside it slide over instead of landing under the
+ * finger that just pressed ×; the cover of a file being sent fades off and its
+ * done mark pops; the action bar leaves the way it came. None of it runs for a
+ * tray drawn with its files already in it.
  */
 import { Check, FileText, X } from "lucide-react";
 import {
   useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore,
-  type CSSProperties, type PointerEvent as ReactPointerEvent,
+  type CSSProperties, type PointerEvent as ReactPointerEvent, type ReactNode,
 } from "react";
+import { useKeptList, usePresence } from "../../../shared/react/use-presence";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 import { Button } from "../../../shared/ui/primitives/button";
+import { Fold } from "../../../shared/ui/primitives/fold";
 import { haptic } from "../../../lib/dom";
 import { computersStore } from "../../computers/catalog-store";
 import { connectionStore, p2pEnabled } from "../../connection/connection-store";
@@ -65,6 +75,7 @@ import {
 import { presentAttachmentViewer } from "./attachment-viewer";
 import { useDeskLayout } from "../desk-pointer";
 import { useStripOverflow } from "./strip-overflow";
+import { useTrayFold, useTrayHeight } from "./tray-fold";
 
 /** Rejection notes fade after this long. */
 const NOTE_MS = 3000;
@@ -87,12 +98,17 @@ function subscribeTray(listener: () => void): () => void {
   return () => stops.forEach((stop) => stop());
 }
 
-export function AttachmentTray({ compact = false }: { compact?: boolean }) {
+/**
+ * `instant` is for a dock whose height is not its own: in the complete terminal
+ * the tray's rows are the computer's terminal rows, so it is there or it is
+ * not, in one frame, and never folds.
+ */
+export function AttachmentTray({ compact = false, instant = false }: { compact?: boolean; instant?: boolean }) {
   const key = useSyncExternalStore(subscribeScope, currentScopeKey);
   // The scope object is rebuilt only when the pane really changes.
   const scope = useMemo(() => key ? currentAttachmentScope() : null, [key]);
   if (!scope) return null;
-  return <TrayBody key={key} scope={scope} compact={compact} />;
+  return <TrayBody key={key} scope={scope} compact={compact} instant={instant} />;
 }
 
 /**
@@ -150,13 +166,29 @@ function extension(name: string): string {
 
 function Thumb({ storeKey, item, phase, body }: { storeKey: string; item: AttachmentItem; phase: TrayPhase; body: boolean }) {
   const url = item.kind === "image" ? runtimeObjectUrl(storeKey, item.localId) : "";
+  // One cover for a file being read and then sent. When that is over it fades
+  // off the thumbnail as it last was, instead of going in the frame the mark arrives.
+  const covered = phase === "processing" || phase === "uploading";
+  const cover = usePresence(covered, MOTION_MS.element);
+  const drawn = useRef<{ dim: boolean; percent: number }>({ dim: false, percent: 0 });
+  if (covered) drawn.current = { dim: phase === "uploading", percent: phase === "uploading" ? trayPercent(item) : 0 };
+  // The done mark pops when the file finishes under the reader. A thumbnail
+  // drawn already done was not waited for.
+  const seen = useRef(phase);
+  const finished = useRef(false);
+  if (seen.current !== phase) {
+    finished.current = phase === "ready";
+    seen.current = phase;
+  }
   return <>
     {url
       ? <img className="attach-chip-img" src={url} alt="" decoding="async" draggable={false} />
       : <span className="attach-chip-file"><FileText size={20} aria-hidden="true" />{extension(item.name)}</span>}
-    {phase === "processing" && <span className="attach-chip-cover"><Ring percent={0} spinning /></span>}
-    {phase === "uploading" && <span className="attach-chip-cover is-dim"><Ring percent={trayPercent(item)} spinning={false} /></span>}
-    {phase === "ready" && <span className="attach-chip-badge is-ok"><Check size={12} strokeWidth={3} aria-hidden="true" /></span>}
+    {cover.mounted && <span className={`attach-chip-cover${drawn.current.dim ? " is-dim" : ""}${cover.leaving ? " is-leaving" : ""}`}>
+      <Ring percent={drawn.current.percent} spinning={!drawn.current.dim} />
+    </span>}
+    {phase === "ready" && <span className={finished.current ? "attach-chip-badge is-ok pop-in" : "attach-chip-badge is-ok"}>
+      <Check size={12} strokeWidth={3} aria-hidden="true" /></span>}
     {phase === "ready" && body && <span className="attach-chip-tag">{attachT("tray.badge.inBody")}</span>}
     {phase === "waiting" && <span className="attach-chip-badge is-warn">{attachT("tray.badge.waiting")}</span>}
     {phase === "paused" && <span className="attach-chip-badge is-warn">
@@ -182,9 +214,14 @@ const PRIMARY_ACTIONS: ReadonlySet<TrayAction> = new Set(["connect", "resume", "
 
 type Drag = { id: string; pointerId: number; x0: number; y0: number; dx: number; lifted: boolean; timer: number };
 
-function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean }) {
+/** What the action bar showed, kept so that it can leave with it. */
+type OpenActions = { item: AttachmentItem; phase: TrayPhase; index: number; anchorX: number };
+
+function TrayBody({ scope, compact, instant }: { scope: AttachmentScope; compact: boolean; instant: boolean }) {
   const storeKey = attachmentScopeKey(scope);
   const items = useSyncExternalStore(subscribeTray, () => visibleItemsSnapshot(storeKey));
+  // A removed thumbnail keeps its place while it closes; one that joins is marked for its entrance.
+  const chips = useKeptList(items, (item) => item.localId, MOTION_MS.element);
   const notice = useSyncExternalStore(attachmentsStore.subscribe, () => publishedQueue(storeKey)?.notice ?? "");
   const undoRevision = useSyncExternalStore(subscribeTrayState, trayStateRevision);
   const draft = useSyncExternalStore(composeStore.subscribe, composeDraft);
@@ -198,7 +235,6 @@ function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean
   const [drag, setDrag] = useState<Drag | null>(null);
   const dragRef = useRef<Drag | null>(null);
   const eatClick = useRef(false);
-  const root = useRef<HTMLDivElement>(null);
   const strip = useRef<HTMLDivElement>(null);
   const [anchorX, setAnchorX] = useState(0);
   const ctx: TrayContext = { p2pReady, draft };
@@ -230,7 +266,7 @@ function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean
     if (!selected) return;
     const chip = [...(strip.current?.querySelectorAll<HTMLElement>("[data-att]") ?? [])]
       .find((candidate) => candidate.dataset.att === selected);
-    const box = root.current?.getBoundingClientRect();
+    const box = strip.current?.parentElement?.getBoundingClientRect();
     const rect = chip?.getBoundingClientRect();
     if (box && rect) setAnchorX(Math.max(12, rect.left - box.left + rect.width / 2));
   }, [selected, items]);
@@ -255,7 +291,19 @@ function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean
     };
   }, [selected]);
 
-  if (!items.length && !undoHere && !note) return null;
+  const shown = items.length > 0 || Boolean(undoHere) || Boolean(note);
+  const fold = useTrayFold(shown, instant);
+  const foldRef = useTrayHeight(instant || !shown || !fold.rest);
+  const actions = usePresence(selectedItem !== null, MOTION_MS.press);
+  const opened = useRef<OpenActions | null>(null);
+  // What the tray held when it last had anything: it shuts over that.
+  const held = useRef<ReactNode>(null);
+  if (!fold.mounted) return null;
+  // Rest is where nothing may be clipped; an open action bar is never clipped either.
+  const unclipped = shown && (fold.rest || selectedItem !== null);
+  const foldClass = `attach-fold${unclipped ? " is-rest" : ""}${instant ? " is-instant" : ""}`;
+  const trayClass = `attach-tray${compact ? " is-compact" : ""}${beside ? " is-beside" : ""}`;
+  if (!shown) return <Fold ref={foldRef} open={false} className={foldClass} bodyClassName={trayClass}>{held.current}</Fold>;
 
   const waiting = items.some((item) => trayPhase(item, ctx) === "waiting");
   const restored = items.filter((item) => item.restored && item.status !== "committed");
@@ -265,6 +313,11 @@ function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean
   const attached = items.filter((item) => !inBody(item, draft)).length;
   const allInBody = items.length > 0 && items.every((item) => inBody(item, draft));
 
+  /** The thumbnail a file is drawn as, for what opens out of it. */
+  function chipOf(id: string): HTMLElement | null {
+    return [...(strip.current?.querySelectorAll<HTMLElement>("[data-att]") ?? [])].find((chip) => chip.dataset.att === id) ?? null;
+  }
+
   function act(item: AttachmentItem, action: TrayAction, index: number): void {
     haptic(2);
     setSelected(null);
@@ -273,7 +326,7 @@ function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean
       case "resume":
       case "retry":
       case "check": void continueAttachment(scope, item.localId); return;
-      case "preview": presentAttachmentViewer(scope, index); return;
+      case "preview": presentAttachmentViewer(scope, index, chipOf(item.localId)); return;
       case "toBody": void insertPaths(scope, [item.localId]); return;
       case "fromBody": removePathFromDraft(scope, item.localId); return;
       case "toOriginal": changeQuality(scope, item.localId, "original"); return;
@@ -382,39 +435,48 @@ function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean
         </>}
   </div>;
 
-  return <div ref={root} className={`attach-tray${compact ? " is-compact" : ""}${beside ? " is-beside" : ""}`}>
-    {selectedItem && selectedPhase && <div className="attach-pop" role="menu" aria-label={selectedItem.name}
-      style={{ "--attach-pop-x": `${anchorX}px` } as CSSProperties}>
+  if (selectedItem && selectedPhase) opened.current = { item: selectedItem, phase: selectedPhase, index: selectedIndex, anchorX };
+  // Closed, the bar stays for its exit with what it showed, out of reach.
+  const bar = selectedItem && selectedPhase ? opened.current : actions.leaving ? opened.current : null;
+  const leaving = !(selectedItem && selectedPhase);
+
+  const content = <>
+    {bar && <div className={leaving ? "attach-pop is-leaving" : "attach-pop"} role="menu" aria-label={bar.item.name}
+      inert={leaving} style={{ "--attach-pop-x": `${bar.anchorX}px` } as CSSProperties}>
       <div className="attach-pop-head">
-        <b>{selectedItem.name}</b>
-        <small className={selectedPhase === "failed" && selectedItem.errorText ? "is-error" : undefined}>
+        <b>{bar.item.name}</b>
+        <small className={bar.phase === "failed" && bar.item.errorText ? "is-error" : undefined}>
           {[
-            selectedPhase === "failed" && selectedItem.errorText ? selectedItem.errorText
-              : stateLabel(selectedItem, selectedPhase, inBody(selectedItem, draft)),
-            meterLine(selectedItem),
-            formatBytes(selectedItem.size),
-            selectedItem.kind === "image"
-              ? attachT(keepsOriginal(selectedItem) ? "tray.quality.original" : "tray.quality.smart") : "",
+            bar.phase === "failed" && bar.item.errorText ? bar.item.errorText
+              : stateLabel(bar.item, bar.phase, inBody(bar.item, draft)),
+            meterLine(bar.item),
+            formatBytes(bar.item.size),
+            bar.item.kind === "image"
+              ? attachT(keepsOriginal(bar.item) ? "tray.quality.original" : "tray.quality.smart") : "",
           ].filter(Boolean).join(" · ")}
         </small>
       </div>
       <div className="attach-pop-actions">
-        {trayActions(selectedItem, ctx, { hasHandle: hasUploadHandle(scope, selectedItem.localId) }).map((action) =>
+        {trayActions(bar.item, ctx, { hasHandle: hasUploadHandle(scope, bar.item.localId) }).map((action) =>
           <Button key={action} role="menuitem"
             className={`attach-pop-act${PRIMARY_ACTIONS.has(action) ? " is-primary" : ""}${action === "remove" ? " is-danger" : ""}`}
-            onClick={() => act(selectedItem, action, selectedIndex)}>{attachT(ACTION_LABEL[action])}</Button>)}
+            onClick={() => act(bar.item, action, bar.index)}>{attachT(ACTION_LABEL[action])}</Button>)}
       </div>
     </div>}
     <div ref={strip} className="attach-strip" role="list" aria-label={attachT("tray.label")}>
       {lead}
-      {items.map((item, index) => {
+      {chips.map((kept) => {
+        const item = kept.item;
+        const index = items.indexOf(item);
         const phase = trayPhase(item, ctx);
         const body = inBody(item, draft);
         const lifted = drag?.lifted && drag.id === item.localId;
-        return <div key={item.localId} role="listitem"
-          className={`attach-chip-wrap${selected === item.localId ? " is-selected" : ""}${lifted ? " is-lifted" : ""}`}
+        const motion = kept.leaving ? " is-leaving" : kept.entering ? " is-entering" : "";
+        // One on its way out is no longer a file of the tray: not a tab stop, not a drop target.
+        return <div key={kept.key} role="listitem" inert={kept.leaving}
+          className={`attach-chip-wrap${selected === item.localId ? " is-selected" : ""}${lifted ? " is-lifted" : ""}${motion}`}
           style={lifted ? { transform: `translateX(${drag!.dx}px) scale(1.06)` } : undefined}>
-          <Button className={`attach-chip is-${phase}`} data-att={item.localId}
+          <Button className={`attach-chip is-${phase}`} data-att={kept.leaving ? undefined : item.localId}
             aria-label={attachT("tray.chipAria", { name: item.name, state: stateLabel(item, phase, body) })}
             aria-haspopup="menu" aria-expanded={selected === item.localId}
             onPointerDown={(event) => pointerDown(event, item.localId)}
@@ -422,7 +484,7 @@ function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean
             onPointerUp={(event) => endDrag(dragRef.current, event.clientX)}
             onPointerCancel={() => endDrag(dragRef.current, null)}
             onContextMenu={(event) => event.preventDefault()}
-            onDoubleClick={() => { setSelected(null); presentAttachmentViewer(scope, index); }}
+            onDoubleClick={(event) => { setSelected(null); presentAttachmentViewer(scope, index, event.currentTarget); }}
             onClick={(event) => {
               if (eatClick.current) { eatClick.current = false; event.preventDefault(); return; }
               haptic(2);
@@ -439,5 +501,8 @@ function TrayBody({ scope, compact }: { scope: AttachmentScope; compact: boolean
       {!beside && meta}
     </div>
     {beside && meta}
-  </div>;
+  </>;
+  held.current = content;
+
+  return <Fold ref={foldRef} open appear={fold.appear} className={foldClass} bodyClassName={trayClass}>{content}</Fold>;
 }

@@ -1,3 +1,5 @@
+@use "./dock-switch";
+
 /* --- Dock: key rows + composer ------------------------------------------------------ */
 
 .dock {
@@ -185,23 +187,23 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
 .pad-page-dot[aria-current="page"] span { width: 14px; background: var(--accent); }
 
 .pad-kind {
-  display: flex;
   padding: 2px;
   border: 1px solid var(--line);
   border-radius: var(--r-sm);
   background: var(--surface);
+  @include dock-switch.track(".pad-kind-option", 2px, 6px);
 }
 .pad-kind-option {
   min-height: 22px;
   padding: 0 10px;
   border: 0;
   border-radius: 6px;
-  background: transparent;
   color: var(--muted);
   font: 500 11px var(--font);
   cursor: pointer;
+  @include dock-switch.option;
 }
-.pad-kind-option[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); }
+.pad-kind-option[aria-pressed="true"] { color: var(--ink); }
 .pad-page-name { color: var(--muted); font: 500 10.5px var(--font); opacity: .8; }
 .pad-text-btn {
   display: inline-flex;
@@ -379,10 +381,13 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
   border-radius: 13px;
   font-size: var(--text-lead);
   font-weight: 660;
-  transition: transform var(--dur-1) var(--ease), background var(--dur-1) var(--ease);
+  /* The button changes kind in place (send, stop, force stop): its ground, its
+     edge and its ink cross over together. A press answers at the press's pace. */
+  transition: transform var(--dur-1) var(--ease), background-color var(--dur-2) var(--ease),
+    border-color var(--dur-2) var(--ease), color var(--dur-2) var(--ease);
 }
 
-.send-btn:active:not(:disabled) { transform: scale(0.95); background: var(--accent-deep); }
+.send-btn:active:not(:disabled) { transform: scale(0.95); background: var(--accent-deep); transition-duration: var(--dur-1); }
 
 /* Nothing typed, nothing to send. Stays laid out so the dock does not reflow. */
 .send-btn:disabled {

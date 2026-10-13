@@ -8,6 +8,7 @@ import { messageOf } from "../../lib/notices";
 import { type WorkspaceReturnView, type WorkspaceTab } from "./model";
 import { clearWorkspaceMedia, loadWorkspaceMedia, prepareWorkspaceMedia } from "./media-actions";
 import { classifyWorkspaceFile } from "./media-model";
+import { noteDetailTravel } from "./detail-travel";
 import { focusClosingDetail } from "./focus-landing";
 import { focusEnteringScreen, focusLeaving } from "./opener-focus";
 import { applyWorkspaceNavigation, leaveWorkspaceToHome, prepareWorkspaceEnter, restoreWorkspaceLeave } from "./navigation";
@@ -232,7 +233,10 @@ export async function loadWorkspaceFile(path: string, sourceLine: number | null 
     detailPath: path,
     sourceLine,
     ...(keep ? {} : { file: null }),
-  }, () => adoptDiffNoteScope(null));
+  }, () => {
+    adoptDiffNoteScope(null);
+    noteDetailTravel(snap.view, "file");
+  });
   if (!keep && ticket.current()) armPendingReveal();
   const read = scope.file(path);
   if (read.cached) ticket.commit({ file: read.cached });
@@ -361,7 +365,10 @@ export async function loadGitDiff(path: string, layer: GitLayer): Promise<void> 
     detailPath: path,
     diffLayer: layer,
     ...(keep ? {} : { diff: null }),
-  }, keep ? undefined : () => adoptDiffNoteScope(null));
+  }, () => {
+    if (!keep) adoptDiffNoteScope(null);
+    noteDetailTravel(snap.view, "diff");
+  });
   if (!keep && ticket.current()) armPendingReveal();
   const read = scope.diff(path, layer);
   const cachedDiff = read.cached;
@@ -418,13 +425,14 @@ export function showWorkspaceTab(tab: WorkspaceTab): void {
 export function closeWorkspaceDetail(): void {
   // Closed with a key: the row the detail was opened from takes the keyboard back.
   const handBack = focusClosingDetail();
+  const from = getWorkspaceSnapshot().view;
   const ticket = issueTicket({ content: "bump" });
   clearWorkspaceMedia();
   // Close the detail view but keep the selected path (detailPath): the list
   // highlights the still-selected row (FileRow derives active from it), and
   // a scope/enter/root change retires that selection naturally. Clearing the
   // path here would drop the row highlight on close.
-  ticket?.commit({ view: "browser", file: null, diff: null, error: "" });
+  ticket?.commit({ view: "browser", file: null, diff: null, error: "" }, () => noteDetailTravel(from, "browser"));
   ticket?.finishLoad();
   handBack();
 }

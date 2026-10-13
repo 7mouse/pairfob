@@ -1,6 +1,11 @@
 /* --- Connection path (slow / cannot reach) ----------------------------------------
    The route this phone → pairfob.com → computer, drawn in the list frame. Solid
    links are through, the moving one is waited on, the dashed red one is broken.
+
+   The card is redrawn every second while it counts, so every move here hangs on
+   a state class changing on an element that stays (a link coming through, a
+   node going idle) or on a class the card gives only to a result that is new
+   (`pop-in` on the badge, `swap-in` on the note). Drawing it again moves nothing.
    ------------------------------------------------------------------------------ */
 
 .conn-path-card {
@@ -18,7 +23,7 @@
   align-items: start;
 }
 
-.conn-node { display: grid; justify-items: center; gap: 3px; min-width: 70px; text-align: center; }
+.conn-node { display: grid; justify-items: center; gap: 3px; min-width: 70px; text-align: center; transition: opacity var(--dur-2) var(--ease); }
 .conn-node b { color: var(--ink); font-size: var(--text-caption); font-weight: 650; white-space: nowrap; }
 .conn-node small { color: var(--muted); font-size: 0.68rem; white-space: nowrap; }
 .conn-node.is-wait small { color: var(--warn); }
@@ -39,8 +44,10 @@
 .conn-node.is-fail .conn-node-icon,
 .conn-node.is-idle .conn-node-icon { color: var(--muted); }
 
-.conn-node.is-ok .conn-node-icon::after,
-.conn-node.is-fail .conn-node-icon::after {
+/* The result on a node: an element of its own, so one that has just been
+   reached can arrive (the card adds `pop-in`). Its mark is generated, as the
+   node's text is its name and note only. */
+.conn-node-badge {
   position: absolute;
   right: -2px;
   bottom: -2px;
@@ -53,8 +60,10 @@
   text-align: center;
 }
 
-.conn-node.is-ok .conn-node-icon::after { content: "✓"; background: var(--ok); }
-.conn-node.is-fail .conn-node-icon::after { content: "✕"; background: var(--error); }
+.conn-node.is-ok .conn-node-badge { background: var(--ok); }
+.conn-node.is-ok .conn-node-badge::before { content: "✓"; }
+.conn-node.is-fail .conn-node-badge { background: var(--error); }
+.conn-node.is-fail .conn-node-badge::before { content: "✕"; }
 .conn-node.is-wait .conn-node-icon { animation: conn-ring 1.6s ease-out infinite; }
 
 @keyframes conn-ring {
@@ -63,8 +72,24 @@
 }
 
 .conn-link { position: relative; height: 2px; margin-top: 20px; }
-.conn-link.is-ok { background: rgba(70, 214, 140, 0.55); }
 .conn-link.is-idle { background: var(--line-strong); }
+
+/* The through line lies over the link at no length and is drawn across from
+   the device's side when the hop comes through. The transition is on the
+   through state alone: a hop that is lost shows so at once. */
+.conn-link::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(70, 214, 140, 0.55);
+  transform: scaleX(0);
+  transform-origin: 0 50%;
+}
+
+.conn-link.is-ok::before {
+  transform: none;
+  transition: transform var(--dur-4) var(--ease);
+}
 
 .conn-link.is-wait {
   background: repeating-linear-gradient(90deg, var(--warn) 0 5px, transparent 5px 10px);
@@ -137,7 +162,15 @@
 }
 
 .conn-retry { display: inline-flex; align-items: center; justify-content: center; gap: 6px; width: 100%; min-height: 48px; }
+/* The icon and the spinner take one box, and the label's cell is as wide as
+   the wider of its two wordings (the one not showing is `data-reserve`, drawn
+   unseen in the same cell): a retry starting or ending resizes nothing. */
+.conn-retry-mark { flex: none; display: grid; place-items: center; width: 18px; height: 18px; }
 .conn-retry-spin { width: 16px; height: 16px; }
+.conn-retry-label { display: inline-grid; justify-items: center; white-space: nowrap; }
+.conn-retry-label > *,
+.conn-retry-label::after { grid-area: 1 / 1; }
+.conn-retry-label::after { content: attr(data-reserve); visibility: hidden; }
 .conn-retry-note { color: var(--muted); font-size: var(--text-caption); }
 .conn-retry-add { min-height: 32px; padding: 0 2px; font-size: inherit; }
 

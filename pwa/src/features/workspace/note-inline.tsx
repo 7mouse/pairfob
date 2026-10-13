@@ -13,7 +13,9 @@ import { bumpWorkspaceNotes } from "./store";
  * A note is edited in place wherever its diff is shown, in the inspector
  * beside the session and on the workspace screen alike: the form opens under
  * its line, inside the diff, so the reader keeps the code they are writing
- * about in front of them and the keyboard never leaves for a dialog.
+ * about in front of them and the keyboard never leaves for a dialog. It takes
+ * its room by height and gives it back the same way, with the note's cards
+ * (`note-under`).
  *
  * The note itself is held in `note-drafts`, not in the diff's component state:
  * the column comes and goes with the window's width and the files button, the
@@ -38,6 +40,14 @@ import { bumpWorkspaceNotes } from "./store";
 
 /** Focus the mounted editor's field; null while no editor is mounted. */
 let focusOpenNote: (() => void) | null = null;
+
+/** The line a form stands under: what comes before everything the note keeps there (`note-under`). */
+function lineAbove(form: HTMLElement): Element | null {
+  const piece = ".diff-note-fold";
+  let before = form.closest(piece)?.previousElementSibling ?? null;
+  while (before?.matches(piece)) before = before.previousElementSibling;
+  return before;
+}
 
 /** The note whose form left the page with the keyboard in it, until the reader presses or types elsewhere. */
 let leftWithKeyboard: OpenNote | null = null;
@@ -192,7 +202,7 @@ export function InlineNoteEditor({ note, onClose, onSetAside }: {
     const viewport = window.visualViewport;
     const keepClear = () => {
       if (!form.current?.contains(document.activeElement)) return;
-      form.current.previousElementSibling?.scrollIntoView?.({ block: "nearest" });
+      lineAbove(form.current)?.scrollIntoView?.({ block: "nearest" });
       form.current.scrollIntoView?.({ block: "nearest" });
     };
     viewport?.addEventListener("resize", keepClear);

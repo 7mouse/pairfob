@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { act } from "react";
 import { happy, resetBoardTestDOM } from "../../../test-support/dom";
-import { expectSameNode } from "../../../test-support/node-identity";
+import { expectDifferentNode, expectSameNode } from "../../../test-support/node-identity";
 import { closeTestDialogs } from "../../../test-support/close-dialogs";
 import { setLang, t } from "../../lib/i18n";
 import { bindOverlayOrigin } from "../../shared/ui/overlay/origin";
@@ -247,12 +247,83 @@ describe("create sheet", () => {
     act(closeTestDialogs);
     const { result } = await open({ initial: NEW_WORKSPACE, canCreateWorktree: true });
     act(() => button(".create-dir", "~/projects/pairfob").click());
+    // The kind grid and the note that takes its place are both kept; one is folded shut and out of reach.
+    const gridFold = sheet().querySelector(".create-kinds")!.closest(".fold")!;
+    const noteFold = [...sheet().querySelectorAll(".create-hint")].find((node) => node.textContent === t("create.worktreeTerminal"))!.closest(".fold")!;
+    expect([gridFold.hasAttribute("inert"), noteFold.hasAttribute("inert")]).toEqual([false, true]);
     act(() => button(".seg-item", t("create.startWorktree")).click());
-    expect(sheet().querySelector(".create-kinds")).toBeNull();
-    expect(sheet().textContent).toContain(t("create.worktreeTerminal"));
+    expect([gridFold.classList.contains("is-shut"), gridFold.hasAttribute("inert")]).toEqual([true, true]);
+    expect([noteFold.classList.contains("is-shut"), noteFold.hasAttribute("inert")]).toEqual([false, false]);
     type('input[placeholder="' + t("create.branchHint") + '"]', "feat/tabs");
     await submit();
     expect(await result).toEqual({ kind: "worktree", cwd: "~/projects/pairfob", branch: "feat/tabs", base: "", label: "" });
+  });
+
+  test("choosing a new workspace opens the block that was there shut, and no field takes focus by itself", async () => {
+    await open({ canCreateWorktree: true });
+    // Mounted from the start, folded and out of reach: opening it is a change of state, not a new block.
+    const dirs = sheet().querySelector(".create-dirs")!;
+    const block = dirs.closest(".fold.create-fold")!;
+    expect([block.classList.contains("is-shut"), block.hasAttribute("inert")]).toEqual([true, true]);
+    const pathLine = sheet().querySelector(".create-path")!.closest(".fold")!;
+    expect(pathLine.classList.contains("is-shut")).toBeFalse();
+    expect(sheet().querySelector(".create-path")?.textContent).toBe("~/work/herdr-web");
+    const held = document.activeElement;
+    act(() => button(".create-chip", t("create.newWorkspace")).click());
+    expectSameNode(sheet().querySelector(".create-dirs"), dirs);
+    expect([block.classList.contains("is-shut"), block.hasAttribute("inert")]).toEqual([false, false]);
+    // The line it replaces shuts with its words still in it.
+    expect(pathLine.classList.contains("is-shut")).toBeTrue();
+    expect(sheet().querySelector(".create-path")?.textContent).toBe("~/work/herdr-web");
+    // Nothing was focused by the block opening: a finger gets no keyboard it did not ask for.
+    expectSameNode(document.activeElement, held);
+    expect(sheet().querySelector("input:focus")).toBeNull();
+    // The worktree fields are a block of their own inside it.
+    const branch = sheet().querySelector<HTMLInputElement>('input[placeholder="' + t("create.branchHint") + '"]')!;
+    const fields = branch.closest(".fold")!;
+    expect(fields.hasAttribute("inert")).toBeTrue();
+    act(() => button(".seg-item", t("create.startWorktree")).click());
+    expectSameNode(sheet().querySelector('input[placeholder="' + t("create.branchHint") + '"]'), branch);
+    expect(fields.hasAttribute("inert")).toBeFalse();
+    expect(sheet().querySelector("input:focus")).toBeNull();
+    act(() => button(".create-chip", "herdr-web").click());
+    expect([block.classList.contains("is-shut"), block.hasAttribute("inert")]).toEqual([true, true]);
+  });
+
+  test("the path field is there folded, and only the press on its row puts the reader in it", async () => {
+    await open({ initial: NEW_WORKSPACE });
+    const field = sheet().querySelector<HTMLInputElement>(".create-dirs input")!;
+    const fold = field.closest(".fold")!;
+    expect([fold.classList.contains("is-shut"), fold.hasAttribute("inert")]).toEqual([true, true]);
+    expectDifferentNode(document.activeElement, field);
+    act(() => button(".create-dir", t("create.dirOther")).click());
+    expectSameNode(sheet().querySelector(".create-dirs input"), field);
+    expect([fold.classList.contains("is-shut"), fold.hasAttribute("inert")]).toEqual([false, false]);
+    expectSameNode(document.activeElement, field);
+    // Choosing a listed directory shuts it again; what was typed is not kept as the path.
+    act(() => button(".create-dir", "~/projects/pairfob").click());
+    expect(fold.hasAttribute("inert")).toBeTrue();
+  });
+
+  test("the full list stands in for the form as a page does: it comes in, and the form comes back with what was chosen", async () => {
+    const kinds = ["claude", "codex", "gemini", "amp", "goose", "kimi", "qwen", "pi"];
+    await open({ kinds, lastKind: "claude" });
+    const form = () => sheet().querySelector<HTMLElement>(".create-swap > .create-sheet-body:not(.is-picking)");
+    // Opening the sheet is not a return: the form is still.
+    expect(form()?.classList.contains("is-back")).toBeFalse();
+    type('.create-field input[type="text"]:not(.is-mono)', "docs");
+    act(() => button(".create-kind.is-all").click());
+    expect(form()).toBeNull();
+    expect(sheet().querySelector(".create-swap > .create-sheet-body.is-picking")).not.toBeNull();
+    act(() => button(".kind-pick", "pi").click());
+    expect(sheet().querySelector(".is-picking")).toBeNull();
+    expect(form()?.classList.contains("is-back")).toBeTrue();
+    expect(button(".create-kind.on").textContent).toContain("pi");
+    expect(sheet().querySelector<HTMLInputElement>('.create-field input[type="text"]:not(.is-mono)')?.value).toBe("docs");
+    // A repaint of the returned form keeps its node, so the return does not play again.
+    const returned = form();
+    act(() => button(".create-kind", "claude").click());
+    expectSameNode(form(), returned);
   });
 
   test("without create_tab the sheet only creates workspaces", async () => {

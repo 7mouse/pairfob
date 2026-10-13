@@ -66,6 +66,10 @@
 .workspace-chip:active { background: var(--surface-2); }
 
 .workspace-layer-switch {
+  /* Equal shares, so the mark of the chosen one slides between them (`workspace-thumb`). */
+  --thumb-pad: 2px;
+  --thumb-gap: 2px;
+  --thumb-radius: 6px;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 2px;
@@ -81,8 +85,9 @@
   color: var(--muted);
   font-size: var(--text-caption);
   white-space: nowrap;
+  transition: color var(--dur-2) var(--ease);
 }
-.workspace-layer-switch button[aria-pressed="true"] { background: var(--surface-2); color: var(--ink); }
+.workspace-layer-switch button[aria-pressed="true"] { color: var(--ink); }
 
 /* Drawn as small as the info bar needs; under a finger the hit area is 44px
    high, centred on the control and inside the bar. Where the control is
@@ -237,6 +242,14 @@
 
 .workspace-diff-spacer { flex: 1; }
 
+/* What stands between the info bar and the footer. The box itself is not laid out: its
+   parts are the detail view's own rows. Between one diff and the next it holds the one it
+   was showing, dimmed and out of reach, until the next is read (`diff-hold`); the next one
+   fades in over it (`workspace-reveal`). */
+.workspace-diff-body { display: contents; }
+.workspace-diff-body > * { transition: opacity var(--dur-1) var(--ease); }
+.workspace-diff-body.is-stale > * { opacity: 0.45; }
+
 .workspace-diff-hint {
   margin: 0;
   padding: 8px 14px;
@@ -334,6 +347,8 @@ button.diff-line-number {
   font-family: var(--font);
 }
 .workspace-diff-note.is-fresh { animation: note-fresh 1.1s var(--ease); }
+/* On its way to the agent: it dims as Send is pressed, and comes back if the send fails. */
+.workspace-diff-note { transition: opacity var(--dur-2) var(--ease); }
 .workspace-diff-note.is-sending { opacity: 0.6; }
 @keyframes note-fresh {
   0% { opacity: 0; transform: translateY(-6px); box-shadow: 0 0 0 0 rgba(110, 168, 254, 0); }
@@ -426,6 +441,12 @@ button.diff-line-number {
 @keyframes notes-bar-in {
   from { opacity: 0; transform: translateY(40%); }
   to { opacity: 1; transform: none; }
+}
+/* Nothing left to say: it goes the way it came, a step quicker, kept for that as it last stood (`DiffNotesBar`). */
+.workspace-notes-bar.is-leaving { animation: notes-bar-out var(--dur-2) var(--ease) both; pointer-events: none; }
+@keyframes notes-bar-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: translateY(40%); }
 }
 .workspace-notes-copy { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
 .workspace-notes-copy strong { font-size: var(--text-body); font-weight: 650; }
@@ -528,7 +549,8 @@ html[data-kb="open"] .workspace-diff-view:has(.diff-note-inline:focus-within) .w
 
 @media (prefers-reduced-motion: reduce) {
   .workspace-diff-note.is-fresh,
-  .workspace-notes-bar { animation: none; }
+  .workspace-notes-bar,
+  .workspace-notes-bar.is-leaving { animation: none; }
 }
 
 @media (min-width: 900px) {

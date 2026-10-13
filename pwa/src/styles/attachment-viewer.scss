@@ -17,6 +17,40 @@ dialog.attach-viewer {
 
 dialog.attach-viewer::backdrop { background: #000; }
 
+/*
+  The black ground arrives over a panel's duration instead of in one frame, and
+  the bars a beat after it; the picture meanwhile grows out of the thumbnail it
+  was opened from (viewer-flight.ts). The dialog is new each time it opens, so
+  the entrance is its mount. Only fades here: they stay for a reader who asked
+  for less motion, and the picture's flight does not run for them.
+*/
+dialog.attach-viewer,
+dialog.attach-viewer::backdrop { animation: fade-in var(--dur-3) var(--ease); }
+
+.attach-viewer-bar,
+.attach-viewer-foot { animation: fade-in var(--dur-2) var(--ease) var(--dur-2) backwards; }
+
+/* Closing plays it back a step shorter (`data-phase`, set by closeViewer, which
+   keeps the dialog for that long): the bars go first, the ground fades while
+   the picture returns to its thumbnail. */
+dialog.attach-viewer[data-phase="closing"] { pointer-events: none; }
+
+dialog.attach-viewer[data-phase="closing"],
+dialog.attach-viewer[data-phase="closing"]::backdrop { animation: attach-viewer-out var(--dur-2) var(--ease) forwards; }
+
+dialog.attach-viewer[data-phase="closing"] :is(.attach-viewer-bar, .attach-viewer-foot, .attach-viewer-nav) {
+  animation: attach-viewer-out var(--dur-1) var(--ease) forwards;
+}
+
+@keyframes attach-viewer-out {
+  to { opacity: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  dialog.attach-viewer[data-phase="closing"],
+  dialog.attach-viewer[data-phase="closing"]::backdrop { animation-duration: var(--dur-1); }
+}
+
 dialog.attach-viewer > form {
   height: 100%;
   margin: 0;
@@ -80,6 +114,10 @@ dialog.attach-viewer > form {
   object-fit: contain;
   user-select: none;
 }
+
+/* Opened from a thumbnail, the picture waits out of sight for its size, and is
+   first seen leaving that thumbnail (attachment-viewer.tsx). */
+.attach-viewer-img[data-grounded] { visibility: hidden; }
 
 .attach-viewer-nav {
   position: absolute;

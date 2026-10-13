@@ -11,6 +11,7 @@ import { loadGitDiff, loadWorkspaceFile, refreshWorkspace } from "./actions";
 import { GapRow, HunkHead, HunkNav, hunkTitle, topIn, type DiffPort } from "./diff-hunk";
 import { changedWords, diffHunks, splitRows, type DiffHunk } from "./diff-hunks";
 import { setSplitChosen, useSplitChosen, useSplitOffered } from "./diff-layout";
+import { useDiffHold, type DiffHold } from "./diff-hold";
 import { DiffLineRow, type LineNotes } from "./diff-line";
 import { DIFF_STOPS, useLineStops } from "./diff-line-stops";
 import { SplitLineRow } from "./diff-split";
@@ -26,6 +27,8 @@ import { DiffNotesBar, diffNotePinKey } from "./notes";
 import { DiffPending, ReservedStat } from "./pending";
 import { markReviewed } from "./review-progress";
 import { useListBeside } from "./list-beside";
+import { Still } from "./still";
+import { thumbAt } from "./thumb";
 
 /**
  * A long patch is drawn a stretch at a time: this many lines at first, and as
@@ -62,11 +65,13 @@ const NEAR_END_PX = 1200;
  * little earlier, in time to draw more. Both are asked again whenever what is
  * drawn changes (`content`), since folding a hunk can bring the end into view.
  */
-export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split = false, content = "", memory = diffKey }: {
+export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split = false, content = "", memory = diffKey, reveal = false }: {
   diffKey: string; children: ReactNode; onEnd?: () => void; onNear?: () => void; scroller?: RefObject<HTMLDivElement | null>;
   split?: boolean; content?: string;
   /** What the scroll position is remembered by: the diff, and whose it is. */
   memory?: string;
+  /** These lines took the place of what the body was showing: they fade in (`diff-hold`). */
+  reveal?: boolean;
 }) {
   const own = useRef<HTMLDivElement>(null);
   const ref = scroller ?? own;
@@ -101,14 +106,14 @@ export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split
 
   useLayoutEffect(check, [memory, content, check]);
 
-  return <div ref={ref} className={`workspace-diff${split ? " is-split" : ""}`} data-diff-key={diffKey}
+  return <div ref={ref} className={`workspace-diff${split ? " is-split" : ""}${reveal ? " workspace-reveal" : ""}`} data-diff-key={diffKey}
     onFocus={stops.onFocus} onKeyDown={stops.onKeyDown}>
     {children}
   </div>;
 }
 
 export function LayerSwitch({ snapshot, layers }: { snapshot: WorkspaceSnapshot; layers: GitLayer[] }) {
-  return <div className="workspace-layer-switch" role="group" aria-label={t("workspace.layerSwitch")}>
+  return <div className="workspace-layer-switch" role="group" aria-label={t("workspace.layerSwitch")} style={thumbAt(layers.indexOf(snapshot.diffLayer), layers.length)}>
     {layers.map((layer) => <Button key={layer} aria-pressed={snapshot.diffLayer === layer}
       onClick={() => { if (snapshot.diffLayer !== layer) void loadGitDiff(snapshot.detailPath, layer); }}>
       {layer === "staged" ? t("workspace.staged") : t("workspace.worktree")}
@@ -136,6 +141,8 @@ export type DiffView = {
   kind: GitChangeKind | undefined;
   /** The diff rendered its lines, so the reader can pin notes and has none yet. */
   invitesNotes: boolean;
+  /** Whether the diff that was open is kept on screen while the next is read, and whether this one fades in (`diff-hold`). */
+  hold: DiffHold;
 };
 
 /** The open diff's file and layer: what its scroll position and its note in progress are kept by. */
@@ -162,6 +169,8 @@ export function useDiffView(snapshot: WorkspaceSnapshot): DiffView {
   const changes = snapshot.status?.changes ?? [];
   const sections = changeSections(changes.filter((change) => change.path === path));
   const step = [...sections.conflict, ...sections.staged, ...sections.worktree].find((item) => item.layer === snapshot.diffLayer);
+  const diffKey = openDiffKey(snapshot);
+  const hold = useDiffHold(snapshot, diffKey);
   return {
     diff,
     path,
@@ -169,7 +178,8 @@ export function useDiffView(snapshot: WorkspaceSnapshot): DiffView {
     scroller,
     port,
     noteable,
-    diffKey: openDiffKey(snapshot),
+    diffKey,
+    hold,
     layers: layersFor(changes, path),
     kind: step?.kind,
     invitesNotes: Boolean(diff && noteable && !snapshot.error && shape.lineCount && diff.patch
@@ -212,8 +222,8 @@ function topLine(box: HTMLElement): TopLine | null {
  * folded on it. Keyed by the patch's revision, so another patch starts unfolded
  * unless it is the very one the reader just left (`diffShape`).
  */
-function DiffLines({ snapshot, view, notes, split, onSeen }: {
-  snapshot: WorkspaceSnapshot; view: DiffView; notes: LineNotes; split: boolean; onSeen: () => void;
+function DiffLines({ snapshot, view, notes, split, reveal, onSeen }: {
+  snapshot: WorkspaceSnapshot; view: DiffView; notes: LineNotes; split: boolean; reveal: boolean; onSeen: () => void;
 }) {
   const { hunks, words, diffKey, lineCount, path, layers, port } = view;
   const layer = snapshot.diffLayer;
@@ -312,7 +322,7 @@ function DiffLines({ snapshot, view, notes, split, onSeen }: {
   const opens = kind !== "deleted" && (layer === "worktree" || !layers.includes("worktree"));
   const rows = useMemo(() => split ? hunks.map((hunk) => splitRows(hunk.lines)) : null, [split, hunks]);
 
-  return <DiffScroller diffKey={diffKey} memory={memory} scroller={view.scroller} split={split} content={content}
+  return <DiffScroller diffKey={diffKey} memory={memory} scroller={view.scroller} split={split} content={content} reveal={reveal}
     onNear={() => { if (limit < lineCount) more(); }} onEnd={() => { if (limit >= lineCount) onSeen(); }}>
     {hunks.map((hunk) => {
       if (hunk.offset >= limit && hunk.offset > 0) return null;
@@ -351,6 +361,10 @@ export function DiffHint() {
  * being written on this diff, whose form opens under its line; `parked` is a
  * half-written one set aside, waiting under its line. `split` puts the two
  * sides next to each other.
+ *
+ * Between one diff and the next the body keeps what it was showing, dimmed
+ * and out of reach, as it was last drawn (`diff-hold`): the store has no diff
+ * then, and no notes for one.
  */
 export function DiffBody({ snapshot, view, onEditNote, hint = true, inline, parked, split = false }: {
   snapshot: WorkspaceSnapshot; view: DiffView; onEditNote: (target: DiffNoteTarget) => void; hint?: boolean; inline?: InlineNote;
@@ -372,46 +386,71 @@ export function DiffBody({ snapshot, view, onEditNote, hint = true, inline, park
     if (snapshot.detailPath) void loadGitDiff(snapshot.detailPath, snapshot.diffLayer);
     else void refreshWorkspace();
   };
-  return <>
-    {view.kind === "conflict" && <p className="workspace-diff-banner" role="note">{t("workspace.conflictBanner")}</p>}
-    {/* Said before the lines, where it is read before the patch is taken for the whole change. */}
-    {diff?.truncated && !snapshot.error && <p className="workspace-limit is-lead" role="note">{`${t("workspace.diffTruncated")} ${t("diffNotes.truncated")}`}</p>}
-    {snapshot.error ? (
-      <div className="workspace-feedback workspace-error workspace-feedback-pane" role="alert">
-        <p>{snapshot.error}</p>
-        <Button className="btn btn-small" onClick={retry}>{t("ft.retry")}</Button>
-      </div>
-    ) : !diff ? (
-      snapshot.loading && snapshot.pendingReveal ? <DiffPending /> : <div className="workspace-diff-spacer" />
-    ) : diff.binary ? (
-      <p className="workspace-empty">{t("workspace.binary")}</p>
-    ) : !view.lineCount || !diff.patch ? (
-      <p className="workspace-empty">{t("workspace.diffEmpty")}</p>
-    ) : (
-      <>
-        {hint && view.invitesNotes && <DiffHint />}
-        <DiffLines key={`${view.diffKey}\n${diff.revision}`} snapshot={snapshot} view={view} split={split} onSeen={seen}
-          notes={{ noteable, path: diff.path, layer, onEdit: onEditNote, inline, parked }} />
-      </>
-    )}
-  </>;
+  const { stale, reveal } = view.hold;
+  const body = useRef<HTMLDivElement>(null);
+  // The keyboard does not stay on a line of the diff that is being replaced.
+  useLayoutEffect(() => {
+    const active = document.activeElement;
+    if (stale && active instanceof HTMLElement && body.current?.contains(active)) active.blur();
+  }, [stale]);
+  const arrived = reveal ? " workspace-reveal" : "";
+  return <div ref={body} className={`workspace-diff-body${stale ? " is-stale" : ""}`} inert={stale}>
+    <Still still={stale}>
+      {view.kind === "conflict" && <p className="workspace-diff-banner" role="note">{t("workspace.conflictBanner")}</p>}
+      {/* Said before the lines, where it is read before the patch is taken for the whole change. */}
+      {diff?.truncated && !snapshot.error && <p className="workspace-limit is-lead" role="note">{`${t("workspace.diffTruncated")} ${t("diffNotes.truncated")}`}</p>}
+      {snapshot.error ? (
+        <div className="workspace-feedback workspace-error workspace-feedback-pane" role="alert">
+          <p>{snapshot.error}</p>
+          <Button className="btn btn-small" onClick={retry}>{t("ft.retry")}</Button>
+        </div>
+      ) : !diff ? (
+        snapshot.loading && snapshot.pendingReveal ? <DiffPending /> : <div className="workspace-diff-spacer" />
+      ) : diff.binary ? (
+        <p className={`workspace-empty${arrived}`}>{t("workspace.binary")}</p>
+      ) : !view.lineCount || !diff.patch ? (
+        <p className={`workspace-empty${arrived}`}>{t("workspace.diffEmpty")}</p>
+      ) : (
+        <>
+          {hint && view.invitesNotes && <DiffHint />}
+          <DiffLines key={`${view.diffKey}\n${diff.revision}`} snapshot={snapshot} view={view} split={split} reveal={reveal} onSeen={seen}
+            notes={{ noteable, path: diff.path, layer, onEdit: onEditNote, inline, parked }} />
+        </>
+      )}
+    </Still>
+  </div>;
 }
 
 /**
  * What the info bar offers on an open diff, the same on the page and in the
  * column: from hunk to hunk, the two sides next to each other where the window
- * has the room, and the file itself.
+ * has the room, and the file itself. They belong to the lines on screen: while
+ * the diff that was open is kept for the next one, so are they, out of reach,
+ * and nothing beside the stepper comes and goes with each step.
  */
 export function DiffTools({ snapshot, view, split }: { snapshot: WorkspaceSnapshot; view: DiffView; split?: { on: boolean } }) {
   const { diff, path, kind } = view;
   const lines = Boolean(diff && !diff.binary && view.lineCount);
-  return <>
-    {lines && <HunkNav scroller={view.scroller} port={view.port} total={view.hunks.length} version={`${view.diffKey}\n${diff?.revision ?? ""}\n${snapshot.error}`} />}
-    {lines && split && <Button className="icon-btn workspace-tool" aria-pressed={split.on} aria-label={t("workspace.splitView")} title={t("workspace.splitView")}
-      onClick={() => { view.port.current.keepPlace?.(); setSplitChosen(!split.on); }}><Columns2 size={16} aria-hidden="true" /></Button>}
-    {kind !== "deleted" && <Button className="icon-btn workspace-tool workspace-open-file" aria-label={t("workspace.openFile")} title={t("workspace.openFile")}
-      onClick={() => loadWorkspaceFile(path)}><FileText size={16} aria-hidden="true" /></Button>}
-  </>;
+  return <span className="workspace-tools" inert={view.hold.stale}>
+    <Still still={view.hold.stale}>
+      {lines && <HunkNav scroller={view.scroller} port={view.port} total={view.hunks.length} version={`${view.diffKey}\n${diff?.revision ?? ""}\n${snapshot.error}`} />}
+      {lines && split && <Button className="icon-btn workspace-tool" aria-pressed={split.on} aria-label={t("workspace.splitView")} title={t("workspace.splitView")}
+        onClick={() => { view.port.current.keepPlace?.(); setSplitChosen(!split.on); }}><Columns2 size={16} aria-hidden="true" /></Button>}
+      {kind !== "deleted" && <Button className="icon-btn workspace-tool workspace-open-file" aria-label={t("workspace.openFile")} title={t("workspace.openFile")}
+        onClick={() => loadWorkspaceFile(path)}><FileText size={16} aria-hidden="true" /></Button>}
+    </Still>
+  </span>;
+}
+
+/**
+ * The foot of a diff: what its notes say. It is the open diff's too, and waits
+ * with it while the next one is read. One bar for every diff of the pane, so
+ * from file to file it stays where it is and only what it says changes.
+ */
+export function DiffFooter({ view, children }: { view: DiffView; children: ReactNode }) {
+  return <div className="workspace-diff-footer" inert={view.hold.stale}>
+    <Still still={view.hold.stale}>{children}</Still>
+  </div>;
 }
 
 /** A diff on the workspace screen. A note is written in place, under its line, as beside the session. */
@@ -442,8 +481,8 @@ export function DiffDetail({ snapshot }: { snapshot: WorkspaceSnapshot }) {
       </span>
     </div>
     <DiffBody snapshot={snapshot} view={view} onEditNote={note.open} inline={note} parked={note.parked} split={split} />
-    <div className="workspace-diff-footer">
-      {diff && !diff.binary && <DiffNotesBar key={view.diffKey} path={diff.path} layer={snapshot.diffLayer} paneId={snapshot.paneId} returnView={snapshot.returnView} />}
-    </div>
+    <DiffFooter view={view}>
+      {diff && !diff.binary && <DiffNotesBar path={diff.path} layer={snapshot.diffLayer} paneId={snapshot.paneId} returnView={snapshot.returnView} />}
+    </DiffFooter>
   </section>;
 }

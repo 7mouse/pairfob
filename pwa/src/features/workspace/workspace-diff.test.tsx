@@ -18,6 +18,9 @@ import { setLang } from "../../lib/i18n";
 import { bumpWorkspaceNotes, enterWorkspace, leaveWorkspace, loadGitDiff, WORKSPACE_PENDING_DELAY_MS, clearWorkspacePendingReveal } from "./index";
 import { clearAllDiffNotes, upsertDiffNote } from "../../lib/diff-notes";
 
+/** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
+const UNDER = ".diff-note-fold:not(.is-shut)";
+
 const seedRestorer = new WorkspaceSnapshotRestorer();
 const revision = "a".repeat(64);
 const RICH_PATCH = "@@ -1,3 +1,3 @@\n keep\n-false\n+true\n tail\n";
@@ -174,7 +177,7 @@ describe("React workspace diff", () => {
     upsertDiffNote({ path: "src/app.ts", layer: "worktree", side: "old", line: 2, snippet: "false" }, "keep");
     await act(async () => { commitTest(); });
     expect(appRoot().querySelector(".workspace-diff-hint")).toBeNull();
-    expect(appRoot().querySelector(".workspace-diff-note")?.textContent).toContain("keep");
+    expect(appRoot().querySelector(`${UNDER} .workspace-diff-note`)?.textContent).toContain("keep");
     await act(async () => { await loadGitDiff("src/app.ts", "staged"); });
     expect(appRoot().querySelector<HTMLElement>(".workspace-diff")?.dataset.diffKey).toBe("src/app.ts:staged");
     expect(appRoot().querySelector<HTMLElement>(".workspace-diff")?.scrollTop).toBe(0);
@@ -195,7 +198,7 @@ describe("React workspace diff", () => {
     expect(next?.dataset.diffKey).toBe("src/app.ts:worktree");
     expect(next?.scrollTop).toBe(22);
     expect(next?.scrollLeft).toBe(4);
-    expect(appRoot().querySelector(".workspace-diff-note")?.textContent).toContain("keep");
+    expect(appRoot().querySelector(`${UNDER} .workspace-diff-note`)?.textContent).toContain("keep");
     expect(committed).toBe(0);
     expect(requested).toBe(0);
   });

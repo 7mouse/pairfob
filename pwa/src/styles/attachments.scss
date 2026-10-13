@@ -53,6 +53,19 @@
 }
 
 /*
+  The tray is the body of a fold (attachment-tray.tsx): it opens with its first
+  file and shuts after its last, so the dock above it grows and gives back the
+  room over a moment. A fold clips what it holds, which is right only while it
+  moves. At rest the action bar rises out of the tray and, under a finger, the
+  thumbnails' × areas reach past its edge: the clip comes off.
+*/
+.attach-fold.is-rest > .fold-body { overflow: visible; }
+
+/* In the complete terminal the tray's height is the computer's rows. It is
+   drawn or it is not, in one frame, and nothing here may ever ease it. */
+.attach-fold.is-instant { transition: none; }
+
+/*
   The action bar rises above the tray, out of the dock. Every dock scrolls its own
   overflow (expanded keys on short screens), which would clip the bar, so the dock
   stops clipping while a bar is open and the tray layers over the terminal.
@@ -105,6 +118,32 @@
   z-index: 3;
   transition: none;
   filter: drop-shadow(0 8px 14px rgba(0, 0, 0, 0.6));
+}
+
+/*
+  A thumbnail joins and leaves by its width, with the action bar's look (96%
+  and a fade), so the ones beside it slide over instead of jumping a place: a
+  second press on × must not land on the file that moved under the finger. The
+  gap it would add to the row closes with it. Clipped while it moves, which
+  takes its × with it; the × follows a beat later.
+*/
+.attach-chip-wrap.is-entering { animation: attach-chip-in var(--dur-2) var(--ease) backwards; }
+.attach-chip-wrap.is-entering > .attach-chip-x { animation: fade-in var(--dur-1) var(--ease) var(--dur-2) backwards; }
+
+.attach-chip-wrap.is-leaving {
+  overflow: hidden;
+  pointer-events: none;
+  animation: attach-chip-out var(--dur-2) var(--ease) forwards;
+}
+
+@keyframes attach-chip-in {
+  from { width: 0; margin-inline-end: calc(-1 * var(--space-2)); overflow: hidden; opacity: 0; transform: scale(0.96); }
+  to { width: var(--attach-chip); margin-inline-end: 0; overflow: hidden; opacity: 1; transform: none; }
+}
+
+@keyframes attach-chip-out {
+  from { width: var(--attach-chip); margin-inline-end: 0; opacity: 1; transform: none; }
+  to { width: 0; margin-inline-end: calc(-1 * var(--space-2)); opacity: 0; transform: scale(0.96); }
 }
 
 .attach-chip {
@@ -164,7 +203,13 @@
   place-items: center;
 }
 
+/* One cover from reading a file to the end of sending it; done, it fades off
+   the thumbnail as the mark arrives (the tray keeps it that long). */
+.attach-chip-cover { transition: opacity var(--dur-2) var(--ease), background-color var(--dur-2) var(--ease); }
+
 .attach-chip-cover.is-dim { background: rgba(10, 12, 16, 0.45); }
+
+.attach-chip-cover.is-leaving { opacity: 0; }
 
 .attach-ring {
   width: 30px;
@@ -202,6 +247,11 @@
   /* The grey ring alone says "working"; it need not turn. */
   .attach-ring.is-spinning { animation: none; }
   .attach-pop { animation: none; }
+  .attach-pop.is-leaving { animation: none; }
+  /* A thumbnail is there or gone; nothing is kept to leave (use-presence). */
+  .attach-chip-wrap.is-entering,
+  .attach-chip-wrap.is-entering > .attach-chip-x,
+  .attach-chip-wrap.is-leaving { animation: none; }
 }
 
 .attach-chip-badge {
@@ -452,9 +502,21 @@
   transform: rotate(45deg);
 }
 
+/* Closed, the bar goes back into the thumbnail it rose from, at an exit's pace
+   (the tray keeps it that long, inert). */
+.attach-pop.is-leaving {
+  animation: attach-pop-out var(--dur-1) var(--ease) forwards;
+  pointer-events: none;
+}
+
 @keyframes attach-pop-in {
   from { opacity: 0; transform: scale(0.96); }
   to { opacity: 1; transform: none; }
+}
+
+@keyframes attach-pop-out {
+  from { opacity: 1; transform: none; }
+  to { opacity: 0; transform: scale(0.96); }
 }
 
 .attach-pop-head b {

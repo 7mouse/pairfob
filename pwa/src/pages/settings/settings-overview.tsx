@@ -2,7 +2,8 @@ import { openComputers } from "../../features/computers/actions";
 import { DaemonUpdateRow } from "../../features/settings/daemon-update-view";
 import { HerdSessionRow } from "../../features/herd-sessions/herd-session-row";
 import { LanguageControl } from "../../features/settings/language";
-import { setSettingsSection } from "../../features/settings/settings-section";
+import { SegThumb } from "../../features/settings/seg-thumb";
+import { travelSettingsSection } from "./section-travel";
 import { t } from "../../lib/i18n";
 import type { TermMode } from "../../lib/terminal-mode";
 import { SetGroup, SetItem, SetNavItem } from "../../shared/ui/primitives";
@@ -10,7 +11,6 @@ import { AgentQuotaModule } from "../../pages/quota/quota-summary";
 import { ComputerPanel, type LinkState } from "./computer-panel";
 import { SessionDefaults } from "./settings-defaults";
 import { NotificationItem, type NotificationRowInput } from "./settings-notifications";
-import { ScreenWakeItem, type ScreenWakeRowInput } from "./settings-screen-wake";
 
 export type SettingsOverviewInput = {
   computerName: string;
@@ -20,7 +20,6 @@ export type SettingsOverviewInput = {
   defaultComposeLive: boolean;
   composeEnterSends: boolean;
   notification: NotificationRowInput;
-  screenWake: ScreenWakeRowInput;
   /** The desktop names the local group for the device, not the phone. */
   desk: boolean;
 };
@@ -34,7 +33,7 @@ export type SettingsOverviewInput = {
 export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
   return (
     <>
-      <ComputerPanel name={input.computerName} link={input.link} onOpen={() => setSettingsSection("connection")}>
+      <ComputerPanel name={input.computerName} link={input.link} onOpen={() => travelSettingsSection("connection")}>
         <DaemonUpdateRow />
         <HerdSessionRow />
         <SetNavItem label={t("settings.switchComputer")} value={t("settings.countUnit", { n: String(input.computerCount) })}
@@ -44,8 +43,7 @@ export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
       <SessionDefaults mode={input.defaultTermMode} live={input.defaultComposeLive} enterSends={input.composeEnterSends} />
       <SetGroup label={t(input.desk ? "set.deviceSection" : "settings.phoneSection")}>
         <NotificationItem input={input.notification} />
-        <ScreenWakeItem input={input.screenWake} />
-        <SetItem className="language-item" label={t("settings.language")} trailing={<LanguageControl className="set-seg" />} />
+        <SetItem className="language-item" label={t("settings.language")} trailing={<LanguageControl className="set-seg"><SegThumb /></LanguageControl>} />
       </SetGroup>
     </>
   );

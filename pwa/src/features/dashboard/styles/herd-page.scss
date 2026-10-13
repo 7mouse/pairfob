@@ -46,7 +46,7 @@
   cursor: pointer;
 }
 
-.host-title .dot { flex: none; width: 10px; height: 10px; }
+.host-title .dot { flex: none; width: 10px; height: 10px; transition: background-color var(--dur-2) var(--ease); }
 .host-title-text { min-width: 0; display: flex; flex-direction: column; }
 
 /* The name shrinks by scale, not font-size, so the fold never reflows text. */
@@ -145,22 +145,19 @@
   pointer-events: auto;
 }
 
-/* "Needs you" shortcuts: one calm row under the title, collapsing on fold. */
-.attn-wrap {
-  display: grid;
-  grid-template-rows: 1fr;
-  opacity: 1;
-  transition: grid-template-rows var(--dur-3) var(--ease), opacity var(--dur-2) var(--ease);
-}
-
-.herd-head.is-folded .attn-wrap { grid-template-rows: 0fr; opacity: 0; }
+/* "Needs you" shortcuts: one calm row under the title. The wrapper is a fold
+   (`attention-strip.tsx`): shut while nothing waits and while the header is
+   folded, so the row comes and goes by height. The strip runs to the screen's
+   edges under the header's padding, and the fold is what reaches out: its box
+   clips, and a ticket must scroll off at the edge, not 18px short of it. */
+.herd-head .attn-wrap { margin: 0 -18px; }
 
 .attn-strip {
+  --attn-gap: 8px;
   min-height: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 0 -18px;
+  gap: var(--attn-gap);
   padding: 6px 18px 12px;
   overflow-x: auto;
   overflow-y: hidden;
@@ -224,6 +221,42 @@
 }
 
 .attn-ticket.is-blocked { border-color: rgba(255, 178, 36, 0.4); background: #1a1812; }
+
+/* A ticket joins and leaves a strip already on screen by width, fading as it
+   goes, so the tickets after it slide along instead of jumping a place. It
+   gives back the gap before it too. Clipped to its own box only while it moves:
+   at rest its focus ring and its reach for a finger go past that box. */
+.attn-ticket.is-entering { animation: attn-ticket-in var(--dur-3) var(--ease) backwards; }
+
+.attn-ticket.is-leaving {
+  pointer-events: none;
+  animation: attn-ticket-out var(--dur-2) var(--ease) forwards;
+}
+
+@keyframes attn-ticket-in {
+  from {
+    max-width: 0;
+    margin-left: calc(-1 * var(--attn-gap));
+    padding-inline: 0;
+    border-inline-width: 0;
+    opacity: 0;
+    clip-path: inset(0);
+  }
+  75% { opacity: 1; }
+  to { clip-path: inset(0); }
+}
+
+@keyframes attn-ticket-out {
+  from { clip-path: inset(0); }
+  to {
+    max-width: 0;
+    margin-left: calc(-1 * var(--attn-gap));
+    padding-inline: 0;
+    border-inline-width: 0;
+    opacity: 0;
+    clip-path: inset(0);
+  }
+}
 .attn-ticket .agent-avatar.is-sm { width: 24px; height: 24px; }
 .attn-ticket-dot { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
 .attn-ticket-dot.is-blocked { background: var(--warn); }
@@ -389,11 +422,12 @@ html:has(.herd-page) { scroll-padding-top: calc(var(--herd-head-h, 0px) + 64px);
   .host-title-name,
   .host-title-line,
   .herd-attn-pill,
-  .attn-wrap,
   .attn-strip,
   .create-fab,
   .create-fab-label { transition: none; }
   .host-title.is-pending .dot-pending { animation: none; }
+  .attn-ticket.is-entering,
+  .attn-ticket.is-leaving { animation: none; }
 }
 
 .herd-page .herd-list { padding-bottom: 84px; }

@@ -53,17 +53,18 @@ function busy(): boolean {
 
 /**
  * Focus is still somewhere a key can reach. A list hidden under the file it
- * opened keeps its row in the document, a control that disabled itself stays
- * where it is, and the engine takes its time to report the focus neither can
- * hold any longer.
+ * opened keeps its row in the document, and so does one still stepping back
+ * behind that file, out of reach (`inert`); a control that disabled itself
+ * stays where it is; and the engine takes its time to report the focus none of
+ * them can hold any longer.
  */
 function holds(active: Element | null): boolean {
-  if (!active || active === document.body || !active.isConnected || active.matches(":disabled")) return false;
+  if (!active || active === document.body || !active.isConnected || active.matches(":disabled") || active.closest("[inert]")) return false;
   return typeof active.checkVisibility !== "function" || active.checkVisibility();
 }
 
 function take(target: HTMLElement | null | undefined): boolean {
-  if (!target?.isConnected) return false;
+  if (!target?.isConnected || target.closest("[inert]")) return false;
   target.focus({ preventScroll: true });
   return document.activeElement === target && holds(target);
 }
@@ -161,10 +162,17 @@ function keepFocusIn(root: HTMLElement, surface: Surface): () => void {
     if (records.some((record) => [...record.removedNodes].some((node) => node.nodeName === "DIALOG"))) check();
   });
   overlays.observe(document.body, { childList: true });
+  // So is one that closed and stays on the page for its exit, out of reach: the
+  // keyboard is back in the surface when it closes, not when it is taken away.
+  const closing = new MutationObserver((records) => {
+    if (records.some((record) => record.target.nodeName === "DIALOG")) check();
+  });
+  closing.observe(document.body, { subtree: true, attributes: true, attributeFilter: ["open"] });
   // The surface replaced what held focus (a list by the file a row opened), or
-  // disabled it, or let it take focus again.
+  // disabled it, or put it out of reach on its way out (`inert`), or let it
+  // take focus again.
   const content = new MutationObserver(check);
-  content.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled"] });
+  content.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ["disabled", "inert"] });
 
   return () => {
     document.removeEventListener("pointerdown", input, true);
@@ -172,6 +180,7 @@ function keepFocusIn(root: HTMLElement, surface: Surface): () => void {
     document.removeEventListener("pointerdown", note, true);
     document.removeEventListener("focusin", note);
     overlays.disconnect();
+    closing.disconnect();
     content.disconnect();
     window.clearTimeout(timer);
   };

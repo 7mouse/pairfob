@@ -203,14 +203,14 @@ describe("agent-chat remembers its mode per pane", () => {
   test("renders thinking, tools, and the final reply", async () => await act(async () => {
     bootAgentChat();
     expect(app.querySelector(".agent-chat-root")).toBeTruthy();
-    expect(app.querySelector("details.work-card")).toBeTruthy();
+    expect(app.querySelector(".work-card")).toBeTruthy();
     expect(app.querySelector(".work-step.is-think .work-step-text")?.textContent).toBe("I will read it");
     expect(app.querySelector(".work-step.is-read")).toBeTruthy();
     expect(app.querySelector(".agent-assistant")?.textContent).toContain("looks fine");
     expect(app.querySelector(".agent-user")?.textContent).toContain("inspect this");
     expect(app.querySelector(".agent-user-role")).toBeNull();
     expect(app.querySelector(".agent-user-text")?.textContent).toBe("inspect this");
-    expect(app.querySelector("details.work-card")?.hasAttribute("open")).toBe(true);
+    expect(app.querySelector(".work-card .work-head")?.getAttribute("aria-expanded")).toBe("true");
     expect(app.querySelector(".agent-stream-inner")).toBeTruthy();
     const title = app.querySelector(".agent-chat-root .chrome-title");
     expect(title).toBeTruthy();
@@ -425,7 +425,7 @@ describe("agent-chat remembers its mode per pane", () => {
     ] });
     expect(patchAgentChat({ follow: true })).toBe(true);
 
-    const fold = app.querySelector("details.work-card");
+    const fold = app.querySelector(".work-card");
     const preamble = fold?.querySelector(".work-note");
     const tool = fold?.querySelector(".work-step.is-read");
     const final = app.querySelector(".agent-assistant-final");
@@ -554,7 +554,8 @@ describe("agent-chat remembers its mode per pane", () => {
     // Confirmed on the button: a banner above the transcript would move it under the next press.
     expect(app.querySelector(".agent-chat-root > [data-app-notice]")).toBeNull();
     const button = app.querySelector(".agent-reply-copy")!;
-    expect([button.textContent, button.getAttribute("aria-label"), button.hasAttribute("data-copied")]).toEqual(["已复制", "已复制回答", true]);
+    expect([button.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent, button.getAttribute("aria-label"),
+      button.querySelector(".copy-ack")?.getAttribute("data-state")]).toEqual(["已复制", "已复制回答", "copied"]);
   });
 
   test("older history sits in the stream so it scrolls away from the latest turn", async () => await act(async () => {
@@ -693,9 +694,12 @@ describe("agent-chat remembers its mode per pane", () => {
     // At the latest message the turn's own card is the way out; the dock entry
     // only appears for a reader scrolled away from it.
     expect(app.querySelector(".agent-stream .needs-card")).toBeTruthy();
-    expect(app.querySelector(".agent-confirm")).toBeNull();
+    // Folded shut it is out of reach, not out of the page: it opens and shuts by height.
+    const line = (): Element | null | undefined => app.querySelector(".agent-confirm")?.closest(".fold");
+    expect([line()?.classList.contains("is-shut"), line()?.hasAttribute("inert")]).toEqual([true, true]);
     applyTrace({ agentTraceFollow: false });
     paintPane();
+    expect([line()?.classList.contains("is-shut"), line()?.hasAttribute("inert")]).toEqual([false, false]);
     expect(app.querySelector(".agent-confirm")?.textContent).toContain("等你确认");
     const go = app.querySelector(".agent-confirm button");
     if (!(go instanceof HTMLButtonElement)) throw new Error("missing 去终端处理");
@@ -709,8 +713,8 @@ describe("agent-chat remembers its mode per pane", () => {
     bootAgentChat();
     setAgents([{ ...(selectedAgent() ?? { paneId: "p1" }), status: "unknown" }]);
     paintPane();
-    expect(app.querySelector(".agent-confirm")).toBeNull();
-    expect(app.textContent).not.toContain("等你确认");
+    expect(app.querySelector(".agent-confirm")?.closest(".fold")?.hasAttribute("inert")).toBe(true);
+    expect(app.querySelector(".agent-stream")?.textContent).not.toContain("等你确认");
     expect(app.querySelector(".chrome-status")?.textContent).toBe("未知");
     expect(app.querySelector(".agent-avatar-status.is-unknown")).not.toBeNull();
     expect(app.querySelector(".icon-stop")).toBeNull();

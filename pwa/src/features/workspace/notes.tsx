@@ -1,5 +1,5 @@
 import { ChevronRight, CircleCheck, PenLine, X } from "lucide-react";
-import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactNode } from "react";
+import { cloneElement, useEffect, useRef, useState, type FormEvent, type KeyboardEvent, type ReactElement, type ReactNode } from "react";
 import { canPromptAgent } from "../../lib/dashboard";
 import {
   DIFF_NOTE_BODY_LIMIT,
@@ -15,6 +15,7 @@ import {
   removeDiffNote,
   sameDiffNoteScope,
   upsertDiffNote,
+  type DiffNote,
   type DiffNotePin,
   type DiffNoteScope,
   type DiffNoteTarget,
@@ -22,7 +23,7 @@ import {
 import { t } from "../../lib/i18n";
 import type { GitLayer } from "../../lib/workspace";
 import { clearNotice, showStatus, visibleNotice } from "../../app/notices-store";
-import { forgetSentDiffNotes, sentDiffNoteAt, sentDiffNotesFor, sentNoteState, type SentDiffNote, type SentNoteState } from "../../lib/diff-notes-sent";
+import { forgetSentDiffNotes, sentDiffNotesFor, sentNoteState, type SentDiffNote, type SentNoteState } from "../../lib/diff-notes-sent";
 import { sendAllDiffNotesToAgent, sendDiffNotesToAgent } from "../../features/operations/controller";
 import { operationBusy } from "../operations/capabilities-store";
 import { useCapabilities } from "../operations/hooks";
@@ -30,6 +31,8 @@ import { liveSession } from "../computers/catalog-store";
 import { useDashboard } from "../dashboard/hooks";
 import { useSession } from "../session/hooks";
 import { agentFromDashboardSnapshot } from "../session/agents";
+import { usePresence } from "../../shared/react/use-presence";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
 import { Button } from "../../shared/ui/primitives";
 import { leaveWorkspace } from "./actions";
 import { guardBackPress } from "./back-press";
@@ -173,8 +176,15 @@ function SentNoteCard({ note }: { note: SentDiffNote }) {
   </div>;
 }
 
-export function DiffNoteCards({ target, onEdit }: { target: DiffNoteTarget; onEdit: (target: DiffNoteTarget) => void }) {
-  const note = diffNoteForPin(target);
+/**
+ * The card of the note saved on a line, or the record of one that was sent
+ * from it. Both are handed in by the line (`diff-line`): the card flashes on
+ * its own clock, and a diff kept on screen while the next is read has to go on
+ * showing the note it had, which the store has let go of by then.
+ */
+export function DiffNoteCards({ target, note, sent, onEdit }: {
+  target: DiffNoteTarget; note: DiffNote | undefined; sent: SentDiffNote | undefined; onEdit: (target: DiffNoteTarget) => void;
+}) {
   const card = useRef<HTMLDivElement>(null);
   const fresh = Boolean(note) && freshPin === diffNotePinKey(target);
   const [flash, setFlash] = useState(false);
@@ -190,10 +200,7 @@ export function DiffNoteCards({ target, onEdit }: { target: DiffNoteTarget; onEd
     const timer = window.setTimeout(() => setFlash(false), 1200);
     return () => window.clearTimeout(timer);
   }, [flash]);
-  if (!note) {
-    const was = sentDiffNoteAt(diffNoteScope(), target);
-    return was ? <SentNoteCard note={was} /> : null;
-  }
+  if (!note) return sent ? <SentNoteCard note={sent} /> : null;
   const sending = diffNoteSending(note.id) || diffNoteSendOpen();
   return <div ref={card} className={`workspace-diff-note${fresh || flash ? " is-fresh" : ""}${sending ? " is-sending" : ""}`}>
     <div className="diff-note-main" onClick={() => { if (!sending) onEdit(target); }}>
@@ -240,10 +247,12 @@ function yieldSentNotice(): void {
  * when they dismiss it or write the next note. `beside` is the inspector: the
  * session is already next to the diff, so the receipt offers no way back and
  * the reader stays where they are.
+ *
+ * The bar comes up from below when it has something to say, and goes the way
+ * it came once it has nothing left: it is kept for that, as it last stood and
+ * out of reach.
  */
-export function DiffNotesBar({ path, layer, paneId, beside = false, returnView = "guided" }: {
-  path: string; layer: GitLayer; paneId: string; beside?: boolean; returnView?: WorkspaceReturnView;
-}) {
+export function DiffNotesBar(props: NotesBarProps) {
   // Subscribed snapshots: the bar re-renders with capability, busy and pane
   // changes instead of reading one-shot published copies during render.
   const capabilities = useCapabilities();
@@ -251,6 +260,22 @@ export function DiffNotesBar({ path, layer, paneId, beside = false, returnView =
   const session = useSession();
   useEffect(watchSentNotes, []);
   const sendKey = useKeyHint("sendNotes");
+  const bar = notesBar(props, { capabilities, dashboard, session, sendKey });
+  const last = useRef<NotesBar | null>(null);
+  if (bar) last.current = bar;
+  const { leaving } = usePresence(bar !== null, MOTION_MS.element);
+  if (bar || !leaving || !last.current) return bar;
+  return cloneElement(last.current, { className: `${last.current.props.className} is-leaving`, inert: true });
+}
+
+type NotesBarProps = { path: string; layer: GitLayer; paneId: string; beside?: boolean; returnView?: WorkspaceReturnView };
+type NotesBar = ReactElement<{ className: string; inert?: boolean }>;
+
+/** The bar for what the stores hold now; null when there is nothing to say. */
+function notesBar({ path, layer, paneId, beside = false, returnView = "guided" }: NotesBarProps, { capabilities, dashboard, session, sendKey }: {
+  capabilities: ReturnType<typeof useCapabilities>; dashboard: ReturnType<typeof useDashboard>; session: ReturnType<typeof useSession>;
+  sendKey: ReturnType<typeof useKeyHint>;
+}): NotesBar | null {
   const count = diffNotesFor(path, layer).length;
   if (!capabilities.operationCapabilities.prompt_agent) return null;
   const place = diffNotePlace(liveSession(), paneId);

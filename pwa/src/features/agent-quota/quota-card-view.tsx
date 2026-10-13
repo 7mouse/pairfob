@@ -8,14 +8,16 @@ const copyLabels = () => ({ copy: t("set.copy"), copied: t("set.copied"), failed
 /**
  * One provider with data: a head row (name, plan, when it was read), then one
  * row per window with the same meter the settings module uses. Pure: the model
- * resolved every string and the stale adjustment.
+ * resolved every string and the stale adjustment. `arrive` marks a card that
+ * was read after the page was drawn (see `arrivals`).
  */
-export function QuotaCardView({ card }: { card: QuotaCardModel }) {
-  return <SetGroup className="quota-card" id={`quota-${card.provider}`}>
+export function QuotaCardView({ card, arrive }: { card: QuotaCardModel; arrive?: number }) {
+  return <SetGroup className={`quota-card${arrive === undefined ? "" : " is-arriving"}`} id={`quota-${card.provider}`}>
     <SetItem className="quota-head" label={<>{card.title}<SetTag>{card.plan}</SetTag></>} sub={card.updated}
       trailing={card.state === "stale" ? <SetTag tone="warn">{t("quota.staleTag")}</SetTag> : null} />
     {card.state === "stale" ? <p className="set-item-note">{t("quota.staleRow")}</p>
-      : card.windows.map(window => <SetItem key={window.key} label={window.label} sub={window.sub} trailing={<QuotaMeter meter={window.meter} />} />)}
+      : card.windows.map((window, index) => <SetItem key={window.key} label={window.label} sub={window.sub}
+          trailing={<QuotaMeter meter={window.meter} arrive={arrive === undefined ? undefined : arrive + index} />} />)}
     {card.notes.length ? <p className="set-item-note">{card.notes.join(" ")}</p> : null}
   </SetGroup>;
 }

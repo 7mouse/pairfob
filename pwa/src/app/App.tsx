@@ -1,6 +1,5 @@
 import { useEffect, useSyncExternalStore, type ReactNode } from "react";
 import { bindSystemBack } from "./system-back";
-import { bindScreenWake } from "../features/session/screen-wake-lifecycle";
 import { langRevision, subscribeLang } from "../lib/i18n";
 import { BootScreen } from "../pages/boot/boot-screen";
 import { ReadingFrame } from "../pages/boot/reading-frame";
@@ -15,7 +14,6 @@ import { connectedPresentation, requireConnectedPresentation, subscribePresentat
 /** One App/root for the page lifetime; modules load before connected navigation. */
 export function App() {
   useEffect(bindSystemBack, []);
-  useEffect(bindScreenWake, []);
   const frame = useSyncExternalStore(subscribeAppFrame, getAppFrame);
   const connected = useSyncExternalStore(subscribePresentation, connectedPresentation);
   useSyncExternalStore(subscribeLang, langRevision);
