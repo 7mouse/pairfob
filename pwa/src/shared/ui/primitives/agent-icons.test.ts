@@ -17,6 +17,8 @@ describe("agent marks", () => {
     expect(agentIcon("droid")).toBe(AGENT_ICONS.droid);
     expect(agentIcon("hermes")).toBe(AGENT_ICONS.hermes);
     expect(agentIcon("maki")).toBe(AGENT_ICONS.maki);
+    for (const kind of ["letta", "Letta-Code", " letta-cli "]) expect(agentIcon(kind)).toBe(AGENT_ICONS.letta);
+    for (const kind of ["muse", "Muse-Code", " muse-cli "]) expect(agentIcon(kind)).toBe(AGENT_ICONS.muse);
   });
 
   test("an unknown kind or a plain terminal has no mark, so a monogram stands in", () => {
@@ -34,10 +36,10 @@ describe("agent marks", () => {
 
   test("picture marks are bundled with the app, never fetched from another host", () => {
     const pictures = Object.entries(AGENT_ICONS).filter(([, spec]) => spec.picture !== undefined);
-    expect(pictures.map(([kind]) => kind)).toEqual(["maki"]);
+    expect(pictures.map(([kind]) => kind)).toEqual(["muse", "maki"]);
     for (const [kind, spec] of pictures) {
       expect(spec.picture, kind).not.toMatch(/^(https?:)?\/\//i);
-      expect(spec.picture, kind).toMatch(/^data:image\/png;base64,|agent-marks\/maki\.png$/);
+      expect(spec.picture, kind).toMatch(/^data:image\/(?:png|svg\+xml)[;,]|agent-marks\/(?:maki\.png|meta\.svg)$/);
     }
   });
 });

@@ -1,66 +1,79 @@
 import type { RecoveryClock } from "./recovery-diagnostics";
-import { recordConnectionDiagnostic } from "./connection-diagnostics.ts";
 import { ProtocolError } from "./errors.ts";
-import { openWS, type FrameSocket } from "./frame-socket.ts";
-import { muxProtocolFromRelayURL, muxSubprotocol } from "./mux.ts";
+import { connectionTrace, RelayDial, type DialContext } from "./relay-dial.ts";
 
-let nextConnectID = Date.now();
-export function connectionTrace(warm = false, recovery?: RecoveryClock): (event: string, code?: string) => void {
-  const connectID = ++nextConnectID;
-  const started = performance.now();
-  const trace = (event: string, code?: string) => recordConnectionDiagnostic({
-    ...recovery?.(), event, code, transport: "relay", connect_id: connectID, elapsed_ms: performance.now() - started,
-  });
-  trace(warm ? "warmup_start" : "connect_start");
-  return trace;
-}
+export { connectionTrace } from "./relay-dial.ts";
 
-type Prepared = { socket: FrameSocket; trace: ReturnType<typeof connectionTrace> };
-type Attempt = { controller: AbortController; result: Promise<Prepared | null>; socket?: FrameSocket };
+type Attempt = { controller: AbortController; result: Promise<RelayDial | null>; dial?: RelayDial };
 
-/** Preconnect only: never sends HELLO, ATTACH or DeviceHello and cannot evict the live route. */
+/**
+ * A relay dial prepared beside the live transport. By default it only opens the
+ * socket. A standby also sends the first flight and reports DeviceHello2: that
+ * still cannot evict the live route, which the computer keeps until DeviceHello3.
+ */
 export class RelayWarmup {
   private attempt: Attempt | null = null;
-  constructor(private readonly url: string, private readonly recovery: () => RecoveryClock | undefined = () => undefined) {}
+  constructor(
+    private readonly url: string,
+    private readonly recovery: () => RecoveryClock | undefined = () => undefined,
+    private readonly context?: DialContext,
+  ) {}
 
-  start(): void {
-    if (this.attempt) return;
+  /**
+   * `standby` runs once, when the prepared dial has verified DeviceHello2 and is
+   * still unused. False when an earlier preparation is still held: it stays as is.
+   */
+  start(standby?: () => void): boolean {
+    if (this.attempt) return false;
     const controller = new AbortController();
     const trace = connectionTrace(true, this.recovery());
     const attempt: Attempt = { controller, result: Promise.resolve(null) };
     this.attempt = attempt;
-    attempt.result = openWS(this.url, muxSubprotocol(muxProtocolFromRelayURL(this.url)), controller.signal).then(socket => {
-      if (controller.signal.aborted) { socket.close(); return null; }
-      attempt.socket = socket;
-      trace("ws_open");
-      return { socket, trace };
+    attempt.result = RelayDial.open(this.url, trace, controller.signal).then(dial => {
+      if (controller.signal.aborted) { dial.close(); return null; }
+      attempt.dial = dial;
+      if (standby && this.context) {
+        dial.start(this.context).then(() => {
+          if (this.attempt === attempt) standby();
+        }, error => {
+          // Still untaken: a refused standby must not be handed to the next dial.
+          if (this.attempt !== attempt) return;
+          this.attempt = null;
+          trace("connect_failed", error instanceof ProtocolError ? error.code : "error");
+          dial.close();
+          // The probe now decides alone; keep the plain prepared socket it would have had.
+          if (!controller.signal.aborted) this.start();
+        });
+      }
+      return dial;
     }, error => {
       trace(controller.signal.aborted ? "warmup_cancelled" : "connect_failed", error instanceof ProtocolError ? error.code : "error");
       return null;
     });
+    return true;
   }
 
   cancel(): void {
     const attempt = this.attempt;
     this.attempt = null;
     attempt?.controller.abort();
-    attempt?.socket?.close();
+    attempt?.dial?.close();
   }
 
-  async take(signal?: AbortSignal): Promise<Prepared | null> {
+  async take(signal?: AbortSignal): Promise<RelayDial | null> {
     const attempt = this.attempt;
     this.attempt = null;
     if (!attempt) return null;
-    const abort = () => { attempt.controller.abort(); attempt.socket?.close(); };
+    const abort = () => { attempt.controller.abort(); attempt.dial?.close(); };
     signal?.addEventListener("abort", abort, { once: true });
     try {
       if (signal?.aborted) abort();
-      const prepared = await attempt.result;
-      if (signal?.aborted || prepared?.socket.ws.readyState !== WebSocket.OPEN) {
-        prepared?.socket.close();
+      const dial = await attempt.result;
+      if (signal?.aborted || dial?.socket.ws.readyState !== WebSocket.OPEN) {
+        dial?.close();
         return null;
       }
-      return prepared;
+      return dial;
     } finally { signal?.removeEventListener("abort", abort); }
   }
 }

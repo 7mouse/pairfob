@@ -14,6 +14,7 @@ import {
 } from "./direct-peer.ts";
 import { ProtocolError } from "./errors.ts";
 import { muxProtocolFromRelayURL } from "./mux.ts";
+import { STANDBY_AWAY_MS } from "./reconnect-policy.ts";
 import type { PairResult } from "./pair-ws.ts";
 import { SessionTransport } from "./session-transport.ts";
 import type { ReconnectReason, SessionEvent } from "./session-types.ts";
@@ -40,7 +41,13 @@ export type DirectSessionHost = {
   networkAvailable: boolean;
   networkMode: NetworkMode;
   prepareRelay(): void;
+  /**
+   * Prepare a relay dial through its first flight and call `ready` once it has
+   * verified DeviceHello2 unused. False when the handshake budget has no room.
+   */
+  standbyRelay(ready: () => void): boolean;
   cancelPreparedRelay(): void;
+  spendHello(): void;
   getTransport(): SessionTransport | null;
   setTransport(transport: SessionTransport): void;
   beginSwitch(): TransportSwitchLease;
@@ -64,6 +71,9 @@ export class DirectSessionDriver {
   private directRetryAttempt = 0;
   private lastRestartAt = 0;
   private hidden = pageHidden();
+  private hiddenAt = this.hidden ? Date.now() : 0;
+  /** How long the page was hidden before the foreground now being probed. */
+  private awayMs = 0;
   private activityVersion = 0;
   private probeAttempt: { transport: SessionTransport; cancel(): void } | null = null;
   private unwatchIce: (() => void) | null = null;
@@ -87,6 +97,9 @@ export class DirectSessionDriver {
   setPageHidden(hidden: boolean): void {
     if (this.hidden === hidden) return;
     this.hidden = hidden;
+    // Wall clock: a suspended page's monotonic clock may not advance.
+    if (hidden) this.hiddenAt = Date.now();
+    else this.awayMs = Math.max(0, Date.now() - this.hiddenAt);
     this.activityVersion++;
     this.probeAttempt?.cancel();
     this.probeAttempt = null;
@@ -99,6 +112,8 @@ export class DirectSessionDriver {
   }
 
   onRelayReady(transport: SessionTransport): void {
+    // The return that found no transport has just been answered by this dial.
+    this.awayMs = 0;
     this.resetBackoff();
     this.startAutomaticDirectUpgrade(transport);
   }
@@ -150,15 +165,16 @@ export class DirectSessionDriver {
     }
   }
 
-  probe(transport: SessionTransport, reason: ReconnectReason): void {
-    if (this.hidden || pageHidden() || this.probeAttempt?.transport === transport) return;
+  /** True when this call started a probe: duplicates and hidden pages start none. */
+  probe(transport: SessionTransport, reason: ReconnectReason): boolean {
+    if (this.hidden || pageHidden() || this.probeAttempt?.transport === transport) return false;
     const version = this.activityVersion;
     let expired = false;
     let unwatchFailure = () => {};
     const current = () => !expired && this.activityVersion === version && !this.hidden && !pageHidden() && this.host.getTransport() === transport;
-    const warmup = globalThis.setTimeout(() => {
-      if (current()) this.host.prepareRelay();
-    }, RELAY_WARMUP_DELAY_MS);
+    const away = this.awayMs;
+    this.awayMs = 0;
+    let warmup: ReturnType<typeof setTimeout> | undefined;
     const deadline = globalThis.setTimeout(() => {
       if (current()) {
         expired = true;
@@ -179,8 +195,27 @@ export class DirectSessionDriver {
     this.probeAttempt = attempt;
     // Publish ownership before notifying UI listeners, which may request another probe.
     this.host.emit({ type: "checking" });
-    if (!current()) { cancel(); return; }
+    if (!current()) { cancel(); return false; }
     transport.diagnose("probe_start", { reason });
+    // After a long absence the old path may have died without telling this
+    // page. A standby handshake runs beside the probe: whichever answers first
+    // decides, so a dead path costs one handshake instead of the Ping deadline.
+    // A network hint is not a return: there the old path gets its repair first.
+    const standby = reason === "probe" && away >= STANDBY_AWAY_MS && this.host.standbyRelay(() => {
+      if (!current()) return;
+      transport.diagnose("probe_failed", { reason: "standby_ready", code: "timeout" });
+      cancel();
+      this.restartAbort?.abort();
+      // Retire the old path before DeviceHello3 leaves: the computer kicks the
+      // previous route as it establishes the new one, and nothing may be
+      // listening on it by then.
+      transport.suspend(new ProtocolError("timeout", "原连接没有及时应答，已改用新连接", { reason: "standby_ready" }));
+    });
+    if (!standby) {
+      warmup = globalThis.setTimeout(() => {
+        if (current()) this.host.prepareRelay();
+      }, RELAY_WARMUP_DELAY_MS);
+    }
     unwatchFailure = transport.directChannel()?.watchRecoveryFailure?.(() => {
       if (!current()) return;
       transport.diagnose("ice_terminal", { reason: "foreground_transport_failed" });
@@ -189,8 +224,9 @@ export class DirectSessionDriver {
       this.restartAbort?.abort();
       transport.suspend(new ProtocolError("disconnected", "P2P 已失效，正在切换到中继", { reason: "foreground_transport_failed" }));
     }) ?? (() => {});
-    if (!current()) { cancel(); return; }
+    if (!current()) { cancel(); return false; }
     void this.runProbe(transport, reason, current).finally(cancel);
+    return true;
   }
 
   private async runProbe(transport: SessionTransport, reason: ReconnectReason, current: () => boolean): Promise<void> {
@@ -298,7 +334,8 @@ export class DirectSessionDriver {
     let candidate: Awaited<ReturnType<typeof prepareDirectSession>> | null = null;
     let switchLease: TransportSwitchLease | null = null;
     try {
-      candidate = await prepareDirectSession(relay, this.host.pair, muxProtocolFromRelayURL(this.host.relayWS), controller.signal);
+      candidate = await prepareDirectSession(relay, this.host.pair, muxProtocolFromRelayURL(this.host.relayWS), controller.signal,
+        () => this.host.spendHello());
       const iceGathering = candidate.iceGathering;
       if (this.host.stopped || this.host.getTransport() !== relay || !this.host.networkAvailable) {
         throw new DirectError("cancelled", "P2P 直连尝试已取消");

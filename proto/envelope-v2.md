@@ -170,6 +170,26 @@ the quota is enforced with LRU. PING does not extend lifetime. The Durable
 Object does **not** pin `device_id`. The daemon sends ERROR with `kicked` for a
 duplicate device.
 
+A phone may send its frames in two flights instead of one frame per round
+trip. Neither changes a frame or a field.
+
+1. HELLO_CLIENT, SESSION_ATTACH and the FWD carrying `DeviceHello1` may leave
+   together. The Durable Object handles one socket's frames in order and stamps
+   the bound route on every phone FWD, so the header `route_id` of that
+   `DeviceHello1` is zeros; the phone reads the route from SESSION_BOUND before
+   it verifies `DeviceHello2`.
+2. Encrypted FWD requests may follow `DeviceHello3` directly, before the phone
+   has read SESSION_ESTABLISHED. The daemon handles one route's frames in order
+   and has established the route by then; a refused `DeviceHello3` closes the
+   route and answers nothing sent behind it. Only reads ride this flight. The
+   phone seals them only after it has verified the daemon's proof and
+   signature, and enables input only after one of them is answered.
+
+A daemon keeps a device's established route until it accepts `DeviceHello3` on
+a new one, so a handshake that stops after the first flight disturbs nothing.
+A phone that completes the second flight retires its previous transport first:
+the daemon sends that route ERROR `kicked` before it establishes the new one.
+
 After establishment, endpoints may negotiate the optional direct transport
 defined in `direct-transport.md`. Its SDP stays inside opaque encrypted FWD RPC
 payloads; the Worker and Durable Object do not parse it.

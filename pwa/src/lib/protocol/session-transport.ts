@@ -58,6 +58,41 @@ type Late = { fn: (result: unknown) => void; expires: ReturnType<typeof setTimeo
  */
 export const MEDIA_OPEN_RPC_TIMEOUT_MS = 20_000;
 
+export type FlightRead = { op: string; params: unknown };
+/** A read already on the wire; the transport built on its epoch adopts it. */
+export type SentRead = FlightRead & {
+  id: string;
+  answer: Promise<unknown>;
+  resolve: (value: unknown) => void;
+  reject: (error: Error) => void;
+};
+
+function encodeRequest(op: string, params: unknown): { id: string; plaintext: Uint8Array } {
+  const id = `req_${b64url(crypto.getRandomValues(new Uint8Array(12)))}`;
+  return { id, plaintext: new TextEncoder().encode(JSON.stringify({ v: 1, id, op, params })) };
+}
+
+/**
+ * Seal reads on a fresh epoch and send them behind DeviceHello3, before
+ * SESSION_ESTABLISHED has come back. Reads only: a mutation never rides here.
+ */
+export function sendFlightReads(
+  channel: FrameChannel,
+  epoch: { routeId: Uint8Array; c2s: Direction },
+  reads: readonly FlightRead[],
+): SentRead[] {
+  return reads.map((read) => {
+    const { id, plaintext } = encodeRequest(read.op, read.params);
+    channel.send({ version: 1, typ: Typ.FWD, flags: 0, routeId: epoch.routeId, payload: epoch.c2s.seal(epoch.routeId, plaintext) });
+    let resolve!: (value: unknown) => void;
+    let reject!: (error: Error) => void;
+    const answer = new Promise<unknown>((res, rej) => { resolve = res; reject = rej; });
+    // Nobody may be waiting for a read that was sent ahead.
+    answer.catch(() => undefined);
+    return { ...read, id, answer, resolve, reject };
+  });
+}
+
 export function validateEstablishedFWD(frame: Frame, routeId: Uint8Array): void {
   if (frame.typ !== Typ.FWD) throw new ProtocolError("bad_frame", `Established 会话收到非法控制帧 ${frame.typ}`);
   if (!sameBytes(frame.routeId, routeId)) throw new ProtocolError("bad_frame", "Established FWD route_id 不匹配");
@@ -99,9 +134,12 @@ export class SessionTransport {
     private readonly c2s: Direction,
     private readonly s2c: Direction,
     private readonly emit: (event: SessionEvent) => void,
+    sent: readonly SentRead[] = [],
   ) {
     channel.onDiagnostic?.((details) => this.diagnose("transport_closed", details));
     this.diagnose("session_open");
+    // Adopt before taking the channel: answers may already be queued on it.
+    for (const read of sent) this.adopt(read);
     channel.use((frame) => this.receive(frame));
     channel.onClose((error) => this.disconnect(error));
     if (this.stopped) return;
@@ -167,6 +205,14 @@ export class SessionTransport {
     if (this.stopError) handler(this.stopError);
   }
 
+  private adopt(read: SentRead): void {
+    const entry: Pending = {
+      resolve: read.resolve, reject: read.reject, bulk: false, counted: false, abort: new AbortController(),
+      timer: globalThis.setTimeout(() => this.expireRPC(read.id, entry, read.op), READ_RPC_TIMEOUT_MS),
+    };
+    this.pending.set(read.id, entry);
+  }
+
   async rpc(op: string, params: unknown, timeoutMs = READ_RPC_TIMEOUT_MS, onSent?: () => void, onLate?: (result: unknown) => void): Promise<unknown> {
     if (this.stopped) throw new ProtocolError("disconnected", "连接正在恢复");
     if (this.pending.size >= MAX_IN_FLIGHT) throw new ProtocolError("backpressure", "请求过多，请稍后再试");
@@ -179,8 +225,7 @@ export class SessionTransport {
     if (bulk && this.bulkActive >= MAX_BULK_IN_FLIGHT) {
       throw new ProtocolError("backpressure", "批量上传在途请求已达上限，请等待确认后再发");
     }
-    const id = `req_${b64url(crypto.getRandomValues(new Uint8Array(12)))}`;
-    const plaintext = new TextEncoder().encode(JSON.stringify({ v: 1, id, op, params }));
+    const { id, plaintext } = encodeRequest(op, params);
     // Exact whole-frame cost used for pre-seal admission: 24 B envelope header
     // plus the AEAD nonce/tag expansion; P2P fragment headers are added by the
     // DataChannel adapter.

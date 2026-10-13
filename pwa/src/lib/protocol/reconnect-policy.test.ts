@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { RECONNECT_BASE_MS, RECONNECT_MAX_MS, reconnectDelay } from "./reconnect-policy.ts";
+import { HELLO_WINDOW_MS, HelloBudget, RECONNECT_BASE_MS, RECONNECT_MAX_MS, STANDBY_HELLO_LIMIT, reconnectDelay } from "./reconnect-policy.ts";
 
 const sessionSource = await Bun.file(new URL("./session-ws.ts", import.meta.url)).text();
 
@@ -20,5 +20,26 @@ describe("mobile reconnect backoff", () => {
     const start = sessionSource.indexOf("private onDisconnect(");
     const body = sessionSource.slice(start, sessionSource.indexOf("private scheduleReconnect(", start));
     expect(body).toContain("this.scheduleReconnect(true)");
+  });
+});
+
+describe("handshake budget", () => {
+  test("a standby may only spend while dials that must happen keep most of the minute", () => {
+    // The computer admits ten DeviceHello1 per device a minute.
+    expect(STANDBY_HELLO_LIMIT).toBeLessThanOrEqual(5);
+    const budget = new HelloBudget();
+    for (let i = 0; i < STANDBY_HELLO_LIMIT; i++) {
+      expect(budget.spare(1_000 + i)).toBe(true);
+      budget.spend(1_000 + i);
+    }
+    expect(budget.spare(2_000)).toBe(false);
+    expect(budget.spare(999 + HELLO_WINDOW_MS)).toBe(false);
+    expect(budget.spare(1_000 + HELLO_WINDOW_MS)).toBe(true);
+  });
+
+  test("a clock that moved backwards cannot hide what was spent", () => {
+    const budget = new HelloBudget();
+    for (let i = 0; i < STANDBY_HELLO_LIMIT; i++) budget.spend(50_000);
+    expect(budget.spare(49_000)).toBe(false);
   });
 });

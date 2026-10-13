@@ -36,7 +36,8 @@ export function AgentAvatar({ kind, status, size = "md", className = "" }: {
     content = <SquareTerminal aria-hidden="true" />;
     variant = "is-terminal";
   } else if (icon && icon.picture !== undefined) {
-    content = <img src={icon.picture} alt="" draggable={false} />;
+    content = <img src={icon.picture} alt="" draggable={false}
+      style={icon.scale ? { transform: `scale(${icon.scale})` } : undefined} />;
     variant = "is-mark is-color";
   } else if (icon) {
     content = <svg viewBox="0 0 24 24" fillRule="evenodd" fill="currentColor" aria-hidden="true"

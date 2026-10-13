@@ -137,7 +137,7 @@ describe("the quota page's three groups", () => {
 
   test("a card says how old its numbers are and why, and old numbers are not shown", () => {
     const [codex, claude, cursor] = panel().cards;
-    expect([codex!.status, codex!.troubled, codex!.tag, codex!.plan]).toEqual(["1 分钟前更新", false, null, "pro"]);
+    expect([codex!.status, codex!.troubled, codex!.tag, codex!.plan]).toEqual(["1 分钟前更新", false, null, "Pro"]);
     expect(claude!.tag).toEqual({ text: "部分" });
     expect(claude!.rows.map(row => row.meter.kind)).toEqual(["limited", "pending"]);
     expect([cursor!.status, cursor!.troubled]).toEqual(["8 分钟前的数据 · 这次读取超时", true]);
@@ -147,6 +147,12 @@ describe("the quota page's three groups", () => {
     const stale = quotaCardModel(account({ observed_at: at(-3600) }), NOW);
     expect([stale.stale, stale.rows, stale.more, stale.tag]).toEqual([true, [], null, { text: "已过期", tone: "warn" }]);
     expect(quotaCardModel(account({ plan: "" }), NOW).plan).toBeNull();
+  });
+
+  test("a plan spelled as an identifier reads as a name, and one already cased is kept", () => {
+    const plan = (name: string) => quotaCardModel(account({ plan: name }), NOW).plan;
+    expect(["unified_ultra", "max", "pro+", "SuperGrok Heavy", "Team", "_"].map(plan))
+      .toEqual(["Unified Ultra", "Max", "Pro+", "SuperGrok Heavy", "Team", null]);
   });
 
   test("the meters that are not the plan fold under a line that still says one is low", () => {

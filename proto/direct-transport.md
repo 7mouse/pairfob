@@ -57,6 +57,30 @@ WebSocket without authenticating or replacing the live route. The Ping deadline
 remains 3 seconds; old-path recovery has a 4-second budget, separate from the
 subsequent relay authentication budget.
 
+A page that was hidden for 10 seconds or longer may return to a path that died
+without a close. The probe of that return (not of a later network hint, whose
+old path gets its repair first) then runs beside a standby: a second relay socket
+that sends the first flight of `envelope-v2.md` at once and stops after
+verifying `DeviceHello2`. Whichever answers first decides. A Ping answer keeps
+the old transport and closes the standby, which the daemon never established.
+A standby that verifies while the Ping is still unanswered retires the old
+transport, then sends `DeviceHello3`; the page reconnects in one handshake
+instead of waiting out the Ping deadline. A refused standby is dropped silently,
+a plain prepared socket takes its place, and the probe decides alone.
+
+The daemon admits ten `DeviceHello1` per device a minute. A session counts its
+own (dials, standbys and direct upgrades) and starts a standby only while fewer
+than four fall in the last minute, so a guess never spends the handshakes a
+reconnect must have.
+
+The reads a screen issues once it is connected (`GetConfig`, `Snapshot`, and the
+open pane's `PaneRead`) leave with the probe's Ping on a live transport and with
+`DeviceHello3` on a new one. The app still asks in its order and applies each
+answer where it always did. An answer is handed out once, to the identical
+read, on the transport it arrived on, within 2 seconds of arriving, and never
+after a mutation, a `Poke` or a new probe; otherwise the read goes out
+normally.
+
 During a foreground probe, definitive ICE/peer `failed` or `closed` states
 retire the old transport even while page grace is active. `disconnected` and
 `checking` keep their grace. An explicit ICE restart owns a separate pause.

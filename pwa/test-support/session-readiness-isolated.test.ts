@@ -36,6 +36,7 @@ mock.module("../src/lib/protocol/frame-socket", () => ({
 }));
 mock.module("../src/lib/protocol/session-handshake", () => ({
   ...handshake, establishSessionEpoch: async (channel: Wire) => channel.epoch(),
+  beginSessionEpoch: (channel: Wire) => ({ verified: Promise.resolve(), finish: async () => channel.epoch() }),
 }));
 const { sessionOverWS } = await import("../src/lib/protocol/session-ws");
 const realm = new Window();
@@ -48,6 +49,8 @@ const pair = {
   fp: fingerprint16(pk), relayOrigin: "https://pairfob.com",
 };
 let live: LiveSession | null;
+// A probe may carry the screen's first reads beside its Ping; a mutation never rides along.
+const FIRST_FLIGHT = ["Ping", "GetConfig", "Snapshot"];
 const settle = async () => { for (let i = 0; i < 30; i++) await Promise.resolve(); };
 function visibility(hidden: boolean) {
   document.visibilityState = hidden ? "hidden" : "visible";
@@ -92,12 +95,12 @@ test("foreground checking blocks mutations without sending or replay and shares 
   await expect(session.sendText("w1:p1", "no replay")).rejects.toMatchObject({ code: "disconnected" });
   await expect(session.terminalInput("term_" + "a".repeat(32), 1, new Uint8Array([65])))
     .rejects.toMatchObject({ code: "disconnected" });
-  expect(wire.requests.every((r) => r.op === "Ping")).toBe(true);
+  expect(wire.requests.every((r) => FIRST_FLIGHT.includes(r.op))).toBe(true);
   wire.confirm();
   await settle();
   expect(session.isConnected()).toBe(true);
   expect(events).toEqual(["checking", "connected"]);
-  expect(wire.requests.every((r) => r.op === "Ping")).toBe(true);
+  expect(wire.requests.every((r) => FIRST_FLIGHT.includes(r.op))).toBe(true);
 });
 
 test("a late previous-foreground response cannot enable input in the next foreground", async () => {
@@ -178,7 +181,7 @@ test("silent foreground consumes the prepared relay once without replaying block
   wire.confirm(); await settle();
   expect(session.isConnected()).toBe(true);
   expect(old.closed).toBe(true);
-  expect([...old.requests, ...wire.requests].every(r => r.op === "Ping")).toBe(true);
+  expect([...old.requests, ...wire.requests].every(r => FIRST_FLIGHT.includes(r.op))).toBe(true);
   old.confirm(); await settle();
   expect(session.isConnected()).toBe(true);
 }, 5000);

@@ -1,15 +1,20 @@
 import type { RecoveryClock } from "./recovery-diagnostics";
-import { jsonFrame, Typ } from "./envelope.ts";
 import { ProtocolError } from "./errors.ts";
-import { envelopeError, openWS, send, Z16 } from "./frame-socket.ts";
-import { helloClientBody, muxProtocolFromRelayURL, muxSubprotocol, sessionAttachBody } from "./mux.ts";
 import type { PairResult } from "./pair-ws.ts";
-import { connectionTrace, type RelayWarmup } from "./relay-warmup.ts";
-import { establishSessionEpoch } from "./session-handshake.ts";
-import { SessionTransport } from "./session-transport.ts";
+import type { HelloBudget } from "./reconnect-policy.ts";
+import { connectionTrace, RelayDial, type DialStyle, type RelayConnection } from "./relay-dial.ts";
+import type { RelayWarmup } from "./relay-warmup.ts";
+import type { SessionTransport, FlightRead } from "./session-transport.ts";
 import type { SessionEvent } from "./session-types.ts";
 
-/** One authenticated relay attempt; timing includes speculative WebSocket preparation, if any. */
+export type FirstFlight = {
+  /** Reads sent with DeviceHello3; their answers come back with the transport. */
+  reads?: readonly FlightRead[];
+  style?: DialStyle;
+  budget?: HelloBudget;
+};
+
+/** One authenticated relay attempt; timing includes speculative preparation, if any. */
 export async function connectSession(
   relayWS: string,
   pair: PairResult,
@@ -17,39 +22,26 @@ export async function connectSession(
   signal?: AbortSignal,
   warmup?: RelayWarmup,
   recovery?: RecoveryClock,
-): Promise<SessionTransport> {
-  const protocol = muxProtocolFromRelayURL(relayWS);
-  const prepared = await warmup?.take(signal);
-  const trace = prepared?.trace ?? connectionTrace(false, recovery);
-  let socket = prepared?.socket;
+  first: FirstFlight = {},
+): Promise<RelayConnection> {
+  const context = { relayWS, pair, style: first.style ?? { helloAhead: true, readsAhead: true }, budget: first.budget };
+  let dial = await warmup?.take(signal) ?? undefined;
+  const trace = dial?.trace ?? connectionTrace(false, recovery);
   let transport: SessionTransport | undefined;
-  const abort = () => socket?.close(1000, "connection cancelled");
+  const abort = () => dial?.close("connection cancelled");
   try {
-    if (!socket) {
-      socket = await openWS(relayWS, muxSubprotocol(protocol), signal);
-      trace("ws_open");
-    }
+    dial ??= await RelayDial.open(relayWS, trace, signal);
     signal?.addEventListener("abort", abort, { once: true });
     if (signal?.aborted) throw new ProtocolError("disconnected", "连接已取消");
-    send(socket.ws, jsonFrame(Typ.HELLO_CLIENT, Z16, helloClientBody(protocol)));
-    send(socket.ws, jsonFrame(Typ.SESSION_ATTACH, Z16, sessionAttachBody(protocol, pair.daemonId)));
-    const bound = await socket.next(8_000);
-    if (bound.typ === Typ.ERROR) throw envelopeError(bound);
-    if (bound.typ !== Typ.SESSION_BOUND) throw new ProtocolError("bad_message", `预期 SESSION_BOUND，实际 ${bound.typ}`);
-    trace("route_bound");
-    const epoch = await establishSessionEpoch(socket, bound.routeId, pair, protocol, trace);
-    if (signal?.aborted) throw new ProtocolError("disconnected", "连接已取消");
-    transport = new SessionTransport(socket, epoch.routeId, epoch.c2s, epoch.s2c, emit);
-    transport.recoveryDiagnostic = recovery;
-    // A fresh encrypted response is still required before enabling operations.
-    await transport.rpc("Ping", { t_ms: Date.now() }, 8_000);
+    const connection = await dial.establish(context, emit, first.reads ?? [], recovery);
+    transport = connection.transport;
     if (signal?.aborted) throw new ProtocolError("disconnected", "连接已取消");
     trace("session_ready");
-    return transport;
+    return connection;
   } catch (error) {
     trace("connect_failed", error instanceof ProtocolError ? error.code : "error");
     if (transport) transport.close();
-    else socket?.close(1000, "session handshake failed");
+    else dial?.close();
     throw error;
   } finally { signal?.removeEventListener("abort", abort); }
 }

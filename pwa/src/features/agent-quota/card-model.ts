@@ -17,6 +17,16 @@ export function updatedCopy(observedAt: number, now = Math.floor(Date.now() / 10
   return when === t("device.justNow") ? t("quota.updatedJustNow") : t("quota.updatedAgo", { when });
 }
 
+/**
+ * A plan as it reads on a card. Providers send it the way their own API spells
+ * it ("unified_ultra", "pro"), so a word left in lower case gets its capital;
+ * a name the provider cased itself ("SuperGrok Heavy") is kept as sent.
+ */
+export function planName(plan: string): string | null {
+  const words = plan.replaceAll("_", " ").split(" ").filter(Boolean);
+  return words.map(word => word === word.toLowerCase() ? word[0]!.toUpperCase() + word.slice(1) : word).join(" ") || null;
+}
+
 /** An account with numbers to show. */
 export type QuotaCardModel = {
   id: string;
@@ -115,7 +125,7 @@ export function quotaCardModel(account: QuotaAccountRead, now = Date.now() / 100
     id: account.id,
     provider: account.provider,
     title,
-    plan: account.plan || null,
+    plan: planName(account.plan),
     status: [...originCopy(account), when].join(" · "),
     troubled: kept,
     tag: stale ? { text: t("quota.staleTag"), tone: "warn" }

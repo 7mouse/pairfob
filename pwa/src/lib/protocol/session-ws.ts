@@ -55,10 +55,12 @@ import {
 } from "./attachments.ts";
 import { relayOrigin } from "./frame-socket.ts";
 import type { PairResult } from "./pair-ws.ts";
-import { reconnectDelay } from "./reconnect-policy.ts";
+import { HelloBudget, reconnectDelay } from "./reconnect-policy.ts";
 import { parseNetworkMode, type NetworkMode } from "../network-mode.ts";
 import { DirectSessionDriver, type P2PAttemptObservation } from "./session-direct.ts";
 import { connectSession } from "./session-connect.ts";
+import { FirstReads } from "./first-reads.ts";
+import type { DialStyle, RelayConnection } from "./relay-dial.ts";
 import { RelayWarmup } from "./relay-warmup.ts";
 import { isRecord } from "./session-message.ts";
 import {
@@ -89,13 +91,7 @@ import {
   UPLOAD_READINESS_MAX_CONCURRENT_WAITS,
   UPLOAD_READINESS_WAIT_MS,
 } from "./session-upload-readiness.ts";
-import {
-  encodeTerminalInput,
-  parseTerminalCloseResult,
-  parseTerminalCommandResult,
-  parseTerminalOpenResult,
-  type TerminalOpenResult,
-} from "./terminal.ts";
+import { TerminalRPC } from "./terminal-rpc.ts";
 import { AgentTraceRPC } from "./agent-trace.ts";
 
 export { validateSessionMessage } from "./session-message.ts";
@@ -152,6 +148,9 @@ class ReconnectingSession implements LiveSession {
   private deferredDisconnect: ProtocolError | null = null;
   private readonly direct: DirectSessionDriver;
   private readonly relayWarmup: RelayWarmup;
+  private readonly dialStyle: DialStyle = { helloAhead: true, readsAhead: true };
+  private readonly hellos = new HelloBudget();
+  private readonly firstReads = new FirstReads();
   private unwatchVisibility: () => void = () => undefined;
   private readonly agentTraceRPC = new AgentTraceRPC((op, params) => this.readRPC(op, params),
     () => this.traceMarkers, () => this.traceLabels, () => this.traceTimes, () => this.traceWrites, () => this.traceModels);
@@ -191,11 +190,14 @@ class ReconnectingSession implements LiveSession {
     private readonly options: SessionOptions,
   ) {
     this.networkMode = parseNetworkMode(options.networkMode);
-    this.relayWarmup = new RelayWarmup(relayWS, () => this.recovery.current);
+    this.relayWarmup = new RelayWarmup(relayWS, () => this.recovery.current,
+      { relayWS, pair, style: this.dialStyle, budget: this.hellos });
     const session = this;
     this.direct = new DirectSessionDriver({
       pair: this.pair,
       prepareRelay: () => this.relayWarmup.start(),
+      standbyRelay: (ready) => this.hellos.spare() && this.relayWarmup.start(ready),
+      spendHello: () => this.hellos.spend(),
       cancelPreparedRelay: () => this.relayWarmup.cancel(),
       relayWS: this.relayWS,
       options: this.options,
@@ -206,6 +208,7 @@ class ReconnectingSession implements LiveSession {
       setTransport: (transport) => {
         transport.recoveryDiagnostic = session.recovery.context();
         session.transport = transport;
+        session.firstReads.drop();
         session.uploadV2 = false;
         session.traceModels = false;
         session.configRequest++;
@@ -226,7 +229,7 @@ class ReconnectingSession implements LiveSession {
     });
     this.unwatchVisibility = watchPageVisibility((hidden) => {
       this.direct.setPageHidden(hidden);
-      if (hidden) { this.relayWarmup.cancel(); this.recovery.cancel(); }
+      if (hidden) { this.relayWarmup.cancel(); this.recovery.cancel(); this.firstReads.drop(); }
       if (hidden && this.transport) {
         // Hidden pages never run the probe: reject paused uploads visibly
         // instead of holding them until the deadline.
@@ -264,7 +267,8 @@ class ReconnectingSession implements LiveSession {
     if (this.transport) this.transport.recoveryDiagnostic = this.recovery.context();
     this.direct.resetBackoff();
     if (this.transport) {
-      this.direct.probe(this.transport, reason);
+      // The reads the screen issues once the probe answers leave with it.
+      if (this.direct.probe(this.transport, reason)) this.firstReads.send(this.transport, this.herdSessionName);
       return;
     }
     if (this.reconnecting || this.connectAbort) {
@@ -318,10 +322,13 @@ class ReconnectingSession implements LiveSession {
     // transport epoch.
     this.uploadV2 = false;
     this.traceModels = false;
+    this.firstReads.note("GetConfig", {});
+    const live = this.transport;
+    const ahead = this.firstReads.take(live, "GetConfig", params);
     const transport = await this.captureTransport();
     if (!transport) throw new ProtocolError("reconnecting", "连接正在恢复");
     try {
-      const result = await transport.rpc("GetConfig", params) as Record<string, unknown>;
+      const result = await ((transport === live && ahead) || transport.rpc("GetConfig", params)) as Record<string, unknown>;
       if (
         requestToken === this.configRequest &&
         transport === this.transport &&
@@ -370,6 +377,7 @@ class ReconnectingSession implements LiveSession {
     if (name !== null && !validHerdSessionName(name)) throw new ProtocolError("invalid_argument", "invalid Herdr session name");
     if (name === this.herdSessionName) return;
     this.herdSessionName = name;
+    this.firstReads.retarget();
     // Capabilities learned from the previous session's GetConfig no longer apply.
     this.uploadV2 = false;
     this.traceModels = false;
@@ -464,35 +472,12 @@ class ReconnectingSession implements LiveSession {
     this.parsedMutation("SwapPane", params, parseSwapPaneResult);
   zoomPane = (params: ZoomPaneInput): Promise<LayoutMutationResult> =>
     this.parsedMutation("ZoomPane", params, parseZoomPaneResult);
-  terminalOpen = async (paneId: string, cols: number, rows: number, takeover = false): Promise<TerminalOpenResult> => {
-    const wire = withOperationID({ pane_id: paneId, cols, rows, takeover });
-    return parseTerminalOpenResult(await this.terminalRPC("TerminalOpen", wire), paneId, wire.operation_id);
-  };
-  terminalInput = (terminalId: string, sequence: number, data: Uint8Array) =>
-    this.terminalCommand("TerminalInput", terminalId, sequence, { data: encodeTerminalInput(data) });
-  terminalResize = (terminalId: string, sequence: number, cols: number, rows: number, cellWidthPX = 0, cellHeightPX = 0) =>
-    this.terminalCommand("TerminalResize", terminalId, sequence, {
-      cols, rows, cell_width_px: cellWidthPX, cell_height_px: cellHeightPX,
-    });
-  terminalScroll = (
-    terminalId: string,
-    sequence: number,
-    direction: "up" | "down",
-    lines: number,
-    source: "wheel" | "page_key" = "wheel",
-    at?: { column: number; row: number },
-  ) =>
-    this.terminalCommand("TerminalScroll", terminalId, sequence, {
-      direction,
-      lines,
-      source,
-      modifiers: 0,
-      ...(at ? { column: at.column, row: at.row } : {}),
-    });
-  terminalClose = async (terminalId: string): Promise<void> => {
-    const wire = withOperationID({ terminal_id: terminalId });
-    parseTerminalCloseResult(await this.terminalRPC("TerminalClose", wire), wire.operation_id, terminalId);
-  };
+  private readonly terminal = new TerminalRPC((op, params) => this.terminalRPC(op, params));
+  terminalOpen = this.terminal.open;
+  terminalInput = this.terminal.input;
+  terminalResize = this.terminal.resize;
+  terminalScroll = this.terminal.scroll;
+  terminalClose = this.terminal.close;
 
   close = (): void => {
     this.recovery.cancel();
@@ -505,6 +490,7 @@ class ReconnectingSession implements LiveSession {
     this.traceModels = false;
     this.configRequest++;
     this.reconnectRequested = false;
+    this.firstReads.drop();
     this.relayWarmup.cancel();
     this.connectAbort?.abort();
     this.connectAbort = null;
@@ -519,14 +505,21 @@ class ReconnectingSession implements LiveSession {
     // Scope at call time, before any await: a switch while this waits for a
     // transport must not retarget a read the caller issued for the old session.
     const scoped = scopeHerdSession(op, params, this.herdSessionName);
+    this.firstReads.note(op, params);
+    // Claimed at call time: a mutation issued after this read cannot unclaim it,
+    // and one issued before it has already dropped the answer.
+    const live = this.transport;
+    const ahead = this.firstReads.take(live, op, scoped);
     const transport = await this.captureTransport();
     if (!transport) return Promise.reject(new ProtocolError("reconnecting", "连接正在恢复"));
-    return transport.rpc(op, scoped, timeoutMs);
+    return (transport === live && ahead) || transport.rpc(op, scoped, timeoutMs);
   }
 
   /** Capture one transport; mutation RPCs are never replayed on another socket. */
   private async mutationRPC(op: string, unscoped: unknown): Promise<unknown> {
     const params = scopeHerdSession(op, unscoped, this.herdSessionName);
+    // An answer read ahead of this mutation must not pass for the state after it.
+    this.firstReads.drop();
     if (!isUploadMutation(op)) {
       const transport = this.checking ? null : await this.captureTransport();
       if (!transport || this.checking) return Promise.reject(new ProtocolError("disconnected", "连接已断开；为避免重复输入，本次操作未发送"));
@@ -590,6 +583,7 @@ class ReconnectingSession implements LiveSession {
 
   private async terminalRPC(op: string, unscoped: unknown): Promise<unknown> {
     const params = scopeHerdSession(op, unscoped, this.herdSessionName);
+    this.firstReads.drop();
     // Background cleanup releases a controller on the existing epoch once.
     // Input/open/resize remain blocked until the connection is confirmed.
     const cleanup = op === "TerminalClose";
@@ -612,11 +606,6 @@ class ReconnectingSession implements LiveSession {
     return result;
   }
 
-  private async terminalCommand(op: string, terminalId: string, sequence: number, params: object): Promise<unknown> {
-    const wire = withOperationID({ terminal_id: terminalId, seq: sequence, ...params });
-    return parseTerminalCommandResult(await this.terminalRPC(op, wire), wire.operation_id, terminalId, sequence);
-  }
-
   private async parsedMutation<T>(
     op: string,
     params: object,
@@ -628,12 +617,16 @@ class ReconnectingSession implements LiveSession {
 
   private emit(event: SessionEvent): void {
     if (event.type === "checking") {
+      this.firstReads.drop();
       if (this.checking) return;
       this.checking = true;
     } else if (event.type === "connected") {
+      this.firstReads.ready();
       this.checking = pageHidden();
       if (!this.checking) this.recovery.ready();
     }
+    // The computer says something changed: an answer read before that is stale.
+    if (event.type === "poke") this.firstReads.drop();
     if (event.type === "latency" && typeof event.rttMs === "number") {
       this.lastRttMs = event.rttMs;
       this.lastTransport = event.transport ?? this.lastTransport;
@@ -665,8 +658,12 @@ class ReconnectingSession implements LiveSession {
     const controller = new AbortController();
     this.connectAbort = controller;
     let transport: SessionTransport;
+    let reads: RelayConnection["reads"];
     try {
-      transport = await connectSession(this.relayWS, this.pair, (event) => this.emit(event), controller.signal, this.relayWarmup, this.recovery.current);
+      ({ transport, reads } = await connectSession(
+        this.relayWS, this.pair, (event) => this.emit(event), controller.signal, this.relayWarmup, this.recovery.current,
+        { reads: this.firstReads.plan(this.herdSessionName), style: this.dialStyle, budget: this.hellos },
+      ));
     } finally {
       if (this.connectAbort === controller) this.connectAbort = null;
     }
@@ -676,6 +673,7 @@ class ReconnectingSession implements LiveSession {
     }
     transport.recoveryDiagnostic = this.recovery.context();
     this.transport = transport;
+    this.firstReads.hold(transport, reads);
     this.attempt = 0;
     // A computer that was updated comes back on a new connection.
     this.quotaWire.legacy = false;
@@ -697,6 +695,7 @@ class ReconnectingSession implements LiveSession {
 
   private finishDisconnect(error: ProtocolError): void {
     this.transport = null;
+    this.firstReads.drop();
     this.uploadV2 = false;
     this.traceModels = false;
     this.configRequest++;

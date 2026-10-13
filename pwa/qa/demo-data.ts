@@ -8,7 +8,7 @@ import type { SnapshotWire } from "../src/lib/dashboard";
  */
 
 export const BUSY_AGENT_KINDS = [
-  "codex", "claude", "gemini", "copilot", "grok", "pi", "opencode", "cursor", "amp", "kimi", "qwen", "goose",
+  "codex", "claude", "gemini", "copilot", "grok", "pi", "opencode", "cursor", "amp", "kimi", "qwen", "goose", "letta", "muse", "maki",
 ];
 
 type Pane = {

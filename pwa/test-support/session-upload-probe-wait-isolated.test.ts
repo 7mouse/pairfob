@@ -22,6 +22,7 @@ mock.module("../src/lib/protocol/frame-socket.ts", () => ({ ...sockets, openWS: 
 mock.module("../src/lib/protocol/session-handshake.ts", () => ({
   ...handshake,
   establishSessionEpoch: async (channel: ProbeWire) => channel.epoch(),
+  beginSessionEpoch: (channel: ProbeWire) => ({ verified: Promise.resolve(), finish: async () => channel.epoch() }),
 }));
 mock.module("../src/lib/protocol/session-upgrade.ts", () => ({
   ...upgrades,

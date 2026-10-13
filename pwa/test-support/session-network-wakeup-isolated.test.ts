@@ -45,7 +45,8 @@ test("offline then online during a dial immediately starts exactly one fresh aut
   expect(f.stale.frames).toHaveLength(count);
   expect(f.live.isConnected()).toBe(true);
   expect(SessionSocket.instances).toHaveLength(3);
-  expect(SessionSocket.instances.flatMap(s => s.operations).every(op => op === "Ping")).toBe(true);
+  // Every dial sends its first reads with the handshake; the mutation reached no socket.
+  expect(SessionSocket.instances.flatMap(s => s.operations).every(op => ["Ping", "GetConfig", "Snapshot"].includes(op))).toBe(true);
 });
 
 test("new hints do not replace a dial that succeeds", async () => {

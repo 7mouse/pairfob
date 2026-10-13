@@ -42,7 +42,8 @@ const TOKENS = new Set((
   "boot connect pairing resuming live pick resume storage_unavailable bad_relay ok storage_error storage_timeout storage_security storage_unknown storage_empty online_hint_stale " +
   "unpaired invalid_credential bad_proof bad_signature fp_mismatch " +
   "recovery_start recovery_ready recovery_cancelled ice_terminal foreground_transport_failed terminal_open_start terminal_open_ready terminal_first_frame " +
-  "connect_start warmup_start ws_open route_bound hello_verified session_established session_ready connect_failed warmup_cancelled view_committed recovery_budget_exhausted " +
+  "connect_start warmup_start ws_open hello_sent route_bound hello_verified session_established session_ready connect_failed warmup_cancelled view_committed recovery_budget_exhausted " +
+  "standby_ready unbound rate_limited " +
   "transport_closed session_open session_close disconnect page_hidden page_visible probe_start probe_success probe_failed " +
   "local_close transport_upgrade foreground probe path foreground_probe_failed path_probe_failed " +
   "data_channel_closed data_channel_error send_queue_full send_failed send_not_open ice_failed ice_grace_expired " +

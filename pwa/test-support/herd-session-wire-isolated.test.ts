@@ -15,6 +15,7 @@ mock.module("../src/lib/protocol/frame-socket", () => ({ ...sockets, openWS: asy
 mock.module("../src/lib/protocol/session-handshake", () => ({
   ...handshake,
   establishSessionEpoch: async (channel: Wire) => channel.epoch(),
+  beginSessionEpoch: (channel: Wire) => ({ verified: Promise.resolve(), finish: async () => channel.epoch() }),
 }));
 
 const { sessionOverWS } = await import("../src/lib/protocol/session-ws") as {

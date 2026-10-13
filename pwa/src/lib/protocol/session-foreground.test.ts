@@ -531,3 +531,132 @@ test("a hidden or superseded foreground cannot act on terminal failure", async (
   f.calls[0]!.resolve({});
   f.driver.dispose();
 });
+
+describe("standby handshake after a long absence", () => {
+  function standbyFixture(room = true) {
+    const timers = new Map<number, () => void>();
+    const timer = spyOn(globalThis, "setTimeout").mockImplementation(((fn: () => void, ms: number) => {
+      timers.set(ms, fn); return ms;
+    }) as typeof setTimeout);
+    const clear = spyOn(globalThis, "clearTimeout").mockImplementation(((id: number) => { timers.delete(id); }) as typeof clearTimeout);
+    let wall = 1_000_000;
+    const clock = spyOn(Date, "now").mockImplementation(() => wall);
+    const f = driverFixture();
+    Object.assign(f.session, { kind: "relay" });
+    const standbys: Array<() => void> = [];
+    let warmed = 0, cancelled = 0;
+    Object.assign(f.host, {
+      options: {}, networkAvailable: true,
+      prepareRelay: () => { warmed++; },
+      cancelPreparedRelay: () => { cancelled++; },
+      standbyRelay: (ready: () => void) => { if (room) standbys.push(ready); return room; },
+    });
+    const away = (ms: number) => { page.show(true); wall += ms; page.show(false); };
+    return { ...f, timers, standbys, away, warmed: () => warmed, cancelled: () => cancelled,
+      cleanup: () => { f.driver.dispose(); timer.mockRestore(); clear.mockRestore(); clock.mockRestore(); } };
+  }
+
+  test("a short absence keeps the plain probe and the delayed socket", () => {
+    const f = standbyFixture();
+    try {
+      f.away(9_999);
+      f.driver.probe(f.session, "probe");
+      expect(f.standbys).toHaveLength(0);
+      expect(f.timers.has(500)).toBe(true);
+    } finally { f.cleanup(); }
+  });
+
+  test("a standby that verifies first retires the silent path without waiting for the Ping deadline", async () => {
+    const f = standbyFixture();
+    try {
+      f.away(10_000);
+      f.driver.probe(f.session, "probe");
+      expect(f.standbys).toHaveLength(1);
+      expect(f.timers.has(500)).toBe(false);
+      expect(f.calls).toHaveLength(1);
+      f.standbys[0]!();
+      expect(f.failures).toHaveLength(1);
+      expect(f.failures[0]!.diagnostics?.reason).toBe("standby_ready");
+      expect(f.timers.size).toBe(0);
+      // The prepared dial is left for the reconnect that follows.
+      expect(f.cancelled()).toBe(0);
+      f.calls[0]!.reject(new ProtocolError("disconnected", "retired"));
+      await settle();
+      expect(f.failures).toHaveLength(1);
+      expect(f.events).toEqual(["checking"]);
+    } finally { f.cleanup(); }
+  });
+
+  test("an old path that answers first keeps its session and discards the standby", async () => {
+    const f = standbyFixture();
+    try {
+      f.away(60_000);
+      f.driver.probe(f.session, "probe");
+      f.calls[0]!.resolve({});
+      await settle();
+      expect(f.cancelled()).toBe(1);
+      expect(f.events).toEqual(["checking", "connected"]);
+      f.standbys[0]!();
+      expect(f.failures).toHaveLength(0);
+    } finally { f.cleanup(); }
+  });
+
+  test("a return answered by a fresh dial leaves no absence behind for a later probe", () => {
+    const f = standbyFixture();
+    try {
+      // The path died while the page was hidden: the return dials, it does not probe.
+      f.away(60_000);
+      f.driver.onRelayReady(f.session);
+      f.driver.probe(f.session, "probe");
+      expect(f.standbys).toHaveLength(0);
+      expect(f.timers.has(500)).toBe(true);
+    } finally { f.cleanup(); }
+  });
+
+  test("a network hint never starts a standby: the old path gets its repair first", () => {
+    const f = standbyFixture();
+    try {
+      f.away(60_000);
+      f.driver.probe(f.session, "path");
+      expect(f.standbys).toHaveLength(0);
+      expect(f.timers.has(500)).toBe(true);
+    } finally { f.cleanup(); }
+  });
+
+  test("without handshake budget the probe falls back to the delayed socket", () => {
+    const f = standbyFixture(false);
+    try {
+      f.away(60_000);
+      f.driver.probe(f.session, "probe");
+      expect(f.timers.has(500)).toBe(true);
+      f.timers.get(500)!();
+      expect(f.warmed()).toBe(1);
+    } finally { f.cleanup(); }
+  });
+
+  test("one absence justifies one standby: a later network hint probes plainly", async () => {
+    const f = standbyFixture();
+    try {
+      f.away(60_000);
+      f.driver.probe(f.session, "probe");
+      f.calls[0]!.resolve({});
+      await settle();
+      f.driver.probe(f.session, "path");
+      expect(f.standbys).toHaveLength(1);
+      expect(f.timers.has(500)).toBe(true);
+    } finally { f.cleanup(); }
+  });
+
+  for (const action of ["hidden", "dispose"] as const) {
+    test(`a standby reporting after ${action} cannot retire anything`, () => {
+      const f = standbyFixture();
+      try {
+        f.away(60_000);
+        f.driver.probe(f.session, "probe");
+        if (action === "hidden") page.show(true); else f.driver.dispose();
+        f.standbys[0]!();
+        expect(f.failures).toHaveLength(0);
+      } finally { f.cleanup(); }
+    });
+  }
+});

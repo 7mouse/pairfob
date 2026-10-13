@@ -38,6 +38,17 @@ func antigravityExecutable(exe string) (valid, cli bool) {
 	valid = cli || (language && (strings.Contains(lower, "/antigravity") || strings.Contains(lower, "/antigravity.app/")))
 	return
 }
+
+// antigravityMentioned reports whether a process line could be Antigravity at
+// all. A CLI started by typing its name has that name alone as its command,
+// with no path in front of it.
+func antigravityMentioned(line, command string) bool {
+	if strings.Contains(line, "antigravity") || strings.Contains(line, "Antigravity") || strings.Contains(line, "/agy") {
+		return true
+	}
+	_, cli := antigravityExecutable(command)
+	return cli
+}
 func antigravityQuotaProcesses(ctx context.Context) []antigravityQuotaProcess {
 	raw, err := quotaCommand(ctx, 2*1024*1024, "ps", "-axo", "uid=,pid=,command=")
 	if err != nil {
@@ -55,7 +66,7 @@ func antigravityQuotaProcesses(ctx context.Context) []antigravityQuotaProcess {
 		}
 		// First filter bounds follow-up process queries; classify the actual executable
 		// separately so an unrelated command containing 'agy' is never probed.
-		if !strings.Contains(line, "antigravity") && !strings.Contains(line, "Antigravity") && !strings.Contains(line, "/agy") {
+		if !antigravityMentioned(line, fields[2]) {
 			continue
 		}
 		pid, err := strconv.Atoi(fields[1])

@@ -45,6 +45,7 @@ export async function prepareDirectSession(
   pair: PairResult,
   protocol: MuxProtocol,
   signal?: AbortSignal,
+  onHello?: () => void,
 ): Promise<PreparedDirectSession> {
   if (relay.kind !== "relay") throw new ProtocolError("conflict", "当前会话已是 P2P");
   const offer = await createDirectOffer(signal);
@@ -70,6 +71,7 @@ export async function prepareDirectSession(
     const channel = await offer.accept(answer);
     let epoch: SessionEpoch;
     try {
+      onHello?.();
       epoch = await establishSessionEpoch(channel, answer.routeId, pair, protocol);
     } catch (error) {
       channel.close();
