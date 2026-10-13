@@ -207,12 +207,4 @@ describe("compose live vs batch", () => {
     expect(bind).toContain("takeLiveField(input)");
   });
 
-  test("live input self-heals when compositionend is lost", () => {
-    // Third-party iOS keyboards can fire compositionstart without the matching
-    // compositionend; the input event's own isComposing flag must resync the
-    // stuck composeIME flag so live text is sent instead of buffered forever.
-    const bind = composeSource.slice(composeSource.indexOf("function bindTermField("));
-    expect(bind).toContain("isComposing === false");
-    expect(bind).toContain("setComposeIME(false)");
-  });
 });

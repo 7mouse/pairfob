@@ -694,8 +694,14 @@ export function bindTermField(input: HTMLTextAreaElement): () => void {
       // matching compositionend (observed with third-party iOS keyboards):
       // the input event's isComposing reflects the browser's own composition
       // state, so a non-composing input while our flag is still set means the
-      // end event was lost — resync instead of buffering forever.
-      if (composeIME() && event instanceof InputEvent && event.isComposing === false) {
+      // end event was lost — resync instead of buffering forever. Composition
+      // text itself never self-heals: some IMEs report it with isComposing
+      // false, and sending it would leak partial pinyin into the PTY.
+      if (
+        composeIME() &&
+        "isComposing" in event && event.isComposing === false &&
+        (event as InputEvent).inputType !== "insertCompositionText"
+      ) {
         setComposeIME(false);
       }
       if (composeIME()) {
