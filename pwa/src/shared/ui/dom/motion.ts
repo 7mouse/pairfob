@@ -9,10 +9,10 @@ export function prefersReducedMotion(): boolean {
 }
 
 /**
- * The four durations of `--dur-1..4` (shared/ui/styles/tokens.scss), for code
- * that has to wait out a CSS exit before it removes a node. Pick by role, as in
- * the stylesheet; a timer that mirrors a transition names its token here
- * instead of repeating the number.
+ * The durations of `--dur-1..4` and `--dur-trace` (shared/ui/styles/tokens.scss),
+ * for code that has to wait out a CSS exit before it removes a node. Pick by
+ * role, as in the stylesheet; a timer that mirrors a transition names its token
+ * here instead of repeating the number.
  */
 export const MOTION_MS = {
   /** `--dur-1`: press and hover acknowledgement, and the exit of a small floating thing. */
@@ -23,6 +23,8 @@ export const MOTION_MS = {
   panel: 240,
   /** `--dur-4`: a screen arriving or leaving. */
   screen: 320,
+  /** `--dur-trace`: what an action leaves behind (a sweep, a ripple, a label flying off). */
+  trace: 480,
 } as const;
 
 /** `ms`, or no wait at all for a reader who asked for less motion. */

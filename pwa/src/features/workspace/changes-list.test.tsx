@@ -7,6 +7,7 @@ import { all, bootWorkspaceScreen, one, press, settle, teardownWorkspaceScreen }
 import { stepWorkspaceDiff, workspaceDiffStep } from "./actions";
 import { loadGitDiff, workspaceModel } from "./index";
 import { resetReviewProgress } from "./review-progress";
+import { foldShut } from "../../../test-support/exit";
 
 /**
  * The change list and the stepper are one order: what is drawn from top to
@@ -138,6 +139,7 @@ describe("a folded group", () => {
     const worktree = () => all<HTMLButtonElement>("button.workspace-change-group-title")[1];
     await press(worktree());
     expect(worktree().getAttribute("aria-expanded")).toBe("false");
+    await foldShut();
     expect(drawn()).toEqual(["staged:README.md"]);
 
     await press(one(`[data-change="staged:README.md"]`));

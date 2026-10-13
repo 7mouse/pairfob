@@ -38,6 +38,10 @@
   min-height: 100%;
 }
 
+/* The transcript taking the place of "reading" (`agent-stream.tsx`): it arrives
+   by opacity alone, so it is at the tail from its first frame. */
+.agent-stream-inner.has-arrived { animation: fade-in var(--dur-2) var(--ease); }
+
 .agent-empty {
   flex: 1 1 auto;
   display: flex;

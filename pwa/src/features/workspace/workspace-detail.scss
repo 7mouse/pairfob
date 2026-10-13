@@ -112,6 +112,8 @@
 
 /* --- Find in the file: a row under the info bar ------------------------------------- */
 
+.fold.workspace-find-fold { flex: none; transition-duration: var(--dur-2); }
+
 .workspace-find {
   display: flex;
   align-items: center;
@@ -346,7 +348,8 @@ button.diff-line-number {
   background: var(--surface-2);
   font-family: var(--font);
 }
-.workspace-diff-note.is-fresh { animation: note-fresh 1.1s var(--ease); }
+/* Twice a trace: it arrives, then its ring fades (`NOTE_FRESH_MS`, notes.tsx). */
+.workspace-diff-note.is-fresh { animation: note-fresh calc(var(--dur-trace) * 2) var(--ease); }
 /* On its way to the agent: it dims as Send is pressed, and comes back if the send fails. */
 .workspace-diff-note { transition: opacity var(--dur-2) var(--ease); }
 .workspace-diff-note.is-sending { opacity: 0.6; }

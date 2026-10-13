@@ -4,6 +4,7 @@ import { compileString } from "sass";
 import { fileURLToPath } from "node:url";
 import { expectDifferentNode, expectSameNode } from "../../../../test-support/node-identity";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
+import { foldShut } from "../../../../test-support/exit";
 import { CopyAck } from "./copy-ack";
 import { Fold } from "./fold";
 import { Swap } from "./swap";
@@ -22,6 +23,23 @@ test("a shut fold keeps its content mounted and takes it out of reach", () => {
   expectSameNode(document.querySelector("button"), button);
   expect(fold.classList.contains("is-shut")).toBeTrue();
   expect(fold.hasAttribute("inert")).toBeTrue();
+});
+
+test("a lazy fold draws its content only while it is open or on its way shut", async () => {
+  renderReact(<Fold open={false} lazy><button>inside</button></Fold>);
+  expect(document.querySelector("button")).toBeNull();
+  // Opened: the content is there in the commit that opens the block.
+  renderReact(<Fold open lazy><button>inside</button></Fold>);
+  const button = document.querySelector("button");
+  expect(button).not.toBeNull();
+  expect(document.querySelector(".fold")?.classList.contains("is-shut")).toBeFalse();
+  // Shutting: the same content, drawn for the way out and out of reach.
+  renderReact(<Fold open={false} lazy><button>inside</button></Fold>);
+  expectSameNode(document.querySelector("button"), button);
+  expect(document.querySelector(".fold")?.hasAttribute("inert")).toBeTrue();
+  await foldShut();
+  expect(document.querySelector("button")).toBeNull();
+  expect(document.querySelector(".fold")?.classList.contains("is-shut")).toBeTrue();
 });
 
 test("a swap marks a changed value and never a first paint or a repeat", () => {
@@ -57,5 +75,7 @@ const reduced = kit("motion-kit-reduced");
 test("the shared motion rules use the duration tokens and lose travel under reduced motion", () => {
   expect(rules).toContain("grid-template-rows var(--dur-3) var(--ease)");
   expect(rules).not.toMatch(/\d+ms/);
+  // One sheen for every placeholder: the keyframes are the kit's, the beat a token's.
+  expect(rules).toMatch(/@keyframes skeleton-sheen \{\s*from \{\s*transform: translateX\(-100%\);/);
   expect(reduced).toMatch(/\.pop-in,\s*\.rise-in,[^{]*\{\s*animation-name: fade-in;/);
 });

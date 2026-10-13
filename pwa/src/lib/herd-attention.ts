@@ -4,12 +4,13 @@
  * across snapshot updates and component remounts. Keeping this history outside
  * the DOM lets React render the same attention window throughout an update.
  */
+import { MOTION_MS } from "../shared/ui/dom/motion";
 
 export type StatusMark = "" | "changed" | "done";
 
-/** Covers the highlight sweep, so a repaint inside the window keeps the mark. */
-const MARK_MS = 460;
-const DISMISS_MS = 360;
+/** Each covers its animation (`card-sweep`, `attn-dismiss`) and a little more, so a repaint inside the window keeps the mark. */
+const MARK_MS = MOTION_MS.trace + 40;
+const DISMISS_MS = MOTION_MS.screen + 40;
 
 export type HerdCard = { paneId: string; status: string };
 

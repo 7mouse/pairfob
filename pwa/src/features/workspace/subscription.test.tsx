@@ -21,6 +21,7 @@ import {
   WORKSPACE_PENDING_DELAY_MS, clearWorkspacePendingReveal,
 } from "./index";
 import { resetWorkspaceNavigationSeam } from "./navigation";
+import { foldShut } from "../../../test-support/exit";
 
 const root = appRoot();
 
@@ -360,6 +361,7 @@ describe("workspace screen behavior (actual App)", () => {
     expect(root2.querySelectorAll(".workspace-change-layer")).toHaveLength(1);
     expect(root2.querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
     await act(() => { groupNamed("未暂存").click(); });
+    await foldShut();
     expect(root2.querySelectorAll(".workspace-change")).toHaveLength(0);
     expect(root2.querySelectorAll(".workspace-change-layer")).toHaveLength(0);
     expect(groupNamed("未暂存").getAttribute("aria-expanded")).toBe("false");

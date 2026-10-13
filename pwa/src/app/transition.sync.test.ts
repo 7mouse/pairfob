@@ -8,7 +8,7 @@ for (const key of ["window", "document", "HTMLElement", "navigator"] as const) {
 }
 g.matchMedia = happy.matchMedia.bind(happy);
 
-const { morphingPane, nextTransition, resetTransitionState, takeTransition, withSynchronousTransition,
+const { morphingPane, nextTransition, resetTransitionState, takeTransition, transitionToPane, withSynchronousTransition,
   withTransition } = await import("./transition.ts");
 
 /**
@@ -49,6 +49,25 @@ afterEach(() => {
 });
 
 describe("synchronous transition entry", () => {
+  test("beside the list, a session that takes another's place arrives as `session` and keeps that name on the way", () => {
+    // On a phone there is no list beside the session: nothing is declared for one that replaces another.
+    expect(transitionToPane("pane")).toBe("none");
+    happy.happyDOM.setWindowSize({ width: 1440, height: 900 });
+    try {
+      expect(transitionToPane("pane")).toBe("session");
+      // From anywhere else it is the ordinary move to the pane screen.
+      expect(transitionToPane("home")).toBe("push");
+      expect(transitionToPane("workspace")).toBe("pop");
+      let painted = 0;
+      withSynchronousTransition("session", () => { painted += 1; });
+      expect(painted).toBe(1);
+      // Not the `fade` a move between screens becomes beside the list: the header stays.
+      expect(document.documentElement.dataset.fallbackTransition).toBe("session");
+    } finally {
+      happy.happyDOM.setWindowSize({ width: 390, height: 844 });
+    }
+  });
+
   test("never starts a native ViewTransition even when one is available, and shares the fallback marker", () => {
     let native = 0;
     Object.defineProperty(document, "startViewTransition", {

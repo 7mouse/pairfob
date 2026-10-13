@@ -30,6 +30,8 @@ const { composeDraft, setComposeDraft, resetComposeField } = await import("../co
 const { clearNotice } = await import("../../../app/notices-store.ts");
 import { happy as happyDom } from "../../../../test-support/dom";
 import { emulateTouchDevice } from "../touch-realm";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
+import { afterExit } from "../../../../test-support/exit";
 
 /** Set by a case that pins touch behaviour; the realm goes back to a mouse after it. */
 let restorePointer: (() => void) | null = null;
@@ -765,7 +767,16 @@ describe("agent-chat remembers its mode per pane", () => {
     closeTestDialogs();
   }));
 
-  test("new output while scrolled up offers the jump (新进展 while the agent works)", async () => await act(async () => {
+  test("new output while scrolled up offers the jump (新进展 while the agent works)", async () => {
+    const jump = await act(async () => pressJump());
+    // The chip leaves with the scroll it started, out of reach, and is then put away.
+    expect(jump.classList.contains("term-jump-out")).toBe(true);
+    expect(jump.inert).toBe(true);
+    await afterExit(MOTION_MS.press);
+    expect(jump.hidden).toBe(true);
+  });
+
+  function pressJump(): HTMLButtonElement {
     bootAgentChat();
     applyTrace({
       agentTraceFollow: false,
@@ -780,6 +791,6 @@ describe("agent-chat remembers its mode per pane", () => {
     jump.click();
     expect(trace().agentTraceFollow).toBe(true);
     expect(trace().agentTraceUnread).toBe(false);
-    expect(jump.hidden).toBe(true);
-  }));
+    return jump;
+  }
 });

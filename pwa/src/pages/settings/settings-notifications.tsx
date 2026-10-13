@@ -2,7 +2,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { enablePush, refreshSettings } from "../../features/settings/actions";
 import { t } from "../../lib/i18n";
-import { CommandLine, SetAction, SetItem } from "../../shared/ui/primitives";
+import { CommandLine, Fold, SetAction, SetItem } from "../../shared/ui/primitives";
 
 /**
  * This phone's notifications, handled on the row: turn on at the trailing
@@ -59,10 +59,12 @@ export function NotificationItem({ input }: { input: NotificationRowInput }) {
   }
   return <div className="set-item-group notification-item">
     <SetItem label={t("settings.notifications")} sub={sub} subTone={subTone} trailing={trailing} />
-    {steps ? <ol className="set-steps">
-      <li>{t("set.pushStepEnv")}<CommandLine command={PUSH_ENV} labels={copyLabels()} /></li>
-      <li>{t("set.pushStepRestart")}<CommandLine command="pairfob service restart" labels={copyLabels()} /></li>
-      <li>{t("set.pushStepBack")}</li>
-    </ol> : null}
+    <Fold open={steps} lazy>
+      <ol className="set-steps">
+        <li>{t("set.pushStepEnv")}<CommandLine command={PUSH_ENV} labels={copyLabels()} /></li>
+        <li>{t("set.pushStepRestart")}<CommandLine command="pairfob service restart" labels={copyLabels()} /></li>
+        <li>{t("set.pushStepBack")}</li>
+      </ol>
+    </Fold>
   </div>;
 }

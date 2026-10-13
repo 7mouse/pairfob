@@ -64,7 +64,7 @@
 .conn-node.is-ok .conn-node-badge::before { content: "✓"; }
 .conn-node.is-fail .conn-node-badge { background: var(--error); }
 .conn-node.is-fail .conn-node-badge::before { content: "✕"; }
-.conn-node.is-wait .conn-node-icon { animation: conn-ring 1.6s ease-out infinite; }
+.conn-node.is-wait .conn-node-icon { animation: conn-ring calc(var(--pulse) * 2) ease-out infinite; }
 
 @keyframes conn-ring {
   from { box-shadow: 0 0 0 0 rgba(255, 178, 36, 0.45); }

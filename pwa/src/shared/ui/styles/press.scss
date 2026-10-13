@@ -24,7 +24,7 @@
     background: currentColor;
     opacity: 0.2;
     transform: translate(-50%, -50%) scale(0);
-    animation: ripple-out 520ms var(--ease) forwards;
+    animation: ripple-out var(--dur-trace) var(--ease) forwards;
   }
 
   @keyframes ripple-out {

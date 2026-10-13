@@ -62,6 +62,30 @@ describe("UI accessibility guardrails", () => {
     expect(contrast("#ffffff", color("danger"))).toBeGreaterThanOrEqual(4.5);
   });
 
+  test("loops and traces keep one beat each, read from a token", () => {
+    const root = rule(":root");
+    for (const token of ["--dur-trace: 480ms", "--spin: 0.85s", "--sheen: 1.4s", "--pulse: 0.8s"]) expect(root, token).toContain(token);
+    const beat = (name: string): string[] => [...css.matchAll(new RegExp(`animation:\\s*${name} ([^;}]*)`, "g"))].map((match) => match[1]);
+    // Whatever spins turns at one speed.
+    for (const name of ["spin", "full-terminal-state-spin", "attach-spin"]) expect(beat(name), name).toEqual(["var(--spin) linear infinite"]);
+    // Every placeholder has the same sheen; the two it replaced are gone.
+    const sheens = beat("skeleton-sheen");
+    expect(sheens.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(sheens)).toEqual(new Set(["var(--sheen) var(--ease-in-out) infinite"]));
+    expect(css).not.toMatch(/set-shimmer|herd-sk-sheen|@keyframes pane-skel/);
+    // A waiting pulse goes one way in `--pulse`; a loop that does not come back takes two.
+    for (const name of ["page-pending-pulse", "board-divider-pending", "pane-divider-pending"]) {
+      expect(beat(name), name).toEqual(["var(--pulse) var(--ease-in-out) infinite alternate"]);
+    }
+    expect(beat("host-dot-breathe")).toEqual(["calc(var(--pulse) * 2) var(--ease-in-out) infinite"]);
+    expect(beat("conn-ring")).toEqual(["calc(var(--pulse) * 2) ease-out infinite"]);
+    // What an action leaves behind lasts one length.
+    for (const name of ["card-sweep", "ripple-out", "key-label-out"]) expect(beat(name)[0], name).toBe("var(--dur-trace) var(--ease) forwards");
+    expect(beat("figure-in")).toEqual(["var(--dur-2) var(--ease) backwards"]);
+    // The icon button answers a press and a hover as every other control does.
+    expect(rule(".icon-btn")).toMatch(/transition:\s*background-color var\(--dur-1\) var\(--ease\)/);
+  });
+
   test("motion, elevation and type read off the token scale instead of ad-hoc literals", () => {
     const root = rule(":root");
     for (const token of ["--dur-1: 120ms", "--dur-2: 180ms", "--dur-3: 240ms", "--dur-4: 320ms"]) {

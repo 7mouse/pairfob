@@ -40,6 +40,15 @@
   --dur-2: 180ms; /* element enter and exit */
   --dur-3: 240ms; /* sheets, panels, keyboard insets */
   --dur-4: 320ms; /* screen transitions */
+  /* What an action leaves behind once it is over: a sweep across a row, a
+     press ripple, a label flying off. Longer than any transition, and one
+     length for all of them. */
+  --dur-trace: 480ms;
+  /* Loops that say "still working" keep one beat each, so two of them on the
+     same screen move together. */
+  --spin: 0.85s; /* one turn of anything that spins */
+  --sheen: 1.4s; /* one pass of a placeholder's sheen */
+  --pulse: 0.8s; /* one way of a waiting pulse; a loop that does not return takes two */
   --ease: cubic-bezier(0.32, 0.72, 0, 1);
   --ease-out: var(--ease);
   --ease-in-out: cubic-bezier(0.5, 0, 0.5, 1);

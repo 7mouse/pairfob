@@ -20,6 +20,7 @@ import { SEARCH_DELAY_MS, resetFileSearch } from "./file-search";
 import { clearWorkspacePendingReveal, leaveWorkspace, showWorkspaceTab, workspaceModel } from "./index";
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 import { inspectorOpen } from "./inspector-store";
+import { foldShut } from "../../../test-support/exit";
 
 /**
  * The files tab in the column beside the session. The column holds one thing
@@ -190,12 +191,14 @@ describe("the files tab in the column", () => {
     const source = inColumn(".workspace-code-stage");
     let escape = await key("Escape", source);
     expect(escape.defaultPrevented).toBeTrue();
+    await foldShut();
     expect(column().querySelector(".workspace-find")).toBeNull();
     expect(workspaceModel.view).toBe("file");
 
     // From the field: the keyboard goes back to the button that opened the row.
     await press(inColumn(".workspace-find-toggle"));
     await key("Escape", inColumn(".workspace-find-field"));
+    await foldShut();
     expect(column().querySelector(".workspace-find")).toBeNull();
     expectSameNode(document.activeElement, inColumn(".workspace-find-toggle"));
 

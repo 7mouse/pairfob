@@ -2,6 +2,7 @@ import { Check, ChevronsDownUp, Copy, Paperclip, SquareTerminal } from "lucide-r
 import { useLayoutEffect, useRef, useState } from "react";
 import { t } from "../../../lib/i18n";
 import type { AgentTraceItem } from "../../../lib/operations";
+import { MOTION_MS, playMove } from "../../../shared/ui/dom/motion";
 import { Button, CopyAck, Spinner, Swap } from "../../../shared/ui/primitives";
 import { useCopied } from "../copy-confirm";
 
@@ -25,20 +26,52 @@ export function splitAttachments(text: string): { body: string; files: string[] 
 /** Prompts longer than this many lines fold behind "Show all". */
 const PROMPT_LINES = 8;
 
+function lineHeight(node: HTMLElement): number {
+  return parseFloat(node.ownerDocument.defaultView?.getComputedStyle(node).lineHeight ?? "") || 21;
+}
+
+/** The prompt's text going from one height to another, clipped on the way. Null when nothing is played. */
+function growText(node: HTMLElement, from: number, to: number): Animation | null {
+  if (Math.abs(to - from) < 2) return null;
+  return playMove(node, [{ height: `${from}px`, overflow: "hidden" }, { height: `${to}px`, overflow: "hidden" }], MOTION_MS.panel);
+}
+
 function PromptBubble({ text, anchorData, arriving }: { text: string; anchorData: TraceAnchorData; arriving: boolean }) {
   const { body, files } = splitAttachments(text);
   const textRef = useRef<HTMLDivElement>(null);
   const [long, setLong] = useState(false);
   const [open, setOpen] = useState(false);
+  // Shutting, the lines stay drawn while the bubble closes over them: the clamp comes when it has.
+  const [closing, setClosing] = useState(false);
+  const opening = useRef<number | null>(null);
   useLayoutEffect(() => {
     const node = textRef.current;
     if (!node) return;
-    const line = parseFloat(node.ownerDocument.defaultView?.getComputedStyle(node).lineHeight ?? "") || 21;
-    setLong(node.scrollHeight > line * PROMPT_LINES + 2);
+    setLong(node.scrollHeight > lineHeight(node) * PROMPT_LINES + 2);
   }, [body]);
+  // Opened: from the height the clamp gave it to the height of all its lines.
+  useLayoutEffect(() => {
+    const node = textRef.current;
+    const was = opening.current;
+    opening.current = null;
+    if (node && was !== null) growText(node, was, node.getBoundingClientRect().height);
+  }, [open]);
+  const toggle = () => {
+    const node = textRef.current;
+    const was = node?.getBoundingClientRect().height ?? 0;
+    if (!open) opening.current = node ? was : null;
+    const move = open && node ? growText(node, was, lineHeight(node) * PROMPT_LINES) : null;
+    if (move) {
+      setClosing(true);
+      const done = () => setClosing(false);
+      move.addEventListener("finish", done);
+      move.addEventListener("cancel", done);
+    }
+    setOpen(!open);
+  };
   return <article className={`agent-user${arriving ? " rise-in" : ""}`} {...anchorData}>
-    {body && <div ref={textRef} className={`agent-user-text${long && !open ? " is-clamped" : ""}`}>{body}</div>}
-    {long && <Button className="agent-user-more" aria-expanded={open} onClick={() => setOpen(!open)}>
+    {body && <div ref={textRef} className={`agent-user-text${long && !open && !closing ? " is-clamped" : ""}`}>{body}</div>}
+    {long && <Button className="agent-user-more" aria-expanded={open} onClick={toggle}>
       {t(open ? "prompt.collapse" : "prompt.expand")}</Button>}
     {files.length > 0 && <ul className="agent-user-files">{files.map((name, index) =>
       <li key={index} aria-label={t("prompt.attachment", { name })}><Paperclip size={12} aria-hidden="true" /><span>{name}</span></li>)}</ul>}

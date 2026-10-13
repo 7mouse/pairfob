@@ -48,6 +48,8 @@ import { useKeyHint } from "./workspace-keys";
 let editorSerial = 0;
 /** The pin just saved; its card announces itself once, then this clears. */
 let freshPin = "";
+/** How long a note just pinned stands out: `note-fresh` (workspace-detail.scss). */
+const NOTE_FRESH_MS = MOTION_MS.trace * 2;
 
 /** One line of one side of one layer of one file: where a note is pinned. */
 export const diffNotePinKey = (pin: DiffNotePin) => `${pin.layer}:${pin.side}:${pin.line}:${pin.path}`;
@@ -197,7 +199,7 @@ export function DiffNoteCards({ target, note, sent, onEdit }: {
   }, [fresh]);
   useEffect(() => {
     if (!flash) return;
-    const timer = window.setTimeout(() => setFlash(false), 1200);
+    const timer = window.setTimeout(() => setFlash(false), NOTE_FRESH_MS + 100);
     return () => window.clearTimeout(timer);
   }, [flash]);
   if (!note) return sent ? <SentNoteCard note={sent} /> : null;

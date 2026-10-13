@@ -14,6 +14,7 @@ import { setPhase } from "../../features/connection/connection-store";
 import { replaceAgentsFromSnapshot } from "../../features/dashboard/catalog-store";
 import { applyCapabilities, setOperationBusy } from "../../features/operations/capabilities-store";
 import { selectPane, setAgentChat, setFullTerminal } from "../../features/session/session-store";
+import { closeWorkspaceDetail, loadWorkspaceFile } from "../../features/workspace/actions";
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "../../features/workspace/inspector";
 import { inspectorOpen } from "../../features/workspace/inspector-store";
 import { setLang } from "../../lib/i18n";
@@ -128,4 +129,27 @@ test("closing takes the column away in the commit that closes it", async () => {
   await act(async () => { closeWorkspaceInspector(); });
   expect(column()).toBeNull();
   expect(appRoot().classList.contains("inspector")).toBe(false);
+});
+
+test("a file opened from the list walks into the open column and the list comes back the other way; another session's column does neither", async () => {
+  const travel = () => [...column()!.classList].filter((name) => name === "is-pushing" || name === "is-popping");
+  await act(async () => { toggleWorkspaceInspector(); });
+  await settle(MOTION_MS.panel + 40);
+  const opened = column()!;
+  await act(async () => { await loadWorkspaceFile("app.ts"); });
+  // The column and its head are the ones that were there: what is marked is its content's way in.
+  expectSameNode(column(), opened);
+  expect(travel()).toEqual(["is-pushing"]);
+  await settle(MOTION_MS.panel + 40);
+  expect(travel()).toEqual([]);
+  await act(async () => { closeWorkspaceDetail(); });
+  expect(travel()).toEqual(["is-popping"]);
+  await settle(MOTION_MS.panel + 40);
+  expect(travel()).toEqual([]);
+  // Open on a file, the column is given another session: its list is not a way back from that file.
+  await act(async () => { await loadWorkspaceFile("app.ts"); });
+  await settle(MOTION_MS.panel + 40);
+  await act(async () => { selectPane("p2"); commitTest(); });
+  await settle();
+  expect(travel()).toEqual([]);
 });

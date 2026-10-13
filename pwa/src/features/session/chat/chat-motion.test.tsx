@@ -14,7 +14,7 @@ import { AgentStream, type PromptProgressNote } from "./agent-stream";
  * every poll, by older history and by React itself; only a change the reader
  * could watch happen may carry one of these marks.
  */
-const MARKS = ".rise-in, .pop-in, .swap-in, .is-arriving, .is-raised, .is-following, .fold-appear, .work-steps-pushed";
+const MARKS = ".rise-in, .pop-in, .swap-in, .is-arriving, .is-raised, .is-following, .has-arrived, .fold-appear, .work-steps-pushed";
 const marks = (): string[] => [...appRoot().querySelectorAll(MARKS)].map((node) => node.getAttribute("class") ?? "");
 
 type Slide = { on: string; from: string };
@@ -56,9 +56,11 @@ const polled = (items: AgentTraceItem[]): AgentTraceItem[] => items.map((item) =
 
 type Paint = {
   working?: boolean; waiting?: boolean; follow?: boolean; hasOlder?: boolean; historyLoads?: number; progress?: PromptProgressNote | null;
+  /** The transcript is being read: the stream shows that instead of "no history". */
+  reading?: boolean;
 };
 function paint(items: AgentTraceItem[], state: Paint = {}): void {
-  act(() => renderReact(<AgentStream items={polled(items)} empty={empty} verified working={state.working ?? false}
+  act(() => renderReact(<AgentStream items={polled(items)} empty={state.reading ? { kind: "loading", title: "Reading" } : empty} busy={state.reading} verified working={state.working ?? false}
     waiting={state.waiting} follow={state.follow} hasOlder={state.hasOlder} historyLoads={state.historyLoads}
     progress={state.progress} onCopyReply={() => true} onTerminal={() => {}} />));
 }
@@ -278,4 +280,62 @@ test("an agent that stops to ask in front of the reader raises its card; the ste
   const needs = appRoot().querySelector(".needs-card");
   paint([...steps, tool("b.ts", "running")], { working: true, waiting: true });
   expectSameNode(appRoot().querySelector(".needs-card"), needs);
+});
+
+test("the transcript that takes the place of reading fades in once; a poll of it, and one that was there from the start, do not", () => {
+  const inner = () => appRoot().querySelector(".agent-stream-inner")!;
+  paint([], { reading: true });
+  expect(inner().className).toBe("agent-stream-inner");
+  paint(done);
+  const arrived = inner();
+  expect(arrived.className).toBe("agent-stream-inner has-arrived");
+  // A poll draws the same node with the same class: nothing for an animation to start on.
+  paint(done);
+  expectSameNode(inner(), arrived);
+  expect(arrived.className).toBe("agent-stream-inner has-arrived");
+  // Read again (a retry after an error): the mark goes while it reads, and the next transcript arrives anew.
+  paint([], { reading: true });
+  expect(inner().className).toBe("agent-stream-inner");
+  paint(done);
+  expect(inner().className).toBe("agent-stream-inner has-arrived");
+  // A conversation that was read before it was opened is just there.
+  act(unmountReact);
+  paint(done);
+  expect(inner().className).toBe("agent-stream-inner");
+});
+
+test("a long prompt opens and shuts by height: shutting, its lines stay drawn until the bubble has closed over them", () => {
+  // No layout here: every prompt is 400px of text, 168px once clamped, and a move is one the test ends itself.
+  const moves: Array<{ from: string; to: string; end: () => void }> = [];
+  const scrollHeight = Object.getOwnPropertyDescriptor(prototype, "scrollHeight");
+  const rect = prototype.getBoundingClientRect;
+  Object.defineProperty(prototype, "scrollHeight", { configurable: true, get() { return 400; } });
+  prototype.getBoundingClientRect = function (this: HTMLElement) {
+    return { height: this.classList.contains("is-clamped") ? 168 : 400, top: 0, left: 0, right: 0, bottom: 0, width: 0, x: 0, y: 0 };
+  };
+  prototype.animate = function (this: HTMLElement, frames: Array<{ height: string }>) {
+    const listeners: Array<() => void> = [];
+    moves.push({ from: frames[0].height, to: frames[1].height, end: () => listeners.forEach((listener) => listener()) });
+    return { addEventListener: (type: string, listener: () => void) => { if (type === "finish") listeners.push(listener); } };
+  };
+  try {
+    paint([{ type: "user", text: Array.from({ length: 20 }, (_, line) => `line ${line}`).join("\n") }, { type: "assistant", text: "ok" }]);
+    const text = appRoot().querySelector<HTMLElement>(".agent-user-text")!;
+    const more = () => appRoot().querySelector<HTMLButtonElement>(".agent-user-more")!;
+    expect(text.className).toBe("agent-user-text is-clamped");
+    // Opened: from the height the clamp gave it to the height of all its lines.
+    act(() => more().click());
+    expect(text.className).toBe("agent-user-text");
+    expect(moves.map(({ from, to }) => [from, to])).toEqual([["168px", "400px"]]);
+    // Shut: the bubble closes to eight lines over text that is still all there.
+    act(() => more().click());
+    expect(more().getAttribute("aria-expanded")).toBe("false");
+    expect(text.className).toBe("agent-user-text");
+    expect(moves.map(({ from, to }) => [from, to])[1]).toEqual(["400px", "168px"]);
+    act(() => moves[1].end());
+    expect(text.className).toBe("agent-user-text is-clamped");
+  } finally {
+    if (scrollHeight) Object.defineProperty(prototype, "scrollHeight", scrollHeight); else delete prototype.scrollHeight;
+    prototype.getBoundingClientRect = rect;
+  }
 });

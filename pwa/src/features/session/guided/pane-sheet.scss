@@ -589,16 +589,21 @@ dialog.modal#{$desk} .pane-rename-clear { outline-offset: -5px; }
   width: 55%;
   height: 11px;
   border-radius: 4px;
+  position: relative;
+  overflow: hidden;
   background: var(--surface);
-  animation: pane-skel 1.2s var(--ease-in-out) infinite alternate;
+}
+
+.pane-skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(233, 237, 243, 0.08), transparent);
+  animation: skeleton-sheen var(--sheen) var(--ease-in-out) infinite;
 }
 
 .pane-skel.is-short { width: 80%; height: 8px; }
-
-@keyframes pane-skel {
-  from { opacity: 0.55; }
-  to { opacity: 1; }
-}
 
 /* --- Agent information -------------------------------------------------------- */
 
@@ -684,5 +689,5 @@ dialog.modal#{$desk} .pane-rename-clear { outline-offset: -5px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .pane-skel { animation: none; }
+  .pane-skel::after { display: none; }
 }

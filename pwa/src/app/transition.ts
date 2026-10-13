@@ -11,21 +11,25 @@ import { isDesk } from "./viewport";
  * navigation has to declare one, and everything else stays `none`. Getting that
  * backwards would animate the screen while someone is typing into a terminal.
  */
-export type TransitionKind = "push" | "pop" | "fade" | "expand" | "view" | "page-push" | "page-pop" | "none";
+export type TransitionKind = "push" | "pop" | "fade" | "expand" | "view" | "session" | "page-push" | "page-pop" | "none";
 
 /*
- * Three kinds are moves inside what stays on screen, and say so, so the part
+ * Four kinds are moves inside what stays on screen, and say so, so the part
  * that stays is not moved with the rest:
  *
  * - `view`: another view of the same session (guided, chat, the complete
  *   terminal). Its header is the same header; what is under it arrives.
+ * - `session`: another session in the column the open one stood in, beside
+ *   the list. The header keeps its place and says the other name; what is
+ *   under it arrives, one step shorter than a view, since readers go from
+ *   session to session in a row.
  * - `page-push` / `page-pop`: one page deeper under the same tab, and back
  *   (Settings to a computer's page). The tab bar is the same bar.
  */
 
 /** What a declared kind becomes on the layout in front of the reader. */
 function effectiveKind(kind: TransitionKind): TransitionKind {
-  if (kind === "view") return kind;
+  if (kind === "view" || kind === "session") return kind;
   // On a desk layout the pane is already beside the list, so nothing travels.
   return isDesk() ? "fade" : kind;
 }
@@ -53,6 +57,15 @@ export function transitionFor(from: TransitionScreen, to: TransitionScreen): Tra
   if (DEPTH[to] > DEPTH[from]) return "push";
   if (DEPTH[to] < DEPTH[from]) return "pop";
   return "fade";
+}
+
+/**
+ * How a session arrives from `from`. Beside the list another session takes the
+ * place of the open one, in the same column (`session`); from anywhere else it
+ * is the ordinary move to the pane screen.
+ */
+export function transitionToPane(from: TransitionScreen): TransitionKind {
+  return from === "pane" && isDesk() ? "session" : transitionFor(from, "pane");
 }
 
 /** The name a board tile and the pane screen share, so one expands into the other. */
@@ -155,7 +168,7 @@ export function withTransition(kind: TransitionKind, paint: () => void): void {
   const root = document.documentElement;
   const start = (document as ViewTransitionDocument).startViewTransition;
   // The moves inside a screen have no captured pair to animate: arrival only.
-  if (typeof start !== "function" || kind === "view" || kind === "page-push" || kind === "page-pop") {
+  if (typeof start !== "function" || kind === "view" || kind === "session" || kind === "page-push" || kind === "page-pop") {
     // Older WebKit: animate the arriving screen only. Cloning a live terminal
     // grid to animate the outgoing one costs more than the effect is worth.
     runFallbackTransition(effective, paint);

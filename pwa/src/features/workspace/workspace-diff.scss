@@ -107,6 +107,11 @@
 .workspace-hunk-notes { display: inline-flex; align-items: center; gap: 3px; margin-left: 0; color: var(--accent); }
 .workspace-hunk-toggle:active { background: rgba(110, 168, 254, 0.12); }
 .workspace-diff-group.is-folded .workspace-diff-hunk { position: static; }
+/* A hunk's lines fold under its head. One taller than the diff's window (`is-tall`, diff.tsx)
+   does not travel its whole height: the lines fade and the height follows in one step. */
+.workspace-diff-group > .fold.is-tall { transition: opacity var(--dur-2) var(--ease); }
+/* `step-end`: the height holds for the length of the fade and then is the shut one. */
+.workspace-diff-group > .fold.is-tall.is-shut { transition: opacity var(--dur-2) var(--ease), grid-template-rows var(--dur-2) step-end; }
 
 /* What the patch leaves out before a hunk: a quiet line, and the way to read it in the file. */
 .workspace-diff-gap { display: flex; }

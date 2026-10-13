@@ -2,7 +2,7 @@ import { PenLine } from "lucide-react";
 import type { ReactNode } from "react";
 import { diffNoteCounts } from "../../lib/diff-notes";
 import { t } from "../../lib/i18n";
-import { Button, Chevron } from "../../shared/ui/primitives";
+import { Button, Chevron, Fold } from "../../shared/ui/primitives";
 import { liveSession } from "../computers/catalog-store";
 import { loadGitDiff, showMoreWorkspaceChanges, toggleWorkspaceChangeGroup } from "./actions";
 import { changeKindLabel, formatModifiedAge, layerLabel } from "./format";
@@ -195,12 +195,12 @@ function ChangeGroup({ section, rows, files, snapshot, notes, lead, written }: {
         </Button>}
       {lead && <NextUnseen snapshot={snapshot} />}
     </div>
-    {expanded && <div className="workspace-change-rows">
+    <Fold open={expanded} lazy bodyClassName="workspace-change-rows">
       {rows.map(({ step, staged }) =>
         <ChangeRow key={`${step.layer}:${step.path}`} step={step} snapshot={snapshot}
           notes={notes.get(`${step.layer}:${step.path}`) ?? 0} written={written.has(step.path)}
           tag={staged && <StagedTag step={staged} snapshot={snapshot} notes={notes.get(`${staged.layer}:${staged.path}`) ?? 0} />} />)}
-    </div>}
+    </Fold>
   </section>;
 }
 

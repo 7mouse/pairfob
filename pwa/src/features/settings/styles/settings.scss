@@ -527,17 +527,24 @@
   width: 64px;
   height: 12px;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--surface-2), var(--line-strong), var(--surface-2));
-  background-size: 200% 100%;
-  animation: set-shimmer 1.3s linear infinite;
+  position: relative;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.set-group .skel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(233, 237, 243, 0.1), transparent);
+  animation: skeleton-sheen var(--sheen) var(--ease-in-out) infinite;
 }
 
 .set-group .skel-short { width: 40px; }
 
-@keyframes set-shimmer { to { background-position: -200% 0; } }
-
 @media (prefers-reduced-motion: reduce) {
-  .set-group .skel { animation: none; }
+  .set-group .skel::after { display: none; }
 }
 
 /* A group the page scrolled to (quota card, update block) flashes its outline once. */

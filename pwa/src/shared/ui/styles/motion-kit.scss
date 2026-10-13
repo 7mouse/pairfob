@@ -77,6 +77,16 @@
     to { opacity: 1; }
   }
 
+  /* --- Placeholder sheen -------------------------------------------------------
+     Every placeholder says "still reading" the same way: one pale band crossing
+     it, `--sheen` a pass. The band is the placeholder's own `::after`, parked
+     left of it (`translateX(-100%)`) inside a box that clips.
+     ------------------------------------------------------------------------------ */
+  @keyframes skeleton-sheen {
+    from { transform: translateX(-100%); }
+    to { transform: translateX(100%); }
+  }
+
   /* --- Copy button face --------------------------------------------------------
      The resting label and the confirmation share one cell (the `CopyAck`
      primitive), so the button is as wide as the wider of the two and the line

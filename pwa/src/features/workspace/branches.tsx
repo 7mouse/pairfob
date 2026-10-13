@@ -5,7 +5,7 @@ import { t } from "../../lib/i18n";
 import { createSelectedWorktree, listSelectedWorktrees, openSelectedWorktree } from "../../features/operations/controller";
 import { runDialogStep } from "../../features/operations/worktree-steps";
 import { MenuGroup, MenuRow } from "../../shared/ui/overlay/menu-controls";
-import { Button } from "../../shared/ui/primitives";
+import { Button, Fold } from "../../shared/ui/primitives";
 import { showError, showStatus } from "../../app/notices-store";
 import { capabilityEnabled } from "../operations/capabilities-store";
 import { WorkspaceDialog } from "./modal";
@@ -84,7 +84,9 @@ export function BranchSheet({ branches, onClose }: { branches: NonNullable<Works
           <span>{remoteOpen ? t("workspace.hideRemote") : t("workspace.showRemote", { count: remote.length })}</span>
           <ChevronDown size={16} aria-hidden="true" />
         </Button>
-        {remoteOpen && remote.map((branch) => <BranchRow key={`remote:${branch.name}`} branch={branch} />)}
+        <Fold open={remoteOpen} lazy>
+          {remote.map((branch) => <BranchRow key={`remote:${branch.name}`} branch={branch} />)}
+        </Fold>
       </div>
     </Section>}
   </WorkspaceDialog>;

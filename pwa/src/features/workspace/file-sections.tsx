@@ -1,7 +1,7 @@
 import { ChevronDown } from "lucide-react";
 import { useState } from "react";
 import { t } from "../../lib/i18n";
-import { Button } from "../../shared/ui/primitives";
+import { Button, Fold } from "../../shared/ui/primitives";
 import { renewFileSearch } from "./file-filter";
 import { FileRow, pathEntry } from "./file-row";
 import { useRepoSearch } from "./file-search";
@@ -58,7 +58,9 @@ export function RecentFiles({ snapshot, marks }: { snapshot: WorkspaceSnapshot; 
       <span className="workspace-section-name">{t("workspace.recent")}</span>
       <ChevronDown className="workspace-section-chev" size={14} aria-hidden="true" />
     </Button>
-    {recent.open && entries.map((entry) => <FileRow key={`recent:${entry.path}`} recent="recent" entry={entry} snapshot={snapshot} marks={marks} />)}
+    <Fold open={recent.open} lazy>
+      {entries.map((entry) => <FileRow key={`recent:${entry.path}`} recent="recent" entry={entry} snapshot={snapshot} marks={marks} />)}
+    </Fold>
   </section>;
 }
 

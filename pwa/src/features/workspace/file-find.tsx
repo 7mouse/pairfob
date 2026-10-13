@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronUp, X } from "lucide-react";
 import { useDeferredValue, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { t } from "../../lib/i18n";
-import { Button } from "../../shared/ui/primitives";
+import { Button, Fold } from "../../shared/ui/primitives";
 
 /**
  * Find in the open file. The reader types a few letters and steps through the
@@ -115,8 +115,9 @@ export function foundLines(find: FileFind): FoundLines | null {
 }
 
 /**
- * The row under the info bar. The reader opened it to type, so the field has
- * the keyboard on arrival. Enter goes on to the next match and Shift+Enter
+ * The row under the info bar, folding open over one short step: it is a single
+ * line and the reader is waiting to type. The reader opened it to type, so the
+ * field has the keyboard on arrival. Enter goes on to the next match and Shift+Enter
  * back; Escape closes the row and nothing under it.
  */
 export function FileFindBar({ find }: { find: FileFind }) {
@@ -124,7 +125,6 @@ export function FileFindBar({ find }: { find: FileFind }) {
   useEffect(() => {
     if (find.open) field.current?.focus();
   }, [find.open]);
-  if (!find.open) return null;
   const onKey = (event: KeyboardEvent<HTMLInputElement>) => {
     if (event.nativeEvent.isComposing) return;
     if (event.key === "Enter") {
@@ -139,7 +139,7 @@ export function FileFindBar({ find }: { find: FileFind }) {
   };
   // "No results" is said of what was searched: while the lines catch up with the keys, nothing is claimed.
   const none = find.query !== "" && !find.lines.length && find.settled;
-  return <div className="workspace-find" role="search">
+  return <Fold open={find.open} lazy className="workspace-find-fold"><div className="workspace-find" role="search">
     {/* The label is as high as the row: a finger's press beside the field is the field's. */}
     <label className="workspace-find-box">
       <input ref={field} className="workspace-find-field" type="search" enterKeyHint="search" autoComplete="off" autoCapitalize="off"
@@ -155,5 +155,5 @@ export function FileFindBar({ find }: { find: FileFind }) {
       disabled={find.lines.length < 2} onClick={() => find.step(1)}><ChevronDown size={16} aria-hidden="true" /></Button>
     <Button className="icon-btn workspace-tool" aria-label={t("workspace.findClose")} title={t("workspace.findClose")}
       onClick={find.close}><X size={16} aria-hidden="true" /></Button>
-  </div>;
+  </div></Fold>;
 }

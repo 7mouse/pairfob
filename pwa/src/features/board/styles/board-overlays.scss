@@ -78,7 +78,7 @@
 
 .board-divider.is-pending .board-divider-knob {
   background: var(--accent);
-  animation: board-divider-pending 0.8s ease-in-out infinite alternate;
+  animation: board-divider-pending var(--pulse) var(--ease-in-out) infinite alternate;
 }
 
 .board-divider.is-locked { cursor: not-allowed; }

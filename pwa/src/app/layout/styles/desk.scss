@@ -82,8 +82,16 @@
 #app > .inspector.is-leaving { pointer-events: none; }
 #app > .inspector.is-leaving > * { opacity: 0; transition: opacity var(--dur-1) var(--ease); }
 
+/* Inside the open column, a file or a diff opened from the list walks in as a
+   page pushed inside a sheet does, and the list comes back the other way
+   (`pages/workspace/inspector.tsx`). The head belongs to both and stays. */
+#app > .inspector.is-pushing > :is(.inspector-list, .workspace-detail-view) { animation: sheet-page-push var(--dur-3) var(--ease); }
+#app > .inspector.is-popping > :is(.inspector-list, .workspace-detail-view) { animation: sheet-page-pop var(--dur-3) var(--ease); }
+
 @media (prefers-reduced-motion: reduce) {
-  #app > .inspector.is-entering > * { animation-name: fade-in; }
+  #app > .inspector.is-entering > *,
+  #app > .inspector.is-pushing > :is(.inspector-list, .workspace-detail-view),
+  #app > .inspector.is-popping > :is(.inspector-list, .workspace-detail-view) { animation-name: fade-in; }
 }
 
 

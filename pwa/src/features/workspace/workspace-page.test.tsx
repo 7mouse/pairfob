@@ -23,6 +23,7 @@ import {
   WORKSPACE_PENDING_DELAY_MS,
   clearWorkspacePendingReveal,
 } from "./index";
+import { foldShut } from "../../../test-support/exit";
 
 const revision = "a".repeat(64);
 
@@ -211,6 +212,7 @@ describe("React workspace screen", () => {
     expect(appRoot().querySelectorAll(".workspace-change-layer")).toHaveLength(1);
     expect(appRoot().querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
     await act(() => { groupNamed("未暂存").click(); });
+    await foldShut();
     expect(appRoot().querySelectorAll(".workspace-change")).toHaveLength(0);
     expect(appRoot().querySelectorAll(".workspace-change-layer")).toHaveLength(0);
     expect(groupNamed("未暂存").getAttribute("aria-expanded")).toBe("false");

@@ -240,6 +240,7 @@ html[data-kb="open"] .chrome-avatar .agent-avatar {
   line-height: 1;
   appearance: none;
   -webkit-appearance: none;
+  transition: background-color var(--dur-1) var(--ease), color var(--dur-1) var(--ease), opacity var(--dur-1) var(--ease);
 }
 
 .icon-btn:active { background: var(--surface-2); }

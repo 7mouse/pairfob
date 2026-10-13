@@ -338,7 +338,7 @@ describe("complete terminal beside the list", () => {
     expect(currentScreen()).toBe("pane");
     expect(terminalRoot()?.dataset.paneId).toBe("p1");
     expect(terminalHost()?.querySelector(".xterm")).not.toBeNull();
-    expect(app.querySelector<HTMLElement>(".full-terminal-state")?.hidden).toBeTrue();
+    await waitUntil(() => app.querySelector<HTMLElement>(".full-terminal-state")?.hidden === true, "the cover put away");
     expect(closed).toHaveLength(1);
     expect(document.documentElement.classList.contains("full-terminal-active")).toBeTrue();
   });

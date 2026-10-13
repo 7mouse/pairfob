@@ -1,7 +1,7 @@
 import { Monitor, Plus } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { t } from "../../lib/i18n";
-import { BackBar, Brand, Button, SelectionRow, SetAction, SetGroup, SetItem, SetTag, Spinner, TopbarActions } from "../../shared/ui/primitives";
+import { BackBar, Brand, Button, SelectionRow, SetAction, SetGroup, SetItem, SetTag, Spinner, Swap, TopbarActions } from "../../shared/ui/primitives";
 import { keepPhrases } from "../../lib/keep-phrases";
 import type { ComputersViewModel } from "./model";
 
@@ -15,7 +15,9 @@ import type { ComputersViewModel } from "./model";
  *
  * Inside the app (a back bar) it is one icon list: the current computer is
  * tagged, the others carry a Connect action, and Forget waits behind Edit so
- * the list is not narrowed by a column of destructive links. The standalone
+ * the list is not narrowed by a column of destructive links. Connect, the
+ * spinner of a connection being made and the tag take turns in one slot at the
+ * row's end (`.computer-trail`), each swapped in. The standalone
  * picker (no session yet) keeps its selectable rows.
  */
 export function ComputerListView({ view, onSwitch, onForget, onAdd, onBack, notice, footer }: {
@@ -66,15 +68,22 @@ export function ComputerListView({ view, onSwitch, onForget, onAdd, onBack, noti
         {view.rows.map(row => (
           <SetItem key={row.daemonId} className="computer-item"
             leading={<span className="set-icon" aria-hidden="true"><Monitor size={17} /></span>}
-            label={row.title} sub={pending === row.daemonId ? t("set.connecting") : row.meta}
-            trailing={editing
-              ? <SetAction tone="danger" className="computer-forget-action" aria-label={row.forgetAria} onClick={() => onForget(row.daemonId)}>{row.forgetLabel}</SetAction>
-              : pending === row.daemonId ? <Spinner />
-              : row.current ? <SetTag tone="ok">{row.currentPill}</SetTag>
-              : <SetAction disabled={pending !== null} onClick={() => {
-                  setPending(row.daemonId);
-                  void Promise.resolve(onSwitch(row.daemonId)).finally(() => setPending(null));
-                }}>{t("set.connect")}</SetAction>} />
+            label={row.title}
+            sub={<Swap on={pending === row.daemonId ? "connecting" : "meta"}>{pending === row.daemonId ? t("set.connecting") : row.meta}</Swap>}
+            trailing={<span className="computer-trail">
+              {/* Connect is the widest thing the slot holds: it keeps the slot that wide whatever stands in it. */}
+              {editing ? null : <span className="set-action computer-trail-size" aria-hidden="true">{t("set.connect")}</span>}
+              <Swap className="computer-trail-face" on={editing ? "edit" : pending === row.daemonId ? "connecting" : row.current ? "current" : "connect"}>
+                {editing
+                  ? <SetAction tone="danger" className="computer-forget-action" aria-label={row.forgetAria} onClick={() => onForget(row.daemonId)}>{row.forgetLabel}</SetAction>
+                  : pending === row.daemonId ? <Spinner />
+                  : row.current ? <SetTag tone="ok">{row.currentPill}</SetTag>
+                  : <SetAction disabled={pending !== null} onClick={() => {
+                      setPending(row.daemonId);
+                      void Promise.resolve(onSwitch(row.daemonId)).finally(() => setPending(null));
+                    }}>{t("set.connect")}</SetAction>}
+              </Swap>
+            </span>} />
         ))}
       </SetGroup>
       <SetGroup className="computer-add-group" icons note={keepPhrases(view.addHint)}>

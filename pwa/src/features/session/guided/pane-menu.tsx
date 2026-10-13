@@ -25,7 +25,8 @@ import { useEscapeStep } from "../../../shared/ui/overlay/escape-steps";
 import { deskPresentation } from "../../../shared/ui/overlay/popover";
 import { followRemoval } from "../../../shared/ui/overlay/removal-focus";
 import { useSheetNav, type SheetNav } from "../../../shared/ui/overlay/sheet-stack";
-import { AgentAvatar, Button } from "../../../shared/ui/primitives";
+import { MOTION_MS, motionMs } from "../../../shared/ui/dom/motion";
+import { AgentAvatar, Button, Fold } from "../../../shared/ui/primitives";
 import { PanePage } from "./pane-page";
 
 export function fillSelectedPane(): void { void layoutSelectedPane("zoom"); }
@@ -97,19 +98,27 @@ function CloseZone({ modal, agent }: { modal: ActionSheetController; agent: Agen
   // Escape takes the question back first, as Cancel does, and only then the panel.
   useEscapeStep(asking, () => setAsking(false));
   // The zone sits at the foot of a tall sheet: without this the question opens
-  // below the fold on a phone and the tap looks like it did nothing.
+  // below the fold on a phone and the tap looks like it did nothing. It folds
+  // open, so the sheet is kept on it for as long as it grows.
   useLayoutEffect(() => {
+    let frame = 0;
     if (asking) {
-      confirm.current?.scrollIntoView?.({ block: "nearest" });
+      const until = performance.now() + motionMs(MOTION_MS.panel);
+      const follow = () => {
+        confirm.current?.scrollIntoView?.({ block: "nearest" });
+        if (performance.now() < until) frame = requestAnimationFrame(follow);
+      };
+      follow();
       confirm.current?.querySelector<HTMLElement>(".pane-confirm-cancel")?.focus({ preventScroll: true });
     } else if (asked.current) {
       zone.current?.querySelector<HTMLElement>(".menu-row")?.focus({ preventScroll: true });
     }
     asked.current = asking;
+    return () => cancelAnimationFrame(frame);
   }, [asking]);
   return <div ref={zone} className="menu-group menu-danger-zone">
     <MenuRow icon={<Trash2 size={18} />} label={t("pm.closePane")} danger onClick={() => setAsking((value) => !value)} />
-    {asking && <div ref={confirm} className="pane-confirm" role="group" aria-label={t("confirm.closePaneTitle")}>
+    <Fold open={asking} lazy><div ref={confirm} className="pane-confirm" role="group" aria-label={t("confirm.closePaneTitle")}>
       <div className="pane-confirm-subject">
         <AgentAvatar kind={agent.agent} status={agent.agent ? agent.status : undefined} />
         <span><b>{agentTitle(agent, listGroup)}</b>{agent.cwd ? <small>{agent.cwd}</small> : null}</span>
@@ -123,7 +132,7 @@ function CloseZone({ modal, agent }: { modal: ActionSheetController; agent: Agen
           modal.close(() => closePaneConfirmed(agent));
         }}>{t("pm.closePane")}</Button>
       </div>
-    </div>}
+    </div></Fold>
   </div>;
 }
 

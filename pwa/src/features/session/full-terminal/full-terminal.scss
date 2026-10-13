@@ -87,7 +87,7 @@
   opacity: 1;
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 24%, transparent);
-  animation: page-pending-pulse 0.72s ease-in-out infinite alternate;
+  animation: page-pending-pulse var(--pulse) var(--ease-in-out) infinite alternate;
 }
 
 @keyframes page-pending-pulse {
@@ -134,11 +134,17 @@
   display: none;
 }
 
+.full-terminal-state.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--dur-2) var(--ease);
+}
+
 .full-terminal-state-spinner {
   width: 30px;
   height: 30px;
   color: var(--accent);
-  animation: full-terminal-state-spin 0.8s linear infinite;
+  animation: full-terminal-state-spin var(--spin) linear infinite;
 }
 
 .full-terminal-state[data-stage="error"] .full-terminal-state-spinner {

@@ -25,6 +25,7 @@ import type { LiveSession } from "../../../lib/protocol/client";
 import { setLang } from "../../../lib/i18n";
 import { mountTestApp, commitTest, unmountTestApp } from "../../../../test-support/react-harness";
 import { bindSessionOwnerFromLive } from "../bind-live";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 import { AgentChatPane } from "./agent-chat";
 import {
   currentAgentTraceOwnerKey,
@@ -357,6 +358,8 @@ test("jump-to-latest clears published unread and hides mounted jump button witho
   await act(async () => appRoot().querySelector<HTMLButtonElement>(".agent-jump")!.click());
   expect(chatSnapshot().agentTraceFollow).toBeTrue();
   expect(chatSnapshot().agentTraceUnread).toBeFalse();
+  expect(appRoot().querySelector<HTMLButtonElement>(".agent-jump")!.classList.contains("term-jump-out")).toBeTrue();
+  await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, MOTION_MS.press + 40)); });
   expect(appRoot().querySelector<HTMLButtonElement>(".agent-jump")!.hidden).toBeTrue();
   expect(committed).toBe(0);
   expect(requested).toBe(0);

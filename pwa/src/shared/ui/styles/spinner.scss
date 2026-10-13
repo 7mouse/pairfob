@@ -5,7 +5,7 @@
     width: 26px;
     height: 26px;
     color: var(--accent);
-    animation: spin 0.85s linear infinite;
+    animation: spin var(--spin) linear infinite;
     display: inline-block;
     flex: none;
   }

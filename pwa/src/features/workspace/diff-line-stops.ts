@@ -14,8 +14,13 @@ import { useEffect, useLayoutEffect, useRef, type FocusEvent, type KeyboardEvent
 
 const NOTE_LINE = ".diff-comment-btn";
 const LINE = `${NOTE_LINE}, .diff-stop`;
-/** Every stop of the lines' shared path, in the order the arrows walk it. */
-export const DIFF_STOPS = LINE;
+/**
+ * Every stop of the lines' shared path, in the order the arrows walk it. The
+ * lines of a hunk on its way shut are still drawn (`Fold`) and are no stop.
+ */
+export function diffStops(box: ParentNode | null | undefined): HTMLElement[] {
+  return [...(box?.querySelectorAll<HTMLElement>(LINE) ?? [])].filter((stop) => !stop.closest("[inert]"));
+}
 
 const HOLD = "pairfob:diff-stop";
 
@@ -62,7 +67,7 @@ export function useLineStops(table: RefObject<HTMLElement | null>): {
   onKeyDown(event: KeyboardEvent<HTMLElement>): void;
 } {
   const stop = useRef<HTMLElement | null>(null);
-  const lines = (): HTMLElement[] => [...(table.current?.querySelectorAll<HTMLElement>(LINE) ?? [])];
+  const lines = (): HTMLElement[] => diffStops(table.current);
   const hold = (line: HTMLElement | null): void => {
     if (stop.current && stop.current !== line) stop.current.tabIndex = -1;
     if (line) line.tabIndex = 0;

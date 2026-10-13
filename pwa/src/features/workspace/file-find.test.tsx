@@ -5,6 +5,7 @@ import { happy, resetBoardTestDOM } from "../../../test-support/dom";
 import { all, bootWorkspaceScreen, key, one, press, settle, teardownWorkspaceScreen, type } from "../../../test-support/workspace-harness";
 import { findLines } from "./file-find";
 import { loadWorkspaceFile, refreshWorkspace, workspaceModel } from "./index";
+import { foldShut } from "../../../test-support/exit";
 
 /** Find in the open file: the lines that hold what was typed, stepped through from a row under the info bar. */
 
@@ -122,6 +123,7 @@ describe("find in the open file", () => {
     await type(field(), "alpha");
     const escape = await key("Escape", {}, field());
     expect(escape.defaultPrevented).toBeTrue();
+    await foldShut();
     expect(document.querySelector(".workspace-find")).toBeNull();
     expect(found()).toEqual([]);
     expect(workspaceModel.view).toBe("file");
@@ -154,6 +156,7 @@ describe("find in the open file", () => {
       await act(async () => { next.focus(); });
       let escape = await key("Escape", {}, next);
       expect(escape.defaultPrevented).toBeTrue();
+      await foldShut();
       expect(document.querySelector(".workspace-find")).toBeNull();
       expect(workspaceModel.view).toBe("file");
       // The keyboard goes back to the button that opened the row, not to the page.
@@ -162,11 +165,13 @@ describe("find in the open file", () => {
       // From the source, or from the page itself when the reader got here with a pointer.
       await press(one(".workspace-find-toggle"));
       escape = await key("Escape", {}, one(".workspace-code-stage"));
+      await foldShut();
       expect(document.querySelector(".workspace-find")).toBeNull();
       expect(workspaceModel.view).toBe("file");
       await press(one(".workspace-find-toggle"));
       await act(async () => { (document.activeElement as HTMLElement | null)?.blur(); });
       await key("Escape");
+      await foldShut();
       expect(document.querySelector(".workspace-find")).toBeNull();
       expect(workspaceModel.view).toBe("file");
 

@@ -48,6 +48,7 @@ import { openPaneMenu } from "./pane-menu";
 import { ProtocolError } from "../../../lib/protocol/errors";
 import { bindOverlayOrigin } from "../../../shared/ui/overlay/origin";
 import { tabStops } from "../../../shared/ui/overlay/tab-stops";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 import { LAST_AGENT_KIND_KEY } from "../../operations/operation-form-model";
 
 const labels = () => [...document.querySelectorAll(".sheet-body button")].map((button) => button.textContent);
@@ -205,9 +206,12 @@ test("closing confirms inside the sheet, warns while running, and then closes th
   expect([cancel.textContent, confirm.textContent]).toEqual([t("cancel"), t("pm.closePane")]);
   expectSameNode(document.activeElement, cancel);
   act(() => cancel.click());
-  expect(zone().querySelector(".pane-confirm")).toBeNull();
+  // The question folds shut, out of reach at once, and is gone when it has.
+  expect(zone().querySelector<HTMLElement>(".fold")?.inert).toBe(true);
   // Cancel gives focus back to the row that asked.
   expectSameNode(document.activeElement, zone().querySelector(".menu-row"));
+  await foldShut();
+  expect(zone().querySelector(".pane-confirm")).toBeNull();
   act(() => zone().querySelector<HTMLButtonElement>(".menu-row")!.click());
   await act(async () => { zone().querySelectorAll<HTMLButtonElement>(".pane-confirm-actions button")[1].click(); await new Promise((resolve) => setTimeout(resolve, 20)); });
   expect(confirm).toBeDefined();
@@ -405,6 +409,11 @@ test("Worktree lists in place, marks the current checkout, and opens a row with 
   expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);
 });
 
+/** Wait out a block folding shut: its content goes when it has. */
+async function foldShut(): Promise<void> {
+  await act(async () => { await new Promise<void>((resolve) => setTimeout(resolve, MOTION_MS.panel + 40)); });
+}
+
 /** Escape as a keyboard sends it: down on what has focus, then up. */
 function escape(): void {
   const target = document.activeElement ?? document.body;
@@ -418,9 +427,11 @@ test("Escape takes back the closing question first, as Cancel does, and only the
   act(() => zone().querySelector<HTMLButtonElement>(".menu-row")!.click());
   expectSameNode(document.activeElement, zone().querySelector(".pane-confirm-cancel"));
   escape();
-  expect(zone().querySelector(".pane-confirm")).toBeNull();
+  expect(zone().querySelector<HTMLElement>(".fold")?.inert).toBe(true);
   expect(sheetOpen()).toBeTrue();
   expectSameNode(document.activeElement, zone().querySelector(".menu-row"));
+  await foldShut();
+  expect(zone().querySelector(".pane-confirm")).toBeNull();
   escape();
   await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
   expect(sheetOpen()).toBeFalse();

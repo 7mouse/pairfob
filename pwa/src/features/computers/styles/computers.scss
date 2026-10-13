@@ -49,6 +49,13 @@
 
 .computer-set { margin-top: 14px; }
 
+/* The end of a row: one cell for whatever stands there now, as wide as Connect,
+   so the text beside it is not laid out again when the answer changes. */
+.computer-trail { flex: none; display: inline-grid; align-items: center; justify-items: end; }
+.computer-trail > * { grid-area: 1 / 1; }
+.computer-trail-size { visibility: hidden; pointer-events: none; }
+.computer-trail-face { display: inline-flex; align-items: center; }
+
 .set-icon.is-accent {
   background: rgba(110, 168, 254, 0.13);
   color: var(--accent);

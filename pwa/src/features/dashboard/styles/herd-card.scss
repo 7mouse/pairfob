@@ -266,7 +266,7 @@
   background: linear-gradient(100deg, transparent 22%, rgba(110, 168, 254, 0.16) 50%, transparent 78%);
   background-size: 300% 100%;
   background-repeat: no-repeat;
-  animation: card-sweep 420ms var(--ease) forwards;
+  animation: card-sweep var(--dur-trace) var(--ease) forwards;
 }
 
 .card.ac-changed.ac-done::after {

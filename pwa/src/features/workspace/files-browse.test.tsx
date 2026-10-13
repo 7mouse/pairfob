@@ -19,6 +19,7 @@ import { selectPane } from "../session/session-store";
 import { resetFileFilter } from "./file-filter";
 import { SEARCH_DELAY_MS, resetFileSearch } from "./file-search";
 import { clearWorkspacePendingReveal, enterWorkspace, refreshWorkspace, workspaceModel } from "./index";
+import { foldShut } from "../../../test-support/exit";
 
 /**
  * Browsing files one screen at a time (a phone, or a window under 900px): the
@@ -299,6 +300,7 @@ describe("the files opened last", () => {
     await press(back());
     await press(back());
     await press(one(".workspace-recent button.workspace-section"));
+    await foldShut();
     expect(recentNames()).toEqual([]);
     expect(one(".workspace-recent button.workspace-section").getAttribute("aria-expanded")).toBe("false");
     await press(one(".workspace-recent button.workspace-section"));

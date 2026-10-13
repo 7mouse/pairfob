@@ -174,6 +174,11 @@
      first frame; only its opacity moves. */
   html[data-fallback-transition="view"] .pane-root > :not(.chrome) { animation: screen-fade var(--dur-3) var(--ease); }
 
+  /* Another session in the same column: the header's words are swapped in and
+     the view under it arrives, without waiting for the one that left. */
+  html[data-fallback-transition="session"] .pane-root > :not(.chrome) { animation: screen-fade var(--dur-2) var(--ease); }
+  html[data-fallback-transition="session"] .pane-root > .chrome .chrome-title { animation: swap-in var(--dur-3) var(--ease); }
+
   /* One page deeper under the same tab, and back: the page travels as a screen
      does and the tab bar, which both pages stand on, does not. */
   html[data-fallback-transition="page-push"] #app.tabs > :not(.tab-bar) { animation: screen-from-right var(--dur-4) var(--ease); }
@@ -231,5 +236,5 @@
   html[data-fallback-transition] #app.desk > :not(.rail),
   html[data-fallback-transition] .pane-root > :not(.chrome) { animation: none; }
   /* List ↔ pane under reduced motion: no travel, a short fade only. */
-  html[data-fallback-transition="reduced"] #app { animation: screen-fade 120ms linear; }
+  html[data-fallback-transition="reduced"] #app { animation: screen-fade var(--dur-1) linear; }
 }

@@ -12,7 +12,7 @@ export { askConfirm, askText, showHelp, type ConfirmRequest, type HelpBlock, typ
 export { haptic, tapAck } from "../shared/ui/dom/feedback";
 export { prefersReducedMotion } from "../shared/ui/dom/motion";
 
-import { prefersReducedMotion } from "../shared/ui/dom/motion";
+import { MOTION_MS, prefersReducedMotion } from "../shared/ui/dom/motion";
 
 export function node<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -117,7 +117,7 @@ export function bindKeyboardZones(root: Document): () => void {
   };
 }
 
-const RIPPLE_MS = 520;
+const RIPPLE_MS = MOTION_MS.trace;
 
 /** Selectors whose geometry motion.css prepares as a ripple host. */
 export const RIPPLE_ACTIONS = ".btn-primary, .btn-scan, .send-btn, .card-main, .menu-item";

@@ -263,6 +263,14 @@ export function AgentStream({ items, working, waiting = false, stale = false, ve
   const slots = turnSlots(turns);
   const sent = useSentPrompt(turns, historyLoads);
   const openStep = onOpenStep ?? (() => undefined);
+  // The transcript read for the first time takes the spinner's place: it fades in, once per read
+  // (`has-arrived`). One that was there when the stream was first drawn is not an arrival.
+  // Reading is a read in flight with nothing to show yet, whatever the stream says meanwhile
+  // ("reading", or that the agent is working).
+  const reading = !items.length && busy === true;
+  const read = useRef({ reading, arrived: false });
+  if (reading) read.current = { reading: true, arrived: false };
+  else if (read.current.reading) read.current = { reading: false, arrived: items.length > 0 };
   return <div ref={streamRef} className="agent-stream" role="log" aria-label={t("chat.streamAria")}
     aria-busy={busy === true} tabIndex={0} data-sig={signature} onScroll={event => {
       const stream = event.currentTarget;
@@ -270,7 +278,7 @@ export function AgentStream({ items, working, waiting = false, stale = false, ve
       onFollow?.(follow, stream);
       if (stream.scrollTop < 32) onNeedOlder?.();
     }}>
-    <div className="agent-stream-inner">
+    <div className={read.current.arrived ? "agent-stream-inner has-arrived" : "agent-stream-inner"}>
       {older}
       {(!items.length || empty.kind === "unavailable") && <EmptyPanel spec={empty} onRetry={onRetry} onTerminal={onTerminal} />}
       {truncated && items.length > 0 && <p className="agent-trace-limit">{t("chat.truncated")}</p>}

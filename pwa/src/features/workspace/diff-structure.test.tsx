@@ -17,6 +17,7 @@ import { selectPane } from "../session/session-store";
 import { DIFF_BATCH_LINES } from "./diff";
 import { setSplitChosen } from "./diff-layout";
 import { clearWorkspacePendingReveal, enterWorkspace, loadGitDiff, workspaceModel } from "./index";
+import { foldShut } from "../../../test-support/exit";
 
 /** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
 const UNDER = ".diff-note-fold:not(.is-shut)";
@@ -208,6 +209,7 @@ describe("hunks", () => {
     await press(head()[0]);
     expect(head()[0].getAttribute("aria-expanded")).toBe("false");
     expect(head()[0].querySelector(".workspace-hunk-count")?.textContent).toBe("6 行");
+    await foldShut();
     expect(all(".workspace-diff-line")).toHaveLength(3);
     // Back to the list and in again: the patch is as they left it.
     await press(one(".workspace-chrome .back"));

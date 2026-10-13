@@ -299,7 +299,7 @@ describe("complete-terminal remembers its mode per pane", () => {
     expect(openPaneId()).toBe("p2");
     expect(app.querySelector<HTMLElement>(".full-terminal-root")?.dataset.paneId).toBe("p2");
     const status = app.querySelector<HTMLElement>(".full-terminal-state");
-    expect(status?.hidden).toBeTrue();
+    await waitUntil(() => status?.hidden === true, "the cover put away");
     expect(status?.textContent).not.toContain("终端连接已暂停");
   });
 
@@ -454,7 +454,7 @@ describe("complete-terminal remembers its mode per pane", () => {
     act(() => handleFullTerminalEvent({ type: "connected" }));
     await waitUntil(() => opens === 1, "recovered terminal open");
     expect(opens).toBe(1);
-    expect(app.querySelector<HTMLElement>(".full-terminal-state")?.hidden).toBe(true);
+    await waitUntil(() => app.querySelector<HTMLElement>(".full-terminal-state")?.hidden === true, "the cover put away");
 
     act(() => handleFullTerminalEvent({ type: "connected" }));
     await act(async () => { await Promise.resolve(); });
@@ -622,7 +622,7 @@ describe("complete-terminal remembers its mode per pane", () => {
     visibility = "visible";
     act(() => handleFullTerminalVisibility(false));
     await waitUntil(() => opens === 2, "visible terminal reopen");
-    expect(status?.hidden).toBeTrue();
+    await waitUntil(() => status?.hidden === true, "the cover put away");
     expect(status?.dataset.stage).toBe("live");
     expect(app.querySelector(".xterm")).toBeTruthy();
   });
@@ -651,7 +651,7 @@ describe("complete-terminal remembers its mode per pane", () => {
     await waitUntil(() => opens === 2, "newer terminal open");
     const status = app.querySelector<HTMLElement>(".full-terminal-state");
     expect(opens).toBe(2);
-    expect(status?.hidden).toBeTrue();
+    await waitUntil(() => status?.hidden === true, "the cover put away");
 
     act(() => { resolveClose(); });
     await act(async () => { await Promise.resolve(); });

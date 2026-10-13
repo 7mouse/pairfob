@@ -1,4 +1,5 @@
 import { node, prefersReducedMotion } from "../../../lib/dom";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 
 /**
  * On a phone the keypad and the terminal are two separate regions, so pressing
@@ -8,8 +9,8 @@ import { node, prefersReducedMotion } from "../../../lib/dom";
  */
 
 const FLIGHT_MS = 340;
-const PULSE_MS = 160;
-const LABEL_MS = 600;
+const PULSE_MS = MOTION_MS.element;
+const LABEL_MS = MOTION_MS.trace;
 /** Auto-repeat fires every 90ms; one spark per repeat would be a swarm. */
 const THROTTLE_MS = 200;
 

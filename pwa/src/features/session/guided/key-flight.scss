@@ -30,7 +30,7 @@
   margin: -8px 0 0 -2px;
   border-radius: 2px;
   background: var(--accent);
-  animation: key-caret-pulse 160ms var(--ease-out) forwards;
+  animation: key-caret-pulse var(--dur-2) var(--ease-out) forwards;
 }
 
 @keyframes key-caret-pulse {
@@ -50,7 +50,7 @@
   font-size: var(--text-caption);
   font-weight: 640;
   font-variant-numeric: tabular-nums;
-  animation: key-label-out 600ms var(--ease) forwards;
+  animation: key-label-out var(--dur-trace) var(--ease) forwards;
 }
 
 @keyframes key-label-out {

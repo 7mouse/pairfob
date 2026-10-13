@@ -15,6 +15,7 @@ import { setSettingsSection } from "../../features/settings/settings-section";
 import type { PairResult } from "../../lib/protocol/client";
 import { stopPolling } from "../../features/connection/controller";
 import { closeTestDialogs } from "../../../test-support/close-dialogs";
+import { MOTION_MS } from "../../shared/ui/dom/motion";
 
 /**
  * Settings explanations against the actual mounted App. There are no help
@@ -178,17 +179,17 @@ describe("settings notes and inline steps (actual App)", () => {
     expect(app.textContent).toContain("解除后，这台设备会立即断开并删除本地凭证");
   });
 
-  test("notification setup steps expand inside the card instead of a dialog", () => {
+  test("notification setup steps expand inside the card instead of a dialog", async () => {
     // The row only offers setup on a browser that can take web push.
     const restore = stubWebPush();
     try {
-      stepsExpandInPlace();
+      await stepsExpandInPlace();
     } finally {
       restore();
     }
   });
 
-  function stepsExpandInPlace(): void {
+  async function stepsExpandInPlace(): Promise<void> {
     mountSettings();
     act(() => setPushEnabled(false));
     const app = appRoot();
@@ -202,7 +203,14 @@ describe("settings notes and inline steps (actual App)", () => {
     expect(buttonLabelled("怎么开启").getAttribute("aria-expanded")).toBe("true");
     const steps = [...app.querySelectorAll(".notification-item .command-line code")].map((el) => el.textContent);
     expect(steps).toEqual(["PAIRFOB_PUSH=1\nPAIRFOB_VAPID_SUBJECT=mailto:you@example.com", "pairfob service restart"]);
+    // They fold open under the row, and fold shut out of reach before they go.
+    const fold = item.querySelector<HTMLElement>(".fold")!;
+    expect(fold.classList.contains("is-shut")).toBe(false);
     act(() => buttonLabelled("怎么开启").click());
+    expect(buttonLabelled("怎么开启").getAttribute("aria-expanded")).toBe("false");
+    expect(fold.classList.contains("is-shut")).toBe(true);
+    expect(fold.inert).toBe(true);
+    await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, MOTION_MS.panel + 40)); });
     expect(app.textContent).not.toContain("PAIRFOB_PUSH=1");
   }
 

@@ -87,7 +87,7 @@ import { disposeFullTerminal, handleFullTerminalEvent, leaveFullTerminal, leaveF
 import { preloadFullTerminalXterm } from "../session/full-terminal/full-terminal-loader";
 import { resolvedPaneTermMode } from "../session/term-mode";
 import { guidedScrollController } from "../session/guided/guided-scroll";
-import { navigateWithTransition, nextTransition, queuedKind, transitionFor } from "../../app/transition";
+import { navigateWithTransition, nextTransition, queuedKind, transitionToPane, type TransitionKind, type TransitionScreen } from "../../app/transition";
 import { loadHerdSessions } from "../herd-sessions/load";
 
 export { retireAgentTraceRefreshes };
@@ -363,8 +363,9 @@ export async function openPaneWithOwner(paneId: string, source?: HTMLElement | n
     canEnterAgentChat,
     resolvedTermMode: resolvedPaneTermMode,
     queuedKind,
-    nextTransition: (kind, id) => nextTransition(kind as "fade" | "push" | "pop" | "expand", id),
-    transitionFor: (from, to) => transitionFor(from as "home" | "pane" | "workspace" | "settings" | "quota" | "computers" | "board", to as "pane"),
+    // No card grows into a session that takes another's place: that move names no pane.
+    nextTransition: (kind, id) => nextTransition(kind as TransitionKind, kind === "session" ? null : id),
+    transitionFor: (from) => transitionToPane(from as TransitionScreen),
     currentScreen,
     isFullTerminal,
     findAgent: (id) => dashboardStore.get().agents.find((item) => item.paneId === id),

@@ -170,7 +170,7 @@
 /* After the disabled rules: a pending line is also busy, and must still read as in flight. */
 .pane-divider.is-pending .pane-divider-knob {
   background: var(--accent);
-  animation: pane-divider-pending 0.8s ease-in-out infinite alternate;
+  animation: pane-divider-pending var(--pulse) var(--ease-in-out) infinite alternate;
 }
 
 .pane-divider.is-hidden { visibility: hidden; pointer-events: none; }

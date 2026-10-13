@@ -33,7 +33,7 @@
   height: 44px;
   margin: 0 auto var(--space-3);
   color: var(--muted);
-  animation: figure-in 200ms var(--ease) backwards;
+  animation: figure-in var(--dur-2) var(--ease) backwards;
 }
 
 @keyframes figure-in {

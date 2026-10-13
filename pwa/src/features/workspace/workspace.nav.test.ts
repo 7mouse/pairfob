@@ -4,6 +4,7 @@ import { act } from "react";
 import { setLang } from "../../lib/i18n";
 import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import type { LiveSession } from "../../lib/protocol/client";
+import { foldShut } from "../../../test-support/exit";
 
 const { appRoot } = await import("../../app/dom-root.ts");
 const { appHost } = await import("../../app/host.ts");
@@ -462,6 +463,7 @@ describe("mobile workspace navigation", () => {
     expect(app.querySelectorAll(".workspace-git-mark")[0]?.textContent).toBe("M");
 
     act(() => groupNamed("未暂存").click());
+    await foldShut();
     expect(app.querySelectorAll(".workspace-change")).toHaveLength(0);
     expect(app.querySelectorAll(".workspace-change-layer")).toHaveLength(0);
     expect(groupNamed("未暂存").getAttribute("aria-expanded")).toBe("false");

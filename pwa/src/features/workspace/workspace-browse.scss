@@ -521,7 +521,7 @@
   padding: 7px 0;
 }
 .workspace-branch-row + .workspace-branch-row,
-.workspace-remote-toggle + .workspace-branch-row { border-top: 1px solid var(--line); }
+.workspace-remote-toggle + .fold .workspace-branch-row:first-child { border-top: 1px solid var(--line); }
 .workspace-branch-body { gap: 2px; }
 .workspace-branch-body strong { overflow: hidden; font: 600 0.8rem/1.4 var(--mono); text-overflow: ellipsis; white-space: nowrap; }
 .workspace-branch-row .workspace-row-meta { font-family: var(--mono); }

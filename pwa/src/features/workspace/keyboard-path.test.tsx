@@ -22,6 +22,7 @@ import { clearWorkspacePendingReveal, enterWorkspace, leaveWorkspace, workspaceM
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 import { inspectorOpen } from "./inspector-store";
 import { MOTION_MS } from "../../shared/ui/dom/motion";
+import { foldShut } from "../../../test-support/exit";
 
 /** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
 const UNDER = ".diff-note-fold:not(.is-shut)";
@@ -317,11 +318,13 @@ describe("the inspector by keyboard", () => {
     await focusOn(head());
     await act(async () => { head().click(); });
     expect(head().getAttribute("aria-expanded")).toBe("false");
-    expect(lines()).toHaveLength(0);
-    // Folded, the head says how much it holds; it is the diff's one stop now.
+    // Folded, the head says how much it holds; it is the diff's one stop now, while its lines are still folding away.
     expect(head().textContent).toContain(`${shown} 行`);
     expectSameNode(focused(), head());
     expect(head().tabIndex).toBe(0);
+    await foldShut();
+    expect(lines()).toHaveLength(0);
+    expectSameNode(focused(), head());
     await act(async () => { head().click(); });
     expect(lines()).toHaveLength(shown);
   });

@@ -25,6 +25,30 @@ function InspectorContent({ snapshot }: { snapshot: WorkspaceSnapshot }) {
 }
 
 /**
+ * Which way the column's content just went: `pushing` when the reader opened a
+ * file or a diff from the list, `popping` when they came back to it, for as
+ * long as that move takes (desk.scss). Going from one file or diff to another
+ * is not a move between the two, and neither is another session's column.
+ */
+function useDrillTravel(snapshot: WorkspaceSnapshot): "" | "pushing" | "popping" {
+  const deep = snapshot.view === "file" || snapshot.view === "diff";
+  const [travel, setTravel] = useState<"" | "pushing" | "popping">("");
+  const was = useRef({ deep, paneId: snapshot.paneId });
+  // Decided while drawing, so the content's first frame already has its direction.
+  if (was.current.paneId !== snapshot.paneId || was.current.deep !== deep) {
+    const next = was.current.paneId === snapshot.paneId ? (deep ? "pushing" : "popping") : "";
+    was.current = { deep, paneId: snapshot.paneId };
+    if (next !== travel) setTravel(next);
+  }
+  useEffect(() => {
+    if (!travel) return;
+    const timer = window.setTimeout(() => setTravel(""), MOTION_MS.panel);
+    return () => window.clearTimeout(timer);
+  }, [travel]);
+  return travel;
+}
+
+/**
  * Files and changes as a column beside the desk session.
  *
  * The session's own column already shows the app notice, so this one does not
@@ -38,7 +62,9 @@ function InspectorContent({ snapshot }: { snapshot: WorkspaceSnapshot }) {
  * then walks in from the edge it opened at (`is-entering`, desk.scss), for as
  * long as that takes: content drawn anew later, for another session, is still.
  * Closed by the reader, the content goes first (`is-leaving`) and the column
- * gives its room back after, again in one step.
+ * gives its room back after, again in one step. In between, opening a file or
+ * a diff from the list and going back to it travel inside the column
+ * (`useDrillTravel`); the column itself and its head stay.
  */
 export function WorkspaceInspector() {
   const snapshot = useWorkspace();
@@ -50,6 +76,7 @@ export function WorkspaceInspector() {
     return () => window.clearTimeout(timer);
   }, [entering]);
   const leaving = useSyncExternalStore(inspectorStore.subscribe, inspectorLeaving);
+  const travel = useDrillTravel(snapshot);
   useInspectorFocus(column, snapshot.paneId);
   // The branch sheet belongs to the session it was opened for: another session's column never shows it.
   const [branchesOf, setBranchesOf] = useState<string | null>(null);
@@ -63,7 +90,7 @@ export function WorkspaceInspector() {
     // Asked for one session, answered under another: the sheet is not for this one.
     if (branches && shownPane.current === paneId) setBranchesOf(paneId);
   }, [paneId]);
-  return <aside ref={column} id={INSPECTOR_COLUMN_ID} className={`inspector workspace-inspector${leaving ? " is-leaving" : entering ? " is-entering" : ""}`} aria-label={t("inspector.label")} tabIndex={-1}
+  return <aside ref={column} id={INSPECTOR_COLUMN_ID} className={`inspector workspace-inspector${leaving ? " is-leaving" : entering ? " is-entering" : travel ? ` is-${travel}` : ""}`} aria-label={t("inspector.label")} tabIndex={-1}
     onKeyDown={(event) => {
       escapeFromColumn(event);
       keysFromColumn(event);

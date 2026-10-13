@@ -23,6 +23,8 @@ import { sessionOwner } from "../identity";
 import { subscribeVisibleNotice, visibleNotice } from "../../../app/notices-store";
 import { AgentCompose } from "./agent-compose";
 import { AgentStream } from "./agent-stream";
+import { usePresence } from "../../../shared/react/use-presence";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 import { Button } from "../../../shared/ui/primitives";
 import { noticeKeepsItsPlace, SessionNotice } from "../session-notice";
 import { SessionIdentity } from "../guided/session-chrome";
@@ -66,6 +68,11 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
   const seen = useRef(items.length);
   if (chat.agentTraceFollow) seen.current = items.length;
   const newSteps = items.slice(Math.min(seen.current, items.length)).filter((item) => item.type === "tool").length;
+  // The chip leaves with the scroll it started (`.term-jump-out`), saying what it said when pressed.
+  const jumpShown = !chat.agentTraceFollow && chat.agentTraceUnread;
+  const jump = usePresence(jumpShown, MOTION_MS.press);
+  const jumpLabel = useRef("");
+  if (jumpShown) jumpLabel.current = working && newSteps ? t("chat.newSteps", { n: newSteps }) : t(working ? "chat.newProgress" : "chat.newReply");
   const openStep = useCallback((item: AgentTraceItem, steps: AgentTraceItem[], turn: TurnRef) => {
     // The sheet re-finds its turn on every trace update, so running steps finish in place.
     if (paneId) openStepSheet(paneId, item, verified, steps, () => turnEntries(visibleItems(), turn));
@@ -111,8 +118,7 @@ function AgentChatView({ includeBack, handlers }: AgentChatProps) {
           disabled={!chat.agentTraceNext || chat.agentTraceBusy} onClick={() => {
             if (chat.agentTraceNext && !chat.agentTraceBusy) void refreshAgentTrace(true);
           }}>{chat.agentTraceBusy && chat.agentTraceNext ? t("chat.readingOlder") : t("hist.loadEarlier")}</Button>} />
-      <Button className="agent-jump" hidden={chat.agentTraceFollow || !chat.agentTraceUnread} onClick={jumpToLatest}><ArrowDown size={16} aria-hidden="true" />{working && newSteps ? t("chat.newSteps", { n: newSteps })
-        : t(working ? "chat.newProgress" : "chat.newReply")}</Button>
+      <Button className={jump.leaving ? "agent-jump term-jump-out" : "agent-jump"} hidden={!jump.mounted} inert={jump.leaving} onClick={jumpToLatest}><ArrowDown size={16} aria-hidden="true" />{jumpLabel.current}</Button>
     </div>
     <PromptProgressView />
     <AgentCompose />

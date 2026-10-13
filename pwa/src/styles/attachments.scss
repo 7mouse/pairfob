@@ -236,7 +236,7 @@
 }
 
 .attach-ring.is-spinning .attach-ring-fg { stroke: var(--muted); }
-.attach-ring.is-spinning { animation: attach-spin 1.4s linear infinite; }
+.attach-ring.is-spinning { animation: attach-spin var(--spin) linear infinite; }
 
 @keyframes attach-spin {
   from { transform: rotate(-90deg); }

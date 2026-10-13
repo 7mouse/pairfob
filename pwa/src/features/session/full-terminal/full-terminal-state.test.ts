@@ -5,6 +5,7 @@ import { renderReact, unmountReact } from "../../../../test-support/react-harnes
 import { appRoot } from "../../../app/dom-root";
 import { FullTerminalStateLayer } from "./full-terminal-state-layer";
 import { publishFullTerminalView, resetFullTerminalView, type FullTerminalViewSnapshot } from "./full-terminal-view";
+import { MOTION_MS } from "../../../shared/ui/dom/motion";
 
 import { copy, setLang, t } from "../../../lib/i18n";
 
@@ -92,8 +93,10 @@ describe("full terminal centered state", () => {
     expect(retries).toBe(1);
   });
 
-  test("hides the state layer once the terminal is live", () => {
+  test("once the terminal is live the cover fades off it, out of reach, and is then put away", async () => {
     paint();
+    const layer = appRoot().querySelector<HTMLElement>(".full-terminal-state")!;
+    const said = layer.querySelector(".full-terminal-state-title")?.textContent;
     act(() => {
       publishFullTerminalView(snap({
         stage: "live",
@@ -103,7 +106,17 @@ describe("full terminal centered state", () => {
       }));
     });
 
-    expect(appRoot().querySelector<HTMLElement>(".full-terminal-state")?.hidden).toBe(true);
+    // On its way out it still says what it said, and takes no press.
+    expect(layer.hidden).toBe(false);
+    expect(layer.classList.contains("is-leaving")).toBe(true);
+    expect(layer.inert).toBe(true);
+    expect(layer.dataset.stage).toBe("live");
+    expect(layer.querySelector(".full-terminal-state-title")?.textContent).toBe(said);
+
+    await act(async () => { await new Promise<void>((resolve) => window.setTimeout(resolve, MOTION_MS.element + 40)); });
+    expect(layer.hidden).toBe(true);
+    expect(layer.classList.contains("is-leaving")).toBe(false);
+    expect(layer.dataset.stage).toBe("live");
   });
 
   test("owns loading, retry, and repaint state for the terminal lifecycle", () => {

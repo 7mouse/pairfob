@@ -252,10 +252,16 @@ export function stickAgentStream(): void {
 
 function syncAgentJump(): void { publishAgentChatUI(); }
 
+/**
+ * Back to the latest turn by travelling there, as the reading view's own chip
+ * does (`jumpToBottom`): seeing the turns go by is what tells the reader they
+ * are at the end of the same conversation.
+ */
 export function jumpToLatest(): void {
   haptic(6);
   followTrace();
-  stickAgentStream();
+  const stream = streamEl();
+  if (stream) glideToTail(stream);
   syncAgentJump();
 }
 

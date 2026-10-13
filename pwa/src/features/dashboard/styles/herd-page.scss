@@ -83,7 +83,7 @@
 
 /* Reading or re-checking is work in progress, not a fault: a calm line and a
    breathing accent dot, never the warning color. */
-.host-title.is-pending .dot-pending { background: var(--accent); animation: host-dot-breathe 1.2s ease-in-out infinite; }
+.host-title.is-pending .dot-pending { background: var(--accent); animation: host-dot-breathe calc(var(--pulse) * 2) var(--ease-in-out) infinite; }
 
 @keyframes host-dot-breathe {
   50% { opacity: 0.35; }

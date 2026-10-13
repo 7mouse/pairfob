@@ -5,7 +5,8 @@ import type { WordRange } from "../../lib/diff-words";
 import { useHardwareKeyboard } from "../../app/input-mode";
 import { parseDiffLines, type DiffLine, type GitChangeKind, type GitLayer } from "../../lib/workspace";
 import { t } from "../../lib/i18n";
-import { Button } from "../../shared/ui/primitives";
+import { MOTION_MS, motionMs } from "../../shared/ui/dom/motion";
+import { Button, Fold } from "../../shared/ui/primitives";
 import { useCapabilities } from "../operations/hooks";
 import { loadGitDiff, loadWorkspaceFile, refreshWorkspace } from "./actions";
 import { GapRow, HunkHead, HunkNav, hunkTitle, topIn, type DiffPort } from "./diff-hunk";
@@ -13,7 +14,7 @@ import { changedWords, diffHunks, splitRows, type DiffHunk } from "./diff-hunks"
 import { setSplitChosen, useSplitChosen, useSplitOffered } from "./diff-layout";
 import { useDiffHold, type DiffHold } from "./diff-hold";
 import { DiffLineRow, type LineNotes } from "./diff-line";
-import { DIFF_STOPS, useLineStops } from "./diff-line-stops";
+import { diffStops, useLineStops } from "./diff-line-stops";
 import { SplitLineRow } from "./diff-split";
 import { DiffStepper } from "./diff-stepper";
 import { DetailIdentity, DetailMoreButton } from "./file-detail";
@@ -35,6 +36,10 @@ import { thumbAt } from "./thumb";
  * many again whenever the reader comes near the end of what is drawn.
  */
 export const DIFF_BATCH_LINES = 400;
+/** About one unwrapped line of the diff, for guessing a hunk's height before it is drawn. */
+const TALL_LINE_PX = 19;
+/** Past the end of a fold's move, for what reads the layout once it has settled. */
+const SETTLE_SLACK_MS = 20;
 
 type DiffScrollMemory = { key: string; top: number; left: number };
 let diffScrollMemory: DiffScrollMemory | null = null;
@@ -104,7 +109,14 @@ export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split
     };
   }, [memory, ref, check]);
 
-  useLayoutEffect(check, [memory, content, check]);
+  // A hunk folds over a moment (`Fold`): where the end is, is asked again once it has.
+  useLayoutEffect(() => {
+    check();
+    const settle = motionMs(MOTION_MS.panel);
+    if (!settle) return;
+    const timer = window.setTimeout(check, settle + SETTLE_SLACK_MS);
+    return () => window.clearTimeout(timer);
+  }, [memory, content, check]);
 
   return <div ref={ref} className={`workspace-diff${split ? " is-split" : ""}${reveal ? " workspace-reveal" : ""}`} data-diff-key={diffKey}
     onFocus={stops.onFocus} onKeyDown={stops.onKeyDown}>
@@ -279,9 +291,17 @@ function DiffLines({ snapshot, view, notes, split, reveal, onSeen }: {
     return () => { ports.reach = ports.keepPlace = undefined; };
   }, [port, hunks, lineCount, view.scroller]);
 
+  // A hunk taller than the diff's own window does not travel its whole height when it folds
+  // (`.is-tall`): measured as it is folded, guessed by its lines where it was never open here.
+  const tall = useRef(new Map<number, boolean>());
+  const isTall = (hunk: DiffHunk): boolean => tall.current.get(hunk.index)
+    ?? hunk.lines.length * TALL_LINE_PX > (view.scroller.current?.clientHeight || Infinity);
   const toggle = (hunk: DiffHunk, open: boolean) => {
     if (open && writing === hunk.index) notes.inline?.setAside();
     if (open) justFolded.current = hunk.index;
+    const box = view.scroller.current;
+    const drawn = open ? box?.querySelector<HTMLElement>(`.workspace-diff-group[data-group="${hunk.index}"]`) : null;
+    if (box && drawn) tall.current.set(hunk.index, drawn.offsetHeight > box.clientHeight);
     setFolded((was) => {
       const next = new Set(was);
       if (open) next.add(hunk.index);
@@ -291,7 +311,7 @@ function DiffLines({ snapshot, view, notes, split, reveal, onSeen }: {
   };
   /** The button's own step: the keyboard goes on to the first line it draws. */
   const moreByHand = (button: HTMLElement) => {
-    const stops = [...(view.scroller.current?.querySelectorAll<HTMLElement>(DIFF_STOPS) ?? [])];
+    const stops = diffStops(view.scroller.current);
     resume.current = document.activeElement === button ? stops[stops.indexOf(button) - 1] ?? button : null;
     more();
   };
@@ -311,10 +331,15 @@ function DiffLines({ snapshot, view, notes, split, reveal, onSeen }: {
     const before = resume.current;
     resume.current = null;
     if (before) {
-      const stops = [...box.querySelectorAll<HTMLElement>(DIFF_STOPS)];
+      const stops = diffStops(box);
       (stops[stops.indexOf(before) + 1] ?? (before.isConnected ? before : stops[stops.length - 1]))?.focus();
     }
     port.current.drawn?.();
+    // The stepper reads where the hunks stand, and a folding hunk moves the ones after it for a moment yet.
+    const settle = motionMs(MOTION_MS.panel);
+    if (!settle) return;
+    const timer = window.setTimeout(() => port.current.drawn?.(), settle + SETTLE_SLACK_MS);
+    return () => window.clearTimeout(timer);
   }, [content, view.scroller, port]);
 
   // The file on disk is the new side of the working tree's diff, and of the index's while nothing else changed it.
@@ -333,9 +358,11 @@ function DiffLines({ snapshot, view, notes, split, reveal, onSeen }: {
       return <div key={hunk.index} className={`workspace-diff-group${open ? "" : " is-folded"}`} role="group" aria-label={title} data-group={hunk.index}>
         <GapRow hunk={hunk} onOpen={opens ? (line) => void loadWorkspaceFile(path, line) : undefined} />
         <HunkHead hunk={hunk} open={open} notes={kept.get(hunk.index) ?? 0} onToggle={() => toggle(hunk, open)} />
-        {open && (rows
-          ? (lines === hunk.lines ? rows[hunk.index] : splitRows(lines)).map((row, index) => <SplitLineRow key={index} row={row} words={words} notes={notes} />)
-          : lines.map((line, index) => <DiffLineRow key={index} line={line} words={words.get(line)} notes={notes} />))}
+        <Fold open={open} lazy className={isTall(hunk) ? "is-tall" : ""}>
+          {rows
+            ? (lines === hunk.lines ? rows[hunk.index] : splitRows(lines)).map((row, index) => <SplitLineRow key={index} row={row} words={words} notes={notes} />)
+            : lines.map((line, index) => <DiffLineRow key={index} line={line} words={words.get(line)} notes={notes} />)}
+        </Fold>
       </div>;
     })}
     {limit < lineCount && <Button className="workspace-more workspace-diff-more diff-stop" onClick={(event) => moreByHand(event.currentTarget)}>

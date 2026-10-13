@@ -55,7 +55,10 @@ the same way everywhere (`styles/motion-kit`, emitted by `styles/motion`):
 - `primitives/fold`: `Fold` opens and shuts a block by height and keeps its
   content mounted; shut, it is `inert`. Use it for a group, a row joining or
   leaving a list, a form that grows a field. Do not swap a block in with
-  `hidden` or a conditional when its neighbours would jump.
+  `hidden` or a conditional when its neighbours would jump. `lazy` draws the
+  content only while the block is open or on its way shut, for a long list or
+  a form that must not exist while hidden; a test that goes on to say the
+  content is gone waits for the fold first (`test-support/exit`).
 - `primitives/swap`: `Swap` fades a word or a number in when its `on` value
   changes, never on a first paint or a repaint.
 - `primitives/copy-ack` with `shared/react/use-copied`: the two faces of a copy
@@ -65,8 +68,15 @@ the same way everywhere (`styles/motion-kit`, emitted by `styles/motion`):
   newcomer `entering`. Style the exit on an `is-leaving` class next to the
   thing's own entrance, shorter than the entrance.
 - Classes `swap-in`, `pop-in` and `rise-in` for a node that is new by
-  construction. `MOTION_MS` (`dom/motion`) names the four `--dur-*` tokens for a
+  construction. `MOTION_MS` (`dom/motion`) names the `--dur-*` tokens for a
   timer that must wait out a CSS exit.
+- Tokens beside the four durations (`styles/tokens`): `--dur-trace` for what an
+  action leaves behind once it is over (a sweep across a row, a press ripple, a
+  label flying off), and one beat for each kind of loop that says "still
+  working": `--spin` a turn, `--sheen` a pass of a placeholder's sheen
+  (`@keyframes skeleton-sheen`, on the placeholder's own `::after`), `--pulse`
+  one way of a waiting pulse. A new spinner, placeholder or pulse reads these
+  instead of stating seconds.
 - `dom/motion` `playMove`: a move whose two ends are measured on the page (a
   button whose label changed width, a thing sent to another place), played
   with Web Animations on the same durations and curve. `overlay/sheet-height`

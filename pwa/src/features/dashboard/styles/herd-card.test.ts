@@ -68,7 +68,7 @@ describe("list motion", () => {
 
   test("a new session's row takes the change sweep once it is open, and shows it only while it runs", () => {
     const sweep = rules(".herd-row.is-entering .card::after");
-    expect(sweep).toMatch(/animation:\s*card-sweep 420ms var\(--ease\)/);
+    expect(sweep).toMatch(/animation:\s*card-sweep var\(--dur-trace\) var\(--ease\)/);
     expect(sweep).toMatch(/animation-name:\s*card-sweep, card-sweep-shown/);
     expect(sweep).toMatch(/animation-delay:\s*var\(--dur-3\)/);
     expect(sweep).toMatch(/animation-fill-mode:\s*none/);
