@@ -2,6 +2,7 @@ import { Window } from "happy-dom";
 import { afterEach, describe, expect, test } from "bun:test";
 import type { ITerminalAddon, Terminal } from "@xterm/xterm";
 import type { RendererTerminal } from "./full-terminal-renderer.ts";
+import { MIN_TEXT_CONTRAST } from "../../../lib/ansi-contrast";
 
 const happy = new Window({ url: "https://pairfob.com/pair" });
 const g = globalThis as unknown as Record<string, unknown>;
@@ -122,6 +123,9 @@ describe("complete-terminal renderer", () => {
     });
     expect(options.fontFamily).toBe(fontFamily);
     expect(options.theme).toMatchObject({ background: "#090c10", foreground: "#e7ebf1" });
+    // The guided view's floor, enforced by the renderer: unreadable text is moved to it, nothing else changes.
+    expect(options.minimumContrastRatio).toBe(MIN_TEXT_CONTRAST);
+    expect(options.drawBoldTextInBrightColors).toBe(true);
   });
 });
 

@@ -101,3 +101,15 @@ test("asset metadata cannot authorize API, traversal or external requests", () =
     expect(() => worker.readAssetGraph({ ...graph, chunks: { "/assets/app-a.js": [path] } })).toThrow();
   }
 });
+
+test("an icon face is cached when a page first asks for it, and served offline after", async () => {
+  const face = "/assets/symbols-nerd-font-bmp-BZeCxFc0.woff2";
+  const h = harness();
+  h.network.set(face, "glyphs");
+  await h.create().cacheShellResponse("/pair", basic(html));
+  expect(h.requests).not.toContain(face);
+  expect(await (await h.create().cacheFirst(new Request(origin + face))).text()).toBe("glyphs");
+  h.network.clear();
+  expect(await (await h.create().cacheFirst(new Request(origin + face))).text()).toBe("glyphs");
+  expect(h.requests.filter(path => path === face)).toEqual([face]);
+});

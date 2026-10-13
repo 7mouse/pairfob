@@ -50,6 +50,7 @@ import { resetAttachmentFixture, seedAttachmentTray } from "./attachments";
 import { openInspectorScene } from "./inspector-scenes";
 import { WIDE_PNG_PATH } from "./wide-image";
 import { paneScreen, wideScreen } from "./terminal-screens";
+import { ICON_PANE_TEXT, iconScreen } from "./icon-screens";
 
 /**
  * Named-domain fixture setup for deterministic QA scenes.
@@ -140,6 +141,7 @@ export const scenes: FixtureScene[] = [
   { name: "guided-attachments-relay", description: "Attachment tray waiting for a direct connection" },
   { name: "guided-live", description: "Live input: keys go straight to the terminal" },
   { name: "guided-live-expanded", description: "Live input with the terminal key pad open" },
+  { name: "guided-icons", description: "Guided pane of a shell set up with a Nerd Font: Powerline prompt, file icons, status bar caps" },
   { name: "inspector-guided-changes", description: "Inspector beside the guided pane: staged and working-tree groups; supply 900 px or more" },
   { name: "inspector-guided-diff", description: "Inspector beside the guided pane: working-tree source diff" },
   { name: "inspector-chat-changes", description: "Inspector beside agent chat: staged and working-tree groups; supply 900 px or more" },
@@ -177,6 +179,7 @@ export const scenes: FixtureScene[] = [
   { name: "terminal-frame", description: "Real renderer with the pane's screen drawn, redrawn after every resize" },
   { name: "terminal-wide", description: "Real renderer with a column ruler and rows that fill the whole grid" },
   { name: "terminal-inspector", description: "terminal-wide with the inspector open: the terminal keeps its columns and pans" },
+  { name: "terminal-icons", description: "Real renderer with the guided-icons screen: icon faces loaded on demand" },
   { name: "terminal-loading", description: "Full terminal shell before renderer mount", shellOnly: true },
   { name: "terminal-error", description: "Full terminal shell retry state", shellOnly: true },
 ];
@@ -191,12 +194,15 @@ const TERMINAL_SCREENS: Record<string, NonNullable<SessionSource["terminalScreen
   "terminal-frame": paneScreen,
   "terminal-wide": wideScreen,
   "terminal-inspector": wideScreen,
+  "terminal-icons": iconScreen,
 };
 
 /** The computer a scene talks to: busy scenes bring their own snapshot and screens. */
 export function sceneSource(name: string): SessionSource {
   if (name === "chat-needs-you") return { snapshot: blockedFocusedSnapshot, paneText: () => data.NEEDS_YOU_SCREEN };
   if (name === "home-herd-sessions") return { herdSessions: [{ name: null, running: true }, { name: "release", running: true }, { name: "scratch", running: false }] };
+  // One pane, read both ways: changing view by hand shows the same screen in the other.
+  if (name === "guided-icons" || name === "terminal-icons") return { terminalScreen: iconScreen, paneText: () => ICON_PANE_TEXT };
   if (TERMINAL_SCREENS[name]) return { terminalScreen: TERMINAL_SCREENS[name] };
   if (name.endsWith("-many")) return { status: data.manyStatus };
   return BUSY_SCENES.has(name) ? { snapshot: busySnapshot, paneText: busyPaneText, agentKinds: BUSY_AGENT_KINDS } : {};
@@ -556,6 +562,7 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     setTermWrap(name === "guided-wrap");
     setTermSelect(name === "guided-select");
     setPaneRow(name === "guided-row" ? 2 : null);
+    if (name === "guided-icons") applyPaneRead(ICON_PANE_TEXT, "2".padStart(64, "0"));
     if (name.startsWith("guided-attachments")) {
       const relay = name === "guided-attachments-relay";
       if (relay) setSessionTransport("relay");

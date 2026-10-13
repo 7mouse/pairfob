@@ -77,6 +77,12 @@
   touch-action: pan-x pan-y;
 }
 
+/* A row whose last cell is coloured is filled with that colour to its end, by
+   the row's own background. A cell the program left on the default background
+   would show the fill through, so it is painted with the default (lib/ansi.ts).
+   Wrapped rows colour the text's box, not the row, and are left as they are. */
+.term:not(.wrapped) .term-line > .cell-plain { background-color: var(--term-bg); }
+
 /* The tint of a picked row (below) comes and goes at a press's pace. Rows are
    drawn again in place on every read, so a row whose pick did not change has
    nothing to cross. */
@@ -168,6 +174,17 @@ html.page-zoomed :is(.term, .term-line) {
 .term.wrapped .term-line > span {
   display: inline;
   white-space: pre-wrap;
+}
+
+/* A Powerline separator is drawn to the box of its cell (cell-text.scss). In
+   an unwrapped row a cell's colour fills the row, and so does the shape.
+   Wrapped, the colour is the inline box of the text, which is the font's own
+   height, and the shape takes that instead, or it would stand taller than the
+   two colours it joins. */
+.term.wrapped .cell-shape {
+  height: auto;
+  line-height: normal;
+  vertical-align: baseline;
 }
 
 /* The ring of select mode arrives with the mode's hint and leaves with it

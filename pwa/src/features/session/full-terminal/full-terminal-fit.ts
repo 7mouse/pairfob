@@ -45,8 +45,9 @@ export function sizePanCanvas(
 
 export const FULL_TERM_FONT_MIN = 11;
 export const FULL_TERM_FONT_MAX = 22;
+/** The icon families end the list: they draw icon glyphs, and no metric is read from them (`shared/ui/fonts/icon-font.css`). */
 export const FULL_TERM_FONT_FAMILY =
-  'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace';
+  'ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Pairfob Symbols", "Pairfob Symbols MDI", monospace';
 
 export type CellSize = { width: number; height: number };
 

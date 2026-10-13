@@ -15,6 +15,7 @@ export { BackBar, BackButton, Chevron, TopbarActions } from "./navigation";
 export { GroupToggle, SectionTitle } from "./grouping";
 export { SetAction, SetGroup, SetItem, SetNavItem, SetSwitch, SetTag } from "./definition-row";
 export { CommandLine } from "./command-line";
+export { cellText } from "./cell-text";
 export { CopyAck } from "./copy-ack";
 export { Fold } from "./fold";
 export { Swap } from "./swap";

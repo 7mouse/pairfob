@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { lineFillBackground, paintLines, parseAnsi, spanCss, trimPaintLine, xterm256 } from "./ansi";
+import { lineFillBackground, paintLines, parseAnsi, plainCellClass, spanCss, trimPaintLine, xterm256 } from "./ansi";
 
 describe("parseAnsi", () => {
   test("plain text becomes one span per line", () => {
@@ -38,6 +38,34 @@ describe("parseAnsi", () => {
     expect(lineFillBackground(line.spans)).toBe("rgb(20, 22, 28)");
     expect(lineFillBackground([{ text: "x", style: { inverse: true, fg: "#abcabc" } }])).toBe("#abcabc");
     expect(lineFillBackground([{ text: "x", style: {} }])).toBeUndefined();
+  });
+
+  test("a row that ends on the default background is not filled with an earlier colour", () => {
+    // A Powerline prompt: two coloured segments, then the closing separator on the default background.
+    const [prompt] = parseAnsi("\x1b[44;97m ~/proj \x1b[0;34;42m\ue0b0\x1b[30m main \x1b[0;32m\ue0b0\x1b[0m");
+    expect(lineFillBackground(trimPaintLine(prompt).spans)).toBeUndefined();
+    // A highlighted word in the middle of a sentence.
+    const [sentence] = parseAnsi("found \x1b[43mneedle\x1b[0m in the hay");
+    expect(lineFillBackground(sentence.spans)).toBeUndefined();
+    // A status bar painted to the last column still fills.
+    const [bar] = parseAnsi("\x1b[44m NORMAL \x1b[0;44m main.ts      \x1b[0m");
+    expect(lineFillBackground(trimPaintLine(bar).spans)).toBe("#6b8cae");
+  });
+});
+
+describe("plainCellClass", () => {
+  test("in a filled row, a cell on the default background is marked to be painted with it", () => {
+    // Text, then a bar that runs to the edge of the row.
+    const [row] = parseAnsi("label  \x1b[44m status \x1b[0m");
+    const fill = lineFillBackground(row.spans);
+    expect(fill).toBe("#6b8cae");
+    expect(row.spans.map((span) => plainCellClass(spanCss(span.style), fill))).toEqual(["cell-plain", undefined]);
+  });
+
+  test("a row that is not filled marks nothing, whatever its cells carry", () => {
+    const [row] = parseAnsi("\x1b[44m bar \x1b[0m tail");
+    expect(lineFillBackground(row.spans)).toBeUndefined();
+    expect(row.spans.map((span) => plainCellClass(spanCss(span.style), undefined))).toEqual([undefined, undefined]);
   });
 });
 

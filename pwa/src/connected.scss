@@ -2,6 +2,7 @@
 @use "./features/agent-quota/styles/quota";
 @use "./features/session/guided/session-shell";
 @use "./features/session/guided/terminal";
+@use "./shared/ui/styles/cell-text";
 @use "./features/session/guided/key-flight";
 @use "./features/session/full-terminal/full-terminal";
 @use "./features/session/chat/agent-chat";

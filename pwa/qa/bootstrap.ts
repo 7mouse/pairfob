@@ -10,6 +10,7 @@ const style = query.get("style") ?? "/src/startup.scss";
 if (!/^\/src\/[a-zA-Z0-9/_-]+\.scss$/.test(style)) throw new Error("Invalid QA style entry (SCSS only)");
 
 await import("/src/tailwind.css");
+await import("/src/shared/ui/fonts/icon-font.css");
 await import(/* @vite-ignore */ style);
 // `motion=1` leaves animation and transitions running, for looking at motion itself;
 // every other use keeps the frozen paint the saved captures were taken with.

@@ -105,6 +105,8 @@ const { keysExpanded, paneActivated, PANE_ACTIVATED_KEY } = await import("../src
 const { needsDaemonUpdate } = await import("../src/features/settings/daemon-update");
 const { currentDaemonId } = await import("../src/features/computers/catalog-store");
 const { diffNotes } = await import("../src/lib/diff-notes");
+const { paintLines, parseAnsi } = await import("../src/lib/ansi");
+const { ICON_PANE_TEXT } = await import("../qa/icon-screens");
 
 const isReactElement = (element: Element) => Object.keys(element).some((key) => key.startsWith("__reactFiber$"));
 const isShellOnly = (name: string) => scenes.find((scene) => scene.name === name)?.shellOnly === true;
@@ -196,7 +198,7 @@ function assertPaneRoot(expectedPane: string): void {
 }
 
 test("every QA scene id + untitled built", () => {
-  expect(scenes.length).toBe(115);
+  expect(scenes.length).toBe(117);
   const seen = new Set<string>();
   for (const scene of scenes) {
     expect(seen.has(scene.name)).toBeFalse();
@@ -205,7 +207,7 @@ test("every QA scene id + untitled built", () => {
   }
 });
 
-test("every scene renders: 113 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
+test("every scene renders: 115 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
   expect(domReady).toBeTrue();
   const failures: string[] = [];
   const appRendered: string[] = [];
@@ -260,8 +262,8 @@ test("every scene renders: 113 through the stable App (incl. mock-engine termina
   }
   expect(failures).toEqual([]);
   expect(shellRendered).toEqual(["terminal-loading", "terminal-error"]);
-  expect(appRendered).toHaveLength(113);
-  expect(appRendered.length + shellRendered.length).toBe(115);
+  expect(appRendered).toHaveLength(115);
+  expect(appRendered.length + shellRendered.length).toBe(117);
 }, 180_000);
 
 test("attention QA scenes show all statuses and runtime replacement without filter pills", async () => {
@@ -492,7 +494,7 @@ test("a terminal scene's computer draws its screen on open and again after a res
   direct.dispose();
 
   // Through the App: the mock engine opens the bridge and the screen follows.
-  for (const name of ["terminal-frame", "terminal-wide", "terminal-inspector"]) {
+  for (const name of ["terminal-frame", "terminal-wide", "terminal-inspector", "terminal-icons"]) {
     expect(terminalSceneReadiness(name)).toEqual({ stage: "live", screen: true });
     const session = await prepareScene(name, sceneSource(name));
     try {
@@ -507,6 +509,30 @@ test("a terminal scene's computer draws its screen on open and again after a res
   expect(terminalSceneReadiness("terminal-live")).toEqual({ stage: "live", screen: false });
   expect(terminalSceneReadiness("terminal-open-error")).toEqual({ stage: "error", screen: false });
   expect(terminalSceneReadiness("terminal-loading")).toBeNull();
+});
+
+test("the icon scene gives each icon a cell and each separator a shape, and the row keeps its text", async () => {
+  const session = await prepareScene("guided-icons", sceneSource("guided-icons"));
+  try {
+    const rows = [...document.querySelectorAll<HTMLElement>(".term .term-line")];
+    expect(rows.map((row) => row.textContent)).toEqual(paintLines(parseAnsi(ICON_PANE_TEXT)).map((line) => line.text || "\u00a0"));
+    expect(document.querySelectorAll(".term .cell-icon")).toHaveLength(26);
+    expect([...document.querySelectorAll(".term .cell-shape")].map((shape) => shape.className.split("cell-shape-")[1])).toEqual([
+      "b0", "b0", "b0", "b6", "b4", "bc", "b1", "b3", "b2", "b4",
+    ]);
+    // The prompt ends on the default background: its last segment must not paint the row to the edge.
+    expect(rows[0].style.backgroundColor).toBe("");
+    // The complete terminal of the same pane is sent the same rows.
+    expect(sceneSource("terminal-icons").terminalScreen?.(60, 31)).toContain("eza --icons");
+  } finally {
+    await teardownScene(session, false);
+  }
+  const plain = await prepareScene("guided");
+  try {
+    expect(document.querySelector(".term .cell-icon, .term .cell-shape")).toBeNull();
+  } finally {
+    await teardownScene(plain, false);
+  }
 });
 
 test("live-input scenes switch the field over and the next scene gets the composed field back", async () => {
@@ -739,6 +765,6 @@ test("scene names and descriptions are documented for the window.qa surface", ()
   const names = scenes.map((scene) => scene.name);
   expect(names).toContain("terminal-loading");
   expect(names).toContain("terminal-error");
-  expect(names.length).toBe(115);
+  expect(names.length).toBe(117);
   for (const scene of scenes) expect(scene.description).toBeTruthy();
 });

@@ -18,6 +18,14 @@ export function startupAssets(manifest: BuildManifest, entry = "index.html"): st
   return dependencyAssets(manifest, entry);
 }
 
+/**
+ * The terminal icon faces (`src/shared/ui/fonts`). A browser fetches one when
+ * a terminal view first shows a glyph from its range, and the service worker
+ * caches it then. No chunk needs one to run, so none belongs to a startup or
+ * offline closure: a megabyte of icons is not what a first visit waits for.
+ */
+export const onDemandAsset = (file: string): boolean => /^assets\/symbols-nerd-font-[a-z]+-[A-Za-z0-9_-]+\.woff2$/.test(file);
+
 /** A chunk is usable offline only with its complete static dependency closure. */
 export function dependencyAssets(manifest: BuildManifest, entry: string): string[] {
   const visited = new Set<string>();
@@ -29,7 +37,7 @@ export function dependencyAssets(manifest: BuildManifest, entry: string): string
     visited.add(key);
     assets.add(chunk.file);
     for (const css of chunk.css ?? []) assets.add(css);
-    for (const asset of chunk.assets ?? []) assets.add(asset);
+    for (const asset of chunk.assets ?? []) if (!onDemandAsset(asset)) assets.add(asset);
     for (const dependency of chunk.imports ?? []) visit(dependency);
   };
   visit(entry);

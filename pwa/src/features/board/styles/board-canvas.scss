@@ -288,6 +288,9 @@
   line-height: 16px;
 }
 
+/* A cell on the default background in a row that is filled to its end (lib/ansi.ts). */
+.board-pane-line > .cell-plain { background-color: var(--term-bg); }
+
 /* --- Nothing to show ------------------------------------------------------------ */
 
 /* A board with nothing on it is the canvas's whole content, so its card stands

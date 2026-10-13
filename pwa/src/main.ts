@@ -1,5 +1,6 @@
 import "./tailwind.css";
 import "./startup.scss";
+import "./shared/ui/fonts/icon-font.css";
 import { startApplication } from "./app/bootstrap";
 
 /**

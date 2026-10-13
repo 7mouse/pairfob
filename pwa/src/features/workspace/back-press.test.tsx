@@ -1,6 +1,6 @@
 import { closeTestDialogs } from "../../../test-support/close-dialogs";
 import { act } from "react";
-import { afterEach, beforeEach, describe, expect, test } from "bun:test";
+import { afterEach, beforeEach, describe, expect, spyOn, test } from "bun:test";
 import { happy, resetBoardTestDOM } from "../../../test-support/dom";
 import { commitTest, mountTestApp, unmountTestApp } from "../../../test-support/react-harness";
 import { WorkspaceSnapshotRestorer } from "../../../test-support/workspace-snapshot-restore";
@@ -21,6 +21,7 @@ import { clearWorkspacePendingReveal, leaveWorkspace, loadDirectory, loadGitDiff
 import { closeWorkspaceInspector, toggleWorkspaceInspector } from "./inspector";
 import { inspectorOpen } from "./inspector-store";
 import { MOTION_MS } from "../../shared/ui/dom/motion";
+import { BACK_SECOND_TAP_MS } from "../../shared/ui/dom/back-tap";
 
 /**
  * The files surfaces' ways back, pressed twice by accident. Each swaps what is
@@ -141,6 +142,7 @@ const crumbs = () => [...appRoot().querySelectorAll<HTMLButtonElement>(".workspa
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   clearWorkspacePendingReveal();
   clearAllDiffNotes();
   seedRestorer.capture();
@@ -196,14 +198,34 @@ describe("the inspector's way back to the list", () => {
 describe("the inspector's Close", () => {
   test("pressed twice, it closes the column and the second press does not reach the session's own actions", async () => {
     await bootInspector();
-    expect(await pointerPress(one(".inspector .inspector-close"))).toBeTrue();
-    await columnGone();
-    expect(inspectorOpen()).toBeFalse();
-    // The session header's trailing actions stand where the column's corner was.
-    expect(await pointerPress(one(".main .chrome-actions .icon-more"))).toBeFalse();
-    expect(document.querySelector("dialog[open]")).toBeNull();
-    expect(await pointerPress(one(".main .chrome-actions .icon-workspace"))).toBeFalse();
-    expect(inspectorOpen()).toBeFalse();
+    // Rendering may take longer than a double tap on a busy test runner. Keep
+    // the gesture's clock and expiry under the test's control, while the
+    // column's animation and React lifecycle still settle normally.
+    let now = 1000;
+    const clock = spyOn(performance, "now").mockImplementation(() => now);
+    const realTimeout = globalThis.setTimeout;
+    const expiry = spyOn(globalThis, "setTimeout").mockImplementation(((callback: TimerHandler, delay?: number, ...args: unknown[]) =>
+      realTimeout(delay === BACK_SECOND_TAP_MS ? () => {} : callback, delay === BACK_SECOND_TAP_MS ? 0 : delay, ...args)
+    ) as typeof setTimeout);
+    try {
+      expect(await pointerPress(one(".inspector .inspector-close"))).toBeTrue();
+      await columnGone();
+      expect(inspectorOpen()).toBeFalse();
+      now += 200;
+      // The session header's trailing actions stand where the column's corner was.
+      expect(await pointerPress(one(".main .chrome-actions .icon-more"))).toBeFalse();
+      expect(document.querySelector("dialog[open]")).toBeNull();
+      now += 100;
+      expect(await pointerPress(one(".main .chrome-actions .icon-workspace"))).toBeFalse();
+      expect(inspectorOpen()).toBeFalse();
+      now += BACK_SECOND_TAP_MS;
+      expect(await pointerPress(one(".main .chrome-actions .icon-workspace"))).toBeTrue();
+      expect(inspectorOpen()).toBeTrue();
+    } finally {
+      document.dispatchEvent(new happy.KeyboardEvent("keydown", { key: "Shift", bubbles: true }) as unknown as Event);
+      expiry.mockRestore();
+      clock.mockRestore();
+    }
   });
 });
 

@@ -1,5 +1,6 @@
 import type { WebglAddon } from "@xterm/addon-webgl";
 import type { ILinkHandler, ITerminalAddon, ITerminalOptions, Terminal } from "@xterm/xterm";
+import { MIN_TEXT_CONTRAST } from "../../../lib/ansi-contrast";
 
 type WebglRendererAddon = ITerminalAddon & Pick<WebglAddon, "onContextLoss">;
 type WebglConstructor = new () => WebglRendererAddon;
@@ -31,6 +32,8 @@ export function fullTerminalOptions(args: {
     convertEol: false,
     disableStdin: false,
     drawBoldTextInBrightColors: true,
+    // The floor the guided view moves unreadable text to (lib/ansi-contrast.ts): text under it is moved to it, the rest is as sent.
+    minimumContrastRatio: MIN_TEXT_CONTRAST,
     customGlyphs: true,
     fontFamily: args.fontFamily,
     fontSize: args.fontSize,

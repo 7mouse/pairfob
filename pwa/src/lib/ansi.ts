@@ -1,3 +1,5 @@
+import { legibleInk, MIN_TEXT_CONTRAST, TERM_BACKGROUND, TERM_INK, UNREADABLE_CONTRAST } from "./ansi-contrast";
+
 export interface SpanStyle {
   fg?: string;
   bg?: string;
@@ -160,7 +162,36 @@ export function parseAnsi(raw: string): StyledLine[] {
   return lines;
 }
 
-export function spanCss(style: SpanStyle): {
+/**
+ * Glyphs that are drawn shapes and not text: box drawing and blocks, and the
+ * Powerline separators. A separator is the colour of the bar it closes and a
+ * frame is the colour its program gave it; neither is something to read, so
+ * neither is moved for contrast. xterm leaves the same ones alone.
+ */
+function drawnShape(codePoint: number): boolean {
+  return (codePoint >= 0x2500 && codePoint <= 0x259f) || (codePoint >= 0xe0a4 && codePoint <= 0xe0d6);
+}
+
+function onlyShapes(text: string): boolean {
+  let shapes = false;
+  for (const char of text) {
+    const codePoint = char.codePointAt(0)!;
+    if (drawnShape(codePoint)) shapes = true;
+    else if (char !== " " && char !== "\u00a0") return false;
+  }
+  return shapes;
+}
+
+/** The foreground a style asks for once inverse is applied, before anything is done for contrast. */
+export function spanInk(style: SpanStyle): string | undefined {
+  return style.inverse ? style.bg || "#141414" : style.fg;
+}
+
+/**
+ * The CSS of one styled run. With its `text`, a run that is nothing but drawn
+ * shapes keeps the colour it was given.
+ */
+export function spanCss(style: SpanStyle, text?: string): {
   color?: string;
   backgroundColor?: string;
   fontWeight?: string;
@@ -175,6 +206,15 @@ export function spanCss(style: SpanStyle): {
     fg = bg || "#141414";
     bg = swap || "#e6e6e6";
   }
+  if (text === undefined || !onlyShapes(text)) {
+    // Text that cannot be read on its background here is moved to where it can (ansi-contrast.ts).
+    const ink = fg ?? TERM_INK;
+    // Dim text is meant to be faint: it is only held to half the floor, as xterm holds it.
+    const legible = style.dim
+      ? legibleInk(ink, bg ?? TERM_BACKGROUND, MIN_TEXT_CONTRAST / 2)
+      : legibleInk(ink, bg ?? TERM_BACKGROUND, MIN_TEXT_CONTRAST, UNREADABLE_CONTRAST);
+    if (legible !== ink) fg = legible;
+  }
   return {
     ...(fg ? { color: fg } : {}),
     ...(bg ? { backgroundColor: bg } : {}),
@@ -185,13 +225,28 @@ export function spanCss(style: SpanStyle): {
   };
 }
 
-/** SGR background that should fill the rest of a terminal row (last painted cell). */
+/**
+ * SGR background that should fill the rest of a terminal row: the one its last
+ * painted cell carries. A row that ends on the default background stops there,
+ * however it was coloured before: a prompt's last segment closes with a
+ * separator on the default background, and must not paint the row to its end.
+ */
 export function lineFillBackground(spans: StyledSpan[]): string | undefined {
   for (let i = spans.length - 1; i >= 0; i--) {
-    const color = spanCss(spans[i].style).backgroundColor;
-    if (color) return color;
+    if (spans[i].text) return spanCss(spans[i].style).backgroundColor;
   }
   return undefined;
+}
+
+/**
+ * The class of a cell in a row that is filled. The fill is the row's own
+ * background, and shows through every cell that has none. A cell the program
+ * left on the default background is one of those, and has to be painted with
+ * the default background to stay what it was: text before a bar that runs to
+ * the edge is not on the bar.
+ */
+export function plainCellClass(css: { backgroundColor?: string }, fill: string | undefined): string | undefined {
+  return fill && !css.backgroundColor ? "cell-plain" : undefined;
 }
 
 const TRAILING_PAD = /[\s\u00a0]+$/u;

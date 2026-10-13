@@ -1,8 +1,9 @@
 import { memo, useCallback, useLayoutEffect, useRef, useSyncExternalStore, type CSSProperties } from "react";
-import { lineFillBackground, spanCss } from "../../../lib/ansi";
+import { lineFillBackground, plainCellClass, spanCss, spanInk } from "../../../lib/ansi";
 import { ansiPreviewModel } from "../preview/model";
 import { applyBoardPreviewFont, fitPreviewBuffer } from "../preview/font";
 import { boardPreviewSnapshot, subscribeBoardPreviews } from "../preview/store";
+import { cellText } from "../../../shared/ui/primitives";
 
 /**
  * One pane thumbnail.
@@ -52,9 +53,11 @@ function BoardAnsiPreviewView({
           return (
             <div key={index} className="board-pane-line" style={fill ? { backgroundColor: fill } : undefined}>
               {line.spans.length
-                ? line.spans.map((span, spanIndex) => (
-                    <span key={spanIndex} style={spanCss(span.style)}>{span.text || "\u00a0"}</span>
-                  ))
+                ? line.spans.map((span, spanIndex) => {
+                    const css = spanCss(span.style, span.text);
+                    const ink = spanInk(span.style);
+                    return <span key={spanIndex} className={plainCellClass(css, fill)} style={css}>{cellText(span.text || "\u00a0", css.color !== ink ? ink ?? "var(--term-ink)" : undefined)}</span>;
+                  })
                 : "\u00a0"}
             </div>
           );

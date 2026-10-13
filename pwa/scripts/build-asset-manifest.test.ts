@@ -19,3 +19,15 @@ test("a missing dependency or a path outside generated assets fails the build", 
   expect(() => assetGraph({ "index.html": { isEntry: true, file: "assets/a.js", imports: ["missing"] } })).toThrow();
   expect(() => assetGraph({ "index.html": { isEntry: true, file: "../secret.js" } })).toThrow();
 });
+
+test("the icon faces are cacheable files that no chunk waits for", () => {
+  const face = "assets/symbols-nerd-font-bmp-BZeCxFc0.woff2";
+  const graph = assetGraph({
+    "index.html": { isEntry: true, file: "assets/app-a.js", css: ["assets/app-a.css"], assets: [face], dynamicImports: ["session"] },
+    session: { file: "assets/session-c.js", imports: ["index.html"], assets: [face] },
+    "src/shared/ui/fonts/symbols-nerd-font-bmp.woff2": { file: face },
+  });
+  expect(graph.startup).toEqual(["/assets/app-a.css", "/assets/app-a.js"]);
+  expect(graph.chunks["/assets/session-c.js"]).toEqual(["/assets/app-a.css", "/assets/app-a.js", "/assets/session-c.js"]);
+  expect(graph.chunks[`/${face}`]).toEqual([`/${face}`]);
+});

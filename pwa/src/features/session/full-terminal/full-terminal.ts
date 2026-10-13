@@ -57,6 +57,7 @@ import { loadFullTerminalXterm, terminalWebglSupported } from "./full-terminal-l
 import { afterNextPaint, observeHostResize } from "./full-terminal-lifecycle";
 import { followCursor } from "./full-terminal-lift";
 import { fullTerminalPerf } from "./full-terminal-perf";
+import { iconFontWatcher } from "./full-terminal-icon-font";
 import { FullTerminalFrameGate } from "./full-terminal-frame-gate";
 import { FullTerminalOpenTracker } from "./full-terminal-open-tracker";
 import { FullTerminalResizeGate } from "./full-terminal-resize";
@@ -77,6 +78,7 @@ let terminalRecovery: TerminalRecoveryDiagnostics | undefined;
 
 let terminal: Terminal | null = null;
 let fitAddon: FitAddon | null = null;
+let noteIcons: ((bytes: Uint8Array) => void) | null = null;
 let resizeObserver: ReturnType<typeof observeHostResize> = null;
 let unbindScroll: (() => void) | null = null;
 let unbindPinch: (() => void) | null = null;
@@ -351,6 +353,8 @@ async function mount(host: HTMLElement): Promise<void> {
     ),
     linkHandler: terminalLinkHandler(openFile),
   }));
+  const drawn = terminal;
+  noteIcons = iconFontWatcher(() => { if (terminal === drawn) drawn.clearTextureAtlas(); });
   fitAddon = new module.FitAddon();
   terminal.loadAddon(fitAddon);
   try {
@@ -400,6 +404,7 @@ function disposeRenderer(): void {
   unbindCopy?.();
   unbindCopy = null;
   lockedFont = null;
+  noteIcons = null;
   fitting = false;
   remoteGrid = null;
   fittedSize = null;
@@ -704,6 +709,7 @@ export function handleFullTerminalEvent(event: SessionEvent): boolean {
         const writeStartedAt = performance.now();
         pendingWriteBytes += frame.data.byteLength;
         fullTerminalPerf.writeStarted(frame.data.byteLength, pendingWriteBytes);
+        noteIcons?.(frame.data);
         writer.write(frame.data, () => {
           // The frame may have left the cursor under what covers the last rows, or back above it.
           if (terminal === writer) followCursor(writer.element?.parentElement ?? null, writer);

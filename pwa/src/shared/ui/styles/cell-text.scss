@@ -1,0 +1,84 @@
+/* Icon glyphs in a terminal grid (shared/ui/primitives/cell-text.tsx).
+
+   An icon is wider than a cell. A terminal draws it from the left edge of its
+   cell and lets it run over the next one, where the program left a space; the
+   column count is unchanged. An inline box one cell wide does the same here,
+   so what follows the icon stays in its column. */
+.cell-icon {
+  display: inline-block;
+  width: 1ch;
+  white-space: pre;
+}
+
+/* The glyph alone is set in the icon face, which leads here so that it is the
+   one asked: behind the system fonts, a face that arrives after the text does
+   is left unused. The cell above keeps the grid's font, so its `1ch` is the
+   grid's cell in every engine; WebKit would read it from the icon face. No
+   line height of its own: an icon face has other ascent and descent than the
+   text, and would otherwise nudge the row. */
+.cell-glyph {
+  font-family: "Pairfob Symbols", var(--mono);
+  line-height: 0;
+}
+
+.cell-glyph-mdi { font-family: "Pairfob Symbols MDI", var(--mono); }
+
+/* Powerline separators join two background colours, so they have to reach the
+   top and bottom of the row, and a glyph is only as tall as its font. Each is
+   a shape in the cell's box, in the cell's ink; the character stays in the text
+   for selection and copy. A flat side laps half a pixel over its neighbour,
+   which is the same colour, so no seam shows where a cell starts off the pixel
+   grid. */
+.cell-shape {
+  --cell-stroke: max(1px, 0.09em);
+  position: relative;
+  display: inline-block;
+  width: 1ch;
+  height: 100%;
+  height: 1lh;
+  vertical-align: top;
+  white-space: pre;
+  -webkit-text-fill-color: transparent;
+}
+
+.cell-shape::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+}
+
+/* Solid arrows, then their outlines. */
+.cell-shape-b0::before { left: -0.5px; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.cell-shape-b2::before { right: -0.5px; clip-path: polygon(100% 0, 0 50%, 100% 100%); }
+.cell-shape-b1::before {
+  clip-path: polygon(0 0, var(--cell-stroke) 0, 100% 50%, var(--cell-stroke) 100%, 0 100%, calc(100% - var(--cell-stroke)) 50%);
+}
+.cell-shape-b3::before {
+  clip-path: polygon(100% 0, calc(100% - var(--cell-stroke)) 0, 0 50%, calc(100% - var(--cell-stroke)) 100%, 100% 100%, var(--cell-stroke) 50%);
+}
+
+/* Half rounds. */
+.cell-shape-b4::before { left: -0.5px; border-radius: 0 100% 100% 0 / 0 50% 50% 0; }
+.cell-shape-b6::before { right: -0.5px; border-radius: 100% 0 0 100% / 50% 0 0 50%; }
+.cell-shape-b5::before,
+.cell-shape-b7::before {
+  background: none;
+  border: var(--cell-stroke) solid currentColor;
+}
+.cell-shape-b5::before { border-left: 0; border-radius: 0 100% 100% 0 / 0 50% 50% 0; }
+.cell-shape-b7::before { border-right: 0; border-radius: 100% 0 0 100% / 50% 0 0 50%; }
+
+/* Corner triangles, then the two diagonals. */
+.cell-shape-b8::before { left: -0.5px; clip-path: polygon(0 0, 100% 100%, 0 100%); }
+.cell-shape-ba::before { right: -0.5px; clip-path: polygon(100% 0, 100% 100%, 0 100%); }
+.cell-shape-bc::before { left: -0.5px; clip-path: polygon(0 0, 100% 0, 0 100%); }
+.cell-shape-be::before { right: -0.5px; clip-path: polygon(0 0, 100% 0, 100% 100%); }
+.cell-shape-b9::before,
+.cell-shape-bf::before {
+  clip-path: polygon(0 0, var(--cell-stroke) 0, 100% 100%, calc(100% - var(--cell-stroke)) 100%);
+}
+.cell-shape-bb::before,
+.cell-shape-bd::before {
+  clip-path: polygon(calc(100% - var(--cell-stroke)) 0, 100% 0, var(--cell-stroke) 100%, 0 100%);
+}

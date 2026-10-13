@@ -1,6 +1,6 @@
 import { ArrowDown } from "lucide-react";
 import { useEffect, useRef, useSyncExternalStore } from "react";
-import { lineFillBackground, paintLines, spanCss, type StyledLine } from "../../../lib/ansi";
+import { lineFillBackground, paintLines, plainCellClass, spanCss, spanInk, type StyledLine } from "../../../lib/ansi";
 import { t } from "../../../lib/i18n";
 import { openPaneId, paneFollow, paneUnread, sessionStore, setPaneFollow, termSelect } from "../session-store";
 import { termWrap } from "../../settings/preferences-store";
@@ -30,6 +30,7 @@ import { unreadBars, unreadCount } from "./unread";
 import { bindHostScroll } from "../full-terminal/full-terminal-scroll";
 import { deskPointer, useDeskPointer } from "../desk-pointer";
 import { SessionScrollRail } from "./session-scroll";
+import { cellText } from "../../../shared/ui/primitives";
 
 function TermLine({
   line,
@@ -46,9 +47,11 @@ function TermLine({
   return (
     <div className={picked ? "term-line is-picked" : "term-line"} data-row={String(index)} style={fill ? { backgroundColor: fill } : undefined}>
       {line.spans.length
-        ? line.spans.map((span, spanIndex) => (
-            <span key={spanIndex} style={spanCss(span.style)}>{span.text || "\u00a0"}</span>
-          ))
+        ? line.spans.map((span, spanIndex) => {
+            const css = spanCss(span.style, span.text);
+            const ink = spanInk(span.style);
+            return <span key={spanIndex} className={plainCellClass(css, fill)} style={css}>{cellText(span.text || "\u00a0", css.color !== ink ? ink ?? "var(--term-ink)" : undefined)}</span>;
+          })
         : "\u00a0"}
       {ghost?.text ? (
         <span className={ghost.rollback ? "term-ghost is-rollback" : "term-ghost"} aria-hidden="true">{ghost.text}</span>

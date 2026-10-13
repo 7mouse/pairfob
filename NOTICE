@@ -2,3 +2,16 @@ Pairfob
 Copyright 2026 arronKler
 
 https://github.com/arronKler/pairfob
+
+Third-party works
+
+The terminal icon faces in pwa/src/shared/ui/fonts
+(symbols-nerd-font-bmp.woff2, symbols-nerd-font-mdi.woff2) are subsets of
+Symbols Nerd Font from Nerd Fonts v3.5.1,
+https://github.com/ryanoasis/nerd-fonts, Copyright (c) 2014 Ryan L McIntyre,
+MIT License (pwa/src/shared/ui/fonts/LICENSE-nerd-fonts.txt). They hold glyphs
+from Codicons and Font Awesome (CC BY 4.0), Material Design Icons (Apache 2.0),
+Pomicons and Weather Icons (SIL OFL 1.1), Devicons, Font Awesome Extension,
+IEC Power Symbols, Octicons, Powerline Extra Symbols and Seti-UI (MIT), Font
+Logos (Unlicense) and Powerline Symbols. pwa/src/shared/ui/fonts/README.md
+lists each set with its licence and how the files were made.
