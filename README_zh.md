@@ -31,6 +31,9 @@ pairfob pair
 **Pairfob: Pair a device** 加进 Herdr 的动作菜单，首次使用时安装同一个经过
 校验的二进制。见 [`plugin/herdr/`](plugin/herdr/README.md)。
 
+各版本的 macOS、Linux 二进制、SHA-256 校验文件和更新说明见
+[GitHub Releases](https://github.com/arronKler/pairfob/releases)。
+
 ## 在手机上能做什么
 
 - **Agent 等你时及时处理。** 列表顶部的 **需要你** 和可选的推送通知会把

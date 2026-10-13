@@ -108,6 +108,61 @@ promising savings.
 
 ## Releases
 
+### GitHub Releases and downloadable binaries
+
+[GitHub Releases](https://github.com/arronKler/pairfob/releases) publishes
+versioned daemon downloads and release notes. A pushed tag alone does not
+create a Release. The first GitHub Release is `v1.3.8`, backfilled from the
+existing official downloads; earlier versions remain available as Git tags.
+The hosted PWA can advance independently of the daemon version.
+
+For a new daemon version, use the current branch and checkout. Finish and
+commit the intended changes, choose an unused `vX.Y.Z` tag, and build once
+from a clean tree with `VERSION=vX.Y.Z ./scripts/release.sh`. Run the full
+`./scripts/verify.sh` gate on that candidate before publishing. For an origin
+deployment, follow the asset-continuity steps below and use
+`PAIRFOB_PACK_DL=1` during verification. Preserve the verified source and
+artifact snapshot; subsequent edits require the affected checks again.
+
+After verification, tag that exact commit and push the current branch to its
+configured upstream, then push the tag to the same remote. Upload all six
+files from the verified `dist/dl/` directory; these are also the files served
+at `https://pairfob.com/dl/`. Write reviewed release notes to a file outside
+the working tree, including changes, requirements and upgrade instructions.
+For example, replacing `vX.Y.Z` with the chosen version:
+
+```sh
+gh release create vX.Y.Z \
+  dist/dl/pairfob-darwin-amd64 dist/dl/pairfob-darwin-arm64 \
+  dist/dl/pairfob-linux-amd64 dist/dl/pairfob-linux-arm64 \
+  dist/dl/VERSION dist/dl/SHA256SUMS \
+  --repo arronKler/pairfob --verify-tag --draft \
+  --title "Pairfob vX.Y.Z" --notes-file /tmp/pairfob-release-notes.md
+```
+
+Before publishing, download the draft's assets to a fresh directory with
+`gh release download`, check every file against `SHA256SUMS`, and confirm
+that `VERSION` matches the tag. Inspect all four binaries with
+`go version -m`: their `vcs.revision` must match the tagged commit,
+`vcs.modified` must be `false`, and their OS/architecture must match their
+filenames. Check the native binary's `version` output as well. Then publish:
+
+```sh
+gh release edit vX.Y.Z --repo arronKler/pairfob --verify-tag --draft=false --latest
+```
+
+Confirm the public Release has all six assets and is the latest stable
+release. Do not overwrite published assets or move a released tag; corrections
+to binaries need a new version. GitHub publication does not deploy the origin
+or change the installer's download source. `.goreleaser.yaml` remains an
+optional build configuration with publishing disabled; this workflow uses
+`scripts/release.sh` so GitHub and the official site share identical artifacts.
+
+When backfilling an already hosted version, reuse its exact artifacts after
+checking the official checksums, version, clean build metadata and remote tag.
+Do not rebuild it from a newer or dirty checkout. Record this as artifact
+verification, not a new full test run.
+
 ### PWA performance and asset continuity
 
 `bun run build` in `pwa/` emits a hashed dependency graph alongside the app.

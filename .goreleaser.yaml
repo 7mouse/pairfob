@@ -1,5 +1,6 @@
 # Hosted downloads are the files in dist/dl (see scripts/release.sh).
-# Enable GitHub Releases later by setting release.disable to false.
+# GitHub Releases upload those same files with gh; see docs/develop.md.
+# This optional GoReleaser configuration does not publish releases.
 version: 2
 project_name: pairfob
 builds:

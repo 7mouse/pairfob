@@ -33,6 +33,9 @@ Already living in Herdr? `herdr plugin install arronKler/pairfob` adds
 **Pairfob: Pair a device** to Herdr's action menu and installs the same verified
 binary on first use. See [`plugin/herdr/`](plugin/herdr/README.md).
 
+Versioned macOS and Linux binaries, SHA-256 checksums and release notes are
+available on [GitHub Releases](https://github.com/arronKler/pairfob/releases).
+
 ## What you can do from the phone
 
 - **Respond when an agent needs you.** A **Needs you** strip and optional push
