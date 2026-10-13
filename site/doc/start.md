@@ -1,6 +1,6 @@
 ---
 title: Get started
-description: Install Herdr and pairfob once, then continue from another device.
+description: Install pairfob once (it installs Herdr if missing), then continue from another device.
 ---
 
 # Get started
@@ -20,7 +20,7 @@ Four steps: check prerequisites → install Pairfob (and Herdr if missing) → p
 
 ## 1. Check the computer
 
-Keep the macOS or Linux computer awake and online while using your phone. Herdr 0.8 or newer is required, but you do not need to install it separately: the installer in step 2 asks before installing pinned Herdr 0.8.2 if it is missing. It does not upgrade an existing Herdr installation.
+Keep the macOS or Linux computer awake and online while using your phone. Herdr 0.8 or newer is required, but you do not need to install it separately: the installer in step 2 asks before installing pinned Herdr 0.8.2 if it is missing. It does not upgrade an existing Herdr installation. Without a terminal to ask in (no TTY, or `--non-interactive`), it does not install Herdr; run `curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr` instead.
 
 Pairfob does not replace Herdr. Agents still run here, but Herdr does not need to be open before Pairfob starts. When `pairfob` launches and finds Herdr offline, it starts it. Running `herdr` later attaches to that same server, so the sessions already opened from the phone are not copies.
 
@@ -62,7 +62,7 @@ Details and errors: [Pairing](/pair).
 
 ## 4. Open a session
 
-If you have no sessions yet, open Herdr on the computer and start Codex or Claude in your project.
+If you have no sessions yet, open Herdr on the computer and start Codex, Claude, or another agent in your project.
 
 Herdr sessions appear in the Pairfob list. Tapping a card opens that session on the computer, not a copy.
 

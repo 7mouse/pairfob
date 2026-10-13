@@ -1,6 +1,6 @@
 ---
 title: 开始使用
-description: 电脑装好 Herdr 和 pairfob，配对一次就能在另一台设备上接着操作。
+description: 电脑装好 pairfob（缺少 Herdr 时一并安装），配对一次就能在另一台设备上接着操作。
 ---
 
 # 开始使用
@@ -20,7 +20,7 @@ description: 电脑装好 Herdr 和 pairfob，配对一次就能在另一台设�
 
 ## 1. 确认电脑的使用条件
 
-用手机接着操作时，macOS 或 Linux 电脑必须保持唤醒并联网。需要 Herdr 0.8 或更高版本，但不必单独安装：第 2 步的安装脚本发现缺少 Herdr 时，会先询问，再安装固定版本 0.8.2。已有 Herdr 不会自动升级。
+用手机接着操作时，macOS 或 Linux 电脑必须保持唤醒并联网。需要 Herdr 0.8 或更高版本，但不必单独安装：第 2 步的安装脚本发现缺少 Herdr 时，会先询问，再安装固定版本 0.8.2。已有 Herdr 不会自动升级。没有可交互的终端时（无 TTY，或用了 `--non-interactive`），脚本不会安装 Herdr，请改用 `curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr`。
 
 Pairfob 不代替 Herdr。agent 仍在这台电脑上跑，但安装 Pairfob 前不需要先打开 Herdr。`pairfob` 启动时发现 Herdr 不在线，就会自己拉起它。你之后照常运行 `herdr`，会接到同一个地方，手机上已经打开的会话不会变成副本。
 
@@ -62,7 +62,7 @@ pairfob pair
 
 ## 4. 点进去
 
-还没有会话时，先在电脑上打开 Herdr，在项目里启动 Codex 或 Claude。
+还没有会话时，先在电脑上打开 Herdr，在项目里启动 Codex、Claude 等 agent。
 
 Herdr 里的会话会出现在 Pairfob 列表里。点一张卡片，打开的是电脑上那个会话，不是副本。
 
