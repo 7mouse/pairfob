@@ -205,26 +205,13 @@ guess-success to make tests pass.
 ## Cursor Cloud specific instructions
 
 Go 1.26.9 is already on the image. The environment install script puts Bun
-1.4.3 on `/usr/local/bin` and runs `bun install --frozen-lockfile` in `pwa/`,
-`workers/pairfob-origin/`, and `site/doc/`, then `go mod download`. Login
-shells do not need `~/.bashrc` for Bun.
+1.4.3 on `/usr/local/bin` and runs the frozen installs in
+[`docs/develop.md`](docs/develop.md#local-stack), then `go mod download`.
+Login shells do not need `~/.bashrc` for Bun.
 
-`start` runs `./scripts/dev-up.sh` with `PAIRFOB_DEV_FAKE_RUNTIME=1`. Herdr is
-not installed, and that flag is what supplies the demo sessions. The script
-rebuilds the PWA for the checked-out branch, then keeps the process alive
-while the origin and daemon are up. When `http://127.0.0.1:18786/v2/health`
-already returns `{"ok":true,"protocol":2}`, a second start exits without
-rebuilding. The app is `http://127.0.0.1:18786/pair`. Stop a stuck stack with
-`./scripts/dev-down.sh` before starting another copy.
-
-Daemon commands use the state directory and binary that `dev-up` created:
-
-```
-PAIRFOB_STATE_DIR="$PWD/.dev/state" .dev/pairfob list
-PAIRFOB_STATE_DIR="$PWD/.dev/state" .dev/pairfob pair offer
-```
-
-`pair offer` prints one JSON line containing `pair_url`. Opening that URL
-pairs the browser; the command accepts the device after the page proves the
-code. Local Worker tests do not need a Cloudflare account. The full gate is
-`./scripts/verify.sh`.
+`start` runs `./scripts/dev-up.sh` with `PAIRFOB_DEV_FAKE_RUNTIME=1` because
+Herdr is not on the image. It rebuilds the PWA for the checked-out branch and
+keeps the process alive while the origin and daemon are up. When
+`http://127.0.0.1:18786/v2/health` already returns `{"ok":true,"protocol":2}`,
+a second start exits without rebuilding. The app, state directory, and
+`pair offer` flow are in [`docs/develop.md`](docs/develop.md#local-stack).

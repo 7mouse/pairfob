@@ -6,11 +6,15 @@ releases. Agent-facing rules live in [`AGENTS.md`](../AGENTS.md).
 
 ## Local stack
 
-Install PWA dependencies once:
+Install the lockfiles the gate uses, once:
 
 ```sh
 (cd pwa && bun install --frozen-lockfile)
+(cd workers/pairfob-origin && bun install --frozen-lockfile)
+(cd site/doc && bun install --frozen-lockfile)
 ```
+
+Local Worker tests run against the in-repo harness.
 
 Local pairing runs against the same Worker as production:
 
@@ -32,6 +36,20 @@ Local pairing runs against the same Worker as production:
 `PAIRFOB_DEV_FAKE_RUNTIME=1` for built-in demo data. Set
 `PAIRFOB_HERDR_AUTOSTART=0` to skip starting Herdr. Never enable
 `PAIRFOB_DEV_AUTO_ADMIT` outside an isolated test.
+
+With demo data, the origin is up when `http://127.0.0.1:18786/v2/health`
+returns `{"ok":true,"protocol":2}`. The app is `http://127.0.0.1:18786/pair`.
+Daemon commands use the binary and state directory `dev-up` created:
+
+```sh
+PAIRFOB_STATE_DIR="$PWD/.dev/state" .dev/pairfob list
+PAIRFOB_STATE_DIR="$PWD/.dev/state" .dev/pairfob pair offer
+```
+
+`pair offer` prints one JSON line containing `pair_url`. Opening that URL
+pairs the browser; the command accepts the device after the page proves the
+code. If a previous copy is still recorded under `.dev/*.pid`, run
+`./scripts/dev-down.sh` before starting another one.
 
 ## Testing on a real phone
 
