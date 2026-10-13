@@ -201,3 +201,17 @@ final candidate:
 
 Go must be `gofmt`. PWA uses bun. Do not loosen schema or turn fail-closed into
 guess-success to make tests pass.
+
+## Cursor Cloud specific instructions
+
+Go 1.26.9 is already on the image. The environment install script puts Bun
+1.4.3 on `/usr/local/bin` and runs the frozen installs in
+[`docs/develop.md`](docs/develop.md#local-stack), then `go mod download`.
+Login shells do not need `~/.bashrc` for Bun.
+
+`start` runs `./scripts/dev-up.sh` with `PAIRFOB_DEV_FAKE_RUNTIME=1` because
+Herdr is not on the image. It rebuilds the PWA for the checked-out branch and
+keeps the process alive while the origin and daemon are up. When
+`http://127.0.0.1:18786/v2/health` already returns `{"ok":true,"protocol":2}`,
+a second start exits without rebuilding. The app, state directory, and
+`pair offer` flow are in [`docs/develop.md`](docs/develop.md#local-stack).
