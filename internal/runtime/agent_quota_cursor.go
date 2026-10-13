@@ -42,16 +42,18 @@ func cursorQuotaCookie(token string, now time.Time) string {
 	}
 	return "WorkosCursorSessionToken=" + url.QueryEscape(id+"::"+token)
 }
-func readCursorQuota(ctx context.Context) AgentQuota {
+func locateCursorQuota(ctx context.Context) (quotaRead, AgentQuota) {
 	token, status := cursorQuotaToken(ctx)
 	if status != "" {
-		return emptyQuota("cursor", "web_api", status)
+		return nil, emptyQuota("cursor", "web_api", status)
 	}
 	cookie := cursorQuotaCookie(token, time.Now())
 	if cookie == "" {
-		return emptyQuota("cursor", "web_api", "auth_required")
+		return nil, emptyQuota("cursor", "web_api", "auth_required")
 	}
-	return fetchCursorQuota(ctx, quotaHTTPClient(), cookie, time.Now())
+	return func(ctx context.Context) AgentQuota {
+		return fetchCursorQuota(ctx, quotaHTTPClient(), cookie, time.Now())
+	}, AgentQuota{}
 }
 func fetchCursorQuota(ctx context.Context, c *http.Client, cookie string, now time.Time) AgentQuota {
 	q := emptyQuota("cursor", "web_api", "unavailable")
@@ -82,7 +84,7 @@ func parseCursorQuota(raw []byte, now time.Time) AgentQuota {
 		return q
 	}
 	q.Plan = payload.Plan
-	w := QuotaWindow{Name: "Included plan", ResetsAt: quotaReset(payload.End), Unlimited: payload.Unlimited}
+	w := QuotaWindow{Name: "Included plan", ResetsAt: quotaReset(payload.End), Unlimited: payload.Unlimited, pool: "plan", headline: true}
 	if !payload.Unlimited {
 		plan := payload.Individual.Plan
 		if plan == nil || (plan.Enabled != nil && !*plan.Enabled) {

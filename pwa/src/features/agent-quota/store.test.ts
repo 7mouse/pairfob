@@ -1,5 +1,7 @@
 import { describe, expect, test } from "bun:test";
-import type { AgentQuota } from "../../lib/agent-quota";
+import { quotaAccount, quotaReport } from "../../../test-support/quota";
+import type { QuotaAccount } from "../../lib/agent-quota-v2";
+import type { QuotaReport } from "../../lib/agent-quota-report";
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { quotaSnapshot, setQuotaSnapshot, subscribeQuota, views } from "./store";
 
@@ -10,10 +12,7 @@ import { quotaSnapshot, setQuotaSnapshot, subscribeQuota, views } from "./store"
  */
 
 const session = (id: string) => ({ daemonId: id } as unknown as LiveSession);
-const items = (plan: string): AgentQuota[] => [{
-  provider: "codex", plan, status: "ok", source: "app_server",
-  observed_at: 1, windows: [{ name: "codex", used_percent: 25, window_minutes: 300, resets_at: 2 }],
-}];
+const items = (plan: string): QuotaAccount[] => [quotaAccount({ plan })];
 
 describe("quota snapshot store", () => {
   test("a write replaces the snapshot instead of mutating the published one", () => {
@@ -64,7 +63,7 @@ import { attachLiveSession } from "../../features/computers/catalog-store";
 import { refreshAgentQuota } from "./actions";
 import type { QuotaSnapshotInput } from "./store";
 
-const liveSession = (id: string, read: () => Promise<AgentQuota[]>) =>
+const liveSession = (id: string, read: () => Promise<QuotaReport>) =>
   ({ daemonId: id, isConnected: () => true, agentQuota: read } as unknown as LiveSession);
 
 describe("quota snapshot ownership", () => {
@@ -75,14 +74,14 @@ describe("quota snapshot ownership", () => {
     const stop = subscribeQuota(() => { heard += 1; });
     setQuotaSnapshot(live, input);
     input.loading = false;
-    (input.items as AgentQuota[])[0]!.windows[0]!.used_percent = 99;
+    (input.items as QuotaAccount[])[0]!.meters[0]!.name = "edited";
     const actual = {
       loading: quotaSnapshot(live)?.loading,
-      used: quotaSnapshot(live)?.items?.[0]?.windows[0]?.used_percent,
+      used: quotaSnapshot(live)?.items?.[0]?.meters[0]?.name,
       heard,
     };
     stop();
-    expect(actual).toEqual({ loading: true, used: 25, heard: 1 });
+    expect(actual).toEqual({ loading: true, used: "codex", heard: 1 });
   });
 
   test("a returned snapshot grants no mutable loading authority", () => {
@@ -95,16 +94,17 @@ describe("quota snapshot ownership", () => {
     expect(quotaSnapshot(live)?.loading).toBeTrue();
   });
 
-  test("a returned nested window cannot silently rewrite the displayed allowance", () => {
+  test("a returned nested meter cannot silently rewrite the displayed allowance", () => {
     const live = session("nested");
     setQuotaSnapshot(live, { loading: false, items: items("owned"), error: "" });
     const published = quotaSnapshot(live)!;
     let heard = 0;
     const stop = subscribeQuota(() => { heard += 1; });
-    const window = published.items?.[0]?.windows[0] as { used_percent: number } | undefined;
-    expect(() => { window!.used_percent = 99; }).toThrow();
-    expect({ used: quotaSnapshot(live)?.items?.[0]?.windows[0]?.used_percent, heard })
-      .toEqual({ used: 25, heard: 0 });
+    const meter = published.items?.[0]?.meters[0] as { name: string } | undefined;
+    expect(() => { meter!.name = "edited"; }).toThrow();
+    expect(() => { (published.items?.[0]?.meters as unknown[]).push(meter); }).toThrow();
+    expect({ used: quotaSnapshot(live)?.items?.[0]?.meters[0]?.name, heard })
+      .toEqual({ used: "codex", heard: 0 });
     stop();
   });
 
@@ -114,7 +114,7 @@ describe("quota snapshot ownership", () => {
     setQuotaSnapshot(live, input);
     expect([
       Object.isFrozen(input), Object.isFrozen(input.items),
-      Object.isFrozen(input.items?.[0]), Object.isFrozen(input.items?.[0]?.windows[0]),
+      Object.isFrozen(input.items?.[0]), Object.isFrozen(input.items?.[0]?.meters[0]),
     ]).toEqual([false, false, false, false]);
     // The caller still owns its object; the store owns a copy.
     input.loading = true;
@@ -123,11 +123,11 @@ describe("quota snapshot ownership", () => {
   });
 
   test("a reader cannot clear the in-flight guard and let an older result replace a newer one", async () => {
-    const resolvers: Array<(q: AgentQuota[]) => void> = [];
+    const resolvers: Array<(q: QuotaReport) => void> = [];
     let reads = 0;
     const live = liveSession("in-flight", () => {
       reads += 1;
-      return new Promise<AgentQuota[]>(resolve => resolvers.push(resolve));
+      return new Promise<QuotaReport>(resolve => resolvers.push(resolve));
     });
     attachLiveSession(live);
     const first = refreshAgentQuota();
@@ -136,10 +136,10 @@ describe("quota snapshot ownership", () => {
     const second = refreshAgentQuota();
     const concurrent = reads;
     if (resolvers[1]) {
-      resolvers[1](items("newer"));
+      resolvers[1](quotaReport(...items("newer")));
       await second;
     }
-    resolvers[0]!(items("older"));
+    resolvers[0]!(quotaReport(...items("older")));
     await first;
     await second;
     attachLiveSession(null);
@@ -150,10 +150,10 @@ describe("quota snapshot ownership", () => {
   test("a reentrant subscriber is deduplicated by the loading snapshot", async () => {
     let reads = 0;
     let entered = false;
-    let nested: Promise<void> | undefined;
+    let nested: Promise<unknown> | undefined;
     const live = liveSession("reentrant", async () => {
       reads += 1;
-      return items("owned");
+      return quotaReport(...items("owned"));
     });
     attachLiveSession(live);
     const stop = subscribeQuota(() => {
@@ -170,13 +170,13 @@ describe("quota snapshot ownership", () => {
   });
 
   test("a subscriber cannot defeat the in-flight guard by editing the published snapshot", async () => {
-    const resolvers: Array<(q: AgentQuota[]) => void> = [];
+    const resolvers: Array<(q: QuotaReport) => void> = [];
     let reads = 0;
     let entered = false;
-    let nested: Promise<void> | undefined;
+    let nested: Promise<unknown> | undefined;
     const live = liveSession("reentrant-alias", () => {
       reads += 1;
-      return new Promise<AgentQuota[]>(resolve => resolvers.push(resolve));
+      return new Promise<QuotaReport>(resolve => resolvers.push(resolve));
     });
     attachLiveSession(live);
     const stop = subscribeQuota(() => {
@@ -188,10 +188,35 @@ describe("quota snapshot ownership", () => {
     const first = refreshAgentQuota();
     const concurrent = reads;
     stop();
-    for (const resolve of resolvers) resolve(items("owned"));
+    for (const resolve of resolvers) resolve(quotaReport(...items("owned")));
     await first;
     await nested;
     attachLiveSession(null);
     expect(concurrent).toBe(1);
+  });
+
+  test("a refresh says whether it changed what the page shows, and a failed one keeps what was read", async () => {
+    const sample = quotaAccount({ plan: "kept" });
+    let answer: () => Promise<QuotaReport> = async () => quotaReport(sample);
+    const live = liveSession("outcomes", () => answer());
+    attachLiveSession(live);
+    expect(await refreshAgentQuota()).toBe("updated");
+    // The computer keeps a read for a minute: the same accounts sampled at the same time.
+    expect(await refreshAgentQuota()).toBe("unchanged");
+    answer = async () => quotaReport({ ...sample, observed_at: sample.observed_at + 61 });
+    expect(await refreshAgentQuota()).toBe("updated");
+    answer = async () => { throw new Error("offline"); };
+    expect(await refreshAgentQuota()).toBe("failed");
+    expect(quotaSnapshot(live)).toMatchObject({ loading: false, error: "quota.failed" });
+    expect(quotaSnapshot(live)?.items?.[0]?.plan).toBe("kept");
+    // The answer after a failure is news even when its numbers are the old ones.
+    answer = async () => quotaReport({ ...sample, observed_at: sample.observed_at + 61 });
+    expect(await refreshAgentQuota()).toBe("updated");
+    expect(quotaSnapshot(live)?.error).toBe("");
+    answer = async () => ({ accounts: [sample], legacy: true, unknown: 3 });
+    await refreshAgentQuota();
+    expect(quotaSnapshot(live)).toMatchObject({ legacy: true, unknown: 3 });
+    attachLiveSession(null);
+    expect(await refreshAgentQuota()).toBe("skipped");
   });
 });

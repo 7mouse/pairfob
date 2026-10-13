@@ -17,7 +17,7 @@ func cursorQuotaKeychainResult(raw []byte, err error) (string, string) {
 		return "", "not_logged_in"
 	}
 	if err != nil {
-		return "", "auth_required"
+		return "", "keychain_denied"
 	}
 	return string(raw), ""
 }

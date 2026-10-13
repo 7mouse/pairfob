@@ -23,6 +23,9 @@ func grokQuotaToken(now time.Time) (string, string) {
 		dir = filepath.Join(home, ".grok")
 	}
 	raw, err := quotaFile(filepath.Join(dir, "auth.json"), 1024*1024)
+	if os.IsNotExist(err) {
+		return "", "not_logged_in"
+	}
 	if err != nil {
 		return "", "auth_required"
 	}
@@ -44,26 +47,30 @@ func grokQuotaToken(now time.Time) (string, string) {
 		if count > 1 {
 			return "", "auth_required"
 		}
+		// An API key carries no subscription allowance to read.
+		if strings.HasPrefix(entry.Key, "xai-") {
+			return "", "unsupported"
+		}
 		expires, err := time.Parse(time.RFC3339Nano, entry.Expires)
-		if err != nil || !expires.After(now.Add(time.Minute)) || entry.Key == "" || len(entry.Key) > 16384 || strings.HasPrefix(entry.Key, "xai-") {
+		if err != nil || !expires.After(now.Add(time.Minute)) || entry.Key == "" || len(entry.Key) > 16384 {
 			return "", "auth_required"
 		}
 		token, principal = entry.Key, entry.Principal
 	}
 	if token == "" {
-		return "", "auth_required"
+		return "", "not_logged_in"
 	}
 	if principal != "User" {
 		return "", "unsupported"
 	}
 	return token, ""
 }
-func readGrokQuota(ctx context.Context) AgentQuota {
+func locateGrokQuota(context.Context) (quotaRead, AgentQuota) {
 	token, status := grokQuotaToken(time.Now())
 	if status != "" {
-		return emptyQuota("grok", "oauth", status)
+		return nil, emptyQuota("grok", "oauth", status)
 	}
-	return fetchGrokQuota(ctx, quotaHTTPClient(), token, time.Now())
+	return func(ctx context.Context) AgentQuota { return fetchGrokQuota(ctx, quotaHTTPClient(), token, time.Now()) }, AgentQuota{}
 }
 func fetchGrokQuota(ctx context.Context, client *http.Client, token string, now time.Time) AgentQuota {
 	headers := map[string]string{"Authorization": "Bearer " + token, "x-xai-token-auth": "xai-grok-cli"}
@@ -110,7 +117,7 @@ func parseGrokQuota(raw []byte, now time.Time) AgentQuota {
 		return q
 	}
 	c := payload.Config
-	w := QuotaWindow{Name: "Shared subscription quota", UsedPercent: *c.Percent, ResetsAt: quotaReset(c.End)}
+	w := QuotaWindow{Name: "Shared subscription quota", UsedPercent: *c.Percent, ResetsAt: quotaReset(c.End), pool: "plan", headline: true}
 	if c.Period != nil {
 		w.ResetsAt = quotaReset(c.Period.End)
 		if c.Period.Type == "USAGE_PERIOD_TYPE_WEEKLY" {

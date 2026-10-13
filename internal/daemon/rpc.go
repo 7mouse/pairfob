@@ -286,6 +286,8 @@ func (e *Engine) dispatch(s *sess, id, op string, params json.RawMessage) {
 		e.rpcAgentInspect(s, id, params)
 	case "AgentQuota":
 		go e.rpcAgentQuota(s, id, params)
+	case "AgentQuotaV2":
+		go e.rpcAgentQuotaV2(s, id, params)
 	case "DaemonUpdateStatus":
 		e.rpcUpdate(s, id, params, false)
 	case "DaemonUpdate":

@@ -3,6 +3,7 @@ package runtime
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,13 +28,26 @@ func claudeQuotaCredentials(ctx context.Context) (claudeQuotaAuth, string) {
 		return auth, "unavailable"
 	}
 	raw, err := quotaFile(filepath.Join(filepath.Dir(path), ".credentials.json"), 1024*1024)
-	if os.IsNotExist(err) && goruntime.GOOS == "darwin" && os.Getenv("CLAUDE_CONFIG_DIR") == "" {
+	if os.IsNotExist(err) {
+		if goruntime.GOOS != "darwin" || os.Getenv("CLAUDE_CONFIG_DIR") != "" {
+			return auth, "not_logged_in"
+		}
 		raw, err = quotaKeychainRead(ctx, "Claude Code-credentials", "", 1024*1024)
+		if errors.Is(err, errQuotaKeychainNotFound) {
+			return auth, "not_logged_in"
+		}
+		if err != nil {
+			return auth, "keychain_denied"
+		}
 	}
 	if err != nil || len(raw) == 0 || json.Unmarshal(raw, &auth) != nil {
 		return auth, "auth_required"
 	}
-	if auth.OAuth.AccessToken == "" || len(auth.OAuth.AccessToken) > 16384 {
+	// A store that holds other entries but no subscription login is no login.
+	if auth.OAuth.AccessToken == "" {
+		return auth, "not_logged_in"
+	}
+	if len(auth.OAuth.AccessToken) > 16384 {
 		return auth, "auth_required"
 	}
 	if auth.OAuth.ExpiresAt > 0 && auth.OAuth.ExpiresAt <= time.Now().UnixMilli()+60000 {
@@ -46,23 +60,50 @@ func claudeQuotaCredentials(ctx context.Context) (claudeQuotaAuth, string) {
 				found = true
 			}
 		}
+		// A login that cannot read usage (a long-lived inference token) is
+		// not one a new sign-in of the same kind would fix.
 		if !found {
-			return auth, "auth_required"
+			return auth, "unsupported"
 		}
 	}
 	return auth, ""
 }
-func readClaudeAutoQuota(ctx context.Context) AgentQuota {
+
+func locateClaudeQuota(ctx context.Context) (quotaRead, AgentQuota) {
 	if os.Getenv("PAIRFOB_CLAUDE_QUOTA_SOURCE") == "statusline" {
-		return readClaudeQuota(time.Now())
+		return func(context.Context) AgentQuota { return readClaudeQuota(time.Now()) }, AgentQuota{}
 	}
-	q := emptyQuota("claude", "oauth", "unavailable")
 	auth, status := claudeQuotaCredentials(ctx)
 	if status != "" {
-		q.Status = status
-		return q
+		return nil, emptyQuota("claude", "oauth", status)
 	}
-	return fetchClaudeQuota(ctx, quotaHTTPClient(), auth, time.Now())
+	return func(ctx context.Context) AgentQuota {
+		return claudeForbiddenIsNotALogin(ctx, fetchClaudeQuota(ctx, quotaHTTPClient(), auth, time.Now()))
+	}, AgentQuota{}
+}
+
+// Anthropic answers an expired or invalid token with 401. A 403 comes from
+// where the request was made (a network it does not serve), and the scope was
+// already checked here: signing in again would not change it, so it is a read
+// that failed and not a login to renew.
+func claudeForbiddenIsNotALogin(ctx context.Context, q AgentQuota) AgentQuota {
+	if q.Status == "auth_required" && quotaForbidden(ctx) {
+		q.Status = "unavailable"
+	}
+	return q
+}
+
+// The five-hour and seven-day windows are the plan's allowance. The per-model
+// and per-feature windows, and the statusline's spend limit, are each their own.
+func markClaudeWindow(w *QuotaWindow) {
+	switch strings.ReplaceAll(w.Name, "_", " ") {
+	case "five hour", "seven day":
+		w.pool, w.headline = "plan", true
+	case "spend limit":
+		w.pool = "extra"
+	default:
+		w.pool = quotaPool(w.Name)
+	}
 }
 func fetchClaudeQuota(ctx context.Context, c *http.Client, auth claudeQuotaAuth, now time.Time) AgentQuota {
 	q := emptyQuota("claude", "oauth", "unavailable")
@@ -91,7 +132,9 @@ func fetchClaudeQuota(ctx context.Context, c *http.Client, auth claudeQuotaAuth,
 		if name == "five_hour" {
 			minutes = 300
 		}
-		q.Windows = append(q.Windows, QuotaWindow{Name: strings.ReplaceAll(name, "_", " "), UsedPercent: *w.Used, WindowMinutes: minutes, ResetsAt: quotaReset(w.Reset)})
+		window := QuotaWindow{Name: strings.ReplaceAll(name, "_", " "), UsedPercent: *w.Used, WindowMinutes: minutes, ResetsAt: quotaReset(w.Reset)}
+		markClaudeWindow(&window)
+		q.Windows = append(q.Windows, window)
 	}
 	return finishQuota(q, now)
 }

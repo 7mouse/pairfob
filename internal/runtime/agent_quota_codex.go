@@ -14,15 +14,24 @@ import (
 
 // A short-lived app-server performs only account reads. It never creates a
 // thread or turn. Its stdout/stderr and raw account response are not forwarded.
-func readCodexQuota(parent context.Context) AgentQuota {
-	q := emptyQuota("codex", "app_server", "unavailable")
+func locateCodexQuota(context.Context) (quotaRead, AgentQuota) {
 	path, err := exec.LookPath("codex")
 	if err != nil {
-		q.Status = "not_installed"
-		return q
+		return nil, emptyQuota("codex", "app_server", "not_installed")
 	}
+	return func(ctx context.Context) AgentQuota { return readCodexAccount(ctx, path) }, AgentQuota{}
+}
+
+func readCodexAccount(parent context.Context, path string) (q AgentQuota) {
+	q = emptyQuota("codex", "app_server", "unavailable")
 	ctx, cancel := context.WithTimeout(parent, 8*time.Second)
 	defer cancel()
+	// An app-server that did not answer in time is a slow read, not a broken one.
+	defer func() {
+		if q.Status == "unavailable" && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			q.Status = "timeout"
+		}
+	}()
 	cmd := exec.CommandContext(ctx, path, "app-server")
 	cmd.Dir, _ = os.UserHomeDir()
 	cmd.WaitDelay = time.Second
@@ -134,6 +143,9 @@ func parseCodexQuota(raw []byte, plan string, now time.Time) AgentQuota {
 	if len(result.Buckets) > 16 {
 		return q
 	}
+	// The bucket named codex is the plan's own allowance. Others meter one
+	// model or feature each; with no such bucket every one stands for the plan.
+	_, hasPlan := result.Buckets["codex"]
 	keys := make([]string, 0, len(result.Buckets))
 	for key := range result.Buckets {
 		keys = append(keys, key)
@@ -158,7 +170,10 @@ func parseCodexQuota(raw []byte, plan string, now time.Time) AgentQuota {
 			if b.Name != "" && len(b.Name) <= 160 {
 				name = b.Name
 			}
-			w := QuotaWindow{Name: name, UsedPercent: *v.Used, WindowMinutes: v.Minutes, ResetsAt: v.Reset}
+			w := QuotaWindow{Name: name, UsedPercent: *v.Used, WindowMinutes: v.Minutes, ResetsAt: v.Reset, pool: "plan", headline: true}
+			if hasPlan && key != "codex" {
+				w.pool, w.headline = quotaPool(key), false
+			}
 			if !validQuotaWindow(w) {
 				return emptyQuota("codex", "app_server", "unavailable")
 			}

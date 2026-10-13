@@ -74,9 +74,62 @@
 
 .quota-meter.is-empty .quota-bar { width: 84px; margin-right: 50px; }
 
+/* A level is five pips as wide as a bar and a word where the number would be:
+   the provider gave a step, not a share, and it must not read as a percentage. */
+.quota-pips {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 4px;
+  width: 84px;
+}
+
+.quota-pips i {
+  height: 6px;
+  border-radius: 2px;
+  background: var(--line-strong);
+}
+
+.quota-pips i.is-on { background: var(--accent); }
+.quota-meter.is-warn .quota-pips i.is-on { background: var(--warn); }
+
+.quota-word,
+.quota-amount {
+  min-width: 40px;
+  text-align: right;
+  font-size: var(--text-lead);
+  font-weight: 650;
+  white-space: nowrap;
+}
+
+.quota-amount { font-variant-numeric: tabular-nums; }
+.quota-meter.is-warn .quota-word { color: var(--warn); }
+.quota-meter.is-error .quota-word { color: var(--error); }
+
+/* Nothing current to say: a reset that has passed, or a meter this read missed. */
+.quota-meter.is-pending .quota-word {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.quota-item.is-quiet-row .set-item-label { color: var(--muted); }
+
 .quota-row .set-item-label { font-weight: 560; }
 
+/* The way into the full page says how many accounts there are and, in the
+   warning colour, how many need the reader. */
+.quota-all .set-val { max-width: 72%; }
+.quota-attention-count { color: var(--warn); }
+
+/* The page lays its cards out by its own width, never the window's: beside the
+   list or in a narrow window it is one column, with room it is two. */
+.quota-panel {
+  container: quota / inline-size;
+}
+
 .quota-page .quota-panel { padding-bottom: 8px; }
+
+/* Wide enough for two cards, the page's column gives up the settings measure. */
+.main-settings:has(> .quota-panel) > * { max-width: 58rem; }
 
 .quota-lede {
   margin: 10px 16px 0;
@@ -87,9 +140,84 @@
 
 .quota-lede.is-error { color: var(--error); }
 
-.quota-panel > .quota-card { margin-top: 12px; }
-.quota-panel > .quota-card:first-of-type { margin-top: 14px; }
+.quota-legacy {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+}
+
+.quota-panel .quota-cards-label {
+  --set-pad: 16px;
+  margin-top: 28px;
+}
+
+/* Each card at least 340px, as many columns as fit. Cards keep their own
+   height: one with many meters is taller, and a short one is not stretched. */
+.quota-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr));
+  align-items: start;
+  gap: 12px;
+}
+
+.quota-cards > .quota-card { margin-top: 0; }
+
+/* A card the settings module opened the page on stops under the page's bar,
+   which stays put, and not behind it. */
+.quota-cards > .quota-card { scroll-margin-top: calc(72px + env(safe-area-inset-top, 0px)); }
 
 .quota-head .set-item-label { font-weight: 650; }
+.quota-panel .set-item-sub.is-warn { color: var(--warn); }
 
-.quota-missing .set-item-label { font-size: var(--text-lead); }
+/* A row that opens what is under it turns its chevron down. */
+.quota-panel .set-nav > .set-chev { transition: transform var(--dur-2) var(--ease); }
+.quota-panel .set-nav[aria-expanded="true"] > .set-chev { transform: rotate(90deg); }
+
+.quota-mark.agent-avatar {
+  width: var(--set-icon);
+  height: var(--set-icon);
+  border-radius: 9px;
+}
+
+/* How to fix one account: sentences on the row's text column, then the command. */
+.quota-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 var(--set-pad) 14px calc(var(--set-pad) + var(--set-icon) + 12px);
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.quota-steps p { margin: 0; }
+
+.quota-others .quota-other { align-items: flex-start; }
+.quota-other .quota-steps { padding: 4px 0 0; }
+.quota-why { color: var(--muted); }
+
+/* The accounts that need the reader. One column: a row each, under the group's
+   label. Two columns: one strip across both that says who and why, and opens
+   onto the same rows. The strip is not drawn in one column, nor is the line
+   that would separate it from the rows. */
+.quota-attention .quota-strip { display: none; }
+.quota-attention .quota-notices::before { display: none; }
+
+.quota-strip .set-item-sub {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 692px is two 340px cards and the gap between them: the strip comes with the second column. */
+@container quota (min-width: 692px) {
+  .quota-attention.has-strip > .set-group-label { display: none; }
+  .quota-attention.has-strip .quota-strip { display: flex; }
+  .quota-attention.has-strip:not(.is-open) .quota-notices { display: none; }
+  .quota-attention.has-strip.is-open .quota-notices::before { display: block; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quota-panel .set-nav > .set-chev { transition: none; }
+}

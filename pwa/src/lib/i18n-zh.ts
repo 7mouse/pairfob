@@ -4,6 +4,7 @@ import { zhKeypadV2 } from "./i18n-keypad-v2";
 import { zhChromeV2 } from "./i18n-chrome-v2";
 import { zhPaneMenuV2 } from "./i18n-pane-menu-v2";
 import { zhSettingsV3 } from "./i18n-settings-v3";
+import { zhQuota } from "./i18n-quota";
 import { zhRowbarV2 } from "./i18n-rowbar-v2";
 import { zhAgentInfo } from "./i18n-zh-agent-info";
 import { zhBoardMenu } from "./i18n-board-menu";
@@ -31,6 +32,7 @@ export const zh = {
   ...zhChatWork,
   ...zhPaneMenuV2,
   ...zhSettingsV3,
+  ...zhQuota,
   ...zhRowbarV2,
   ...zhWorkspace,
   ...zhShell,
@@ -52,7 +54,6 @@ export const zh = {
   "fileActions.conflict": "文件已变化或目标名称已存在，请刷新后重新操作。",
   "fileActions.hint": "长按或右键打开文件操作",
   "quota.authRequired": "请在电脑端登录或重新授权该服务",
-  "quota.notRunning": "本机服务未运行",
   "quota.unlimited": "无限额度",
   "quota.resetUnknown": "服务未提供重置时间",
   "quota.codexHelp": "在电脑端登录 Codex。",
@@ -71,19 +72,12 @@ export const zh = {
   "quota.hours": "{count} 小时额度",
   "quota.title": "订阅余量",
   "quota.note": "当前电脑配置的账号额度，同一账号的多个会话共享。",
-  "quota.ok": "已获取额度",
-  "quota.stale": "数据已过期，请刷新；重置后需重新获取。",
-  "quota.notInstalled": "未找到服务所需的命令",
-  "quota.notLoggedIn": "未登录，请在电脑上登录该服务",
-  "quota.unsupported": "当前登录方式不提供订阅余量",
-  "quota.unavailable": "暂时没有可用额度数据",
   "quota.setupRequired": "在电脑上运行以下命令启用采集，然后新开 Claude Code 会话。",
   "quota.upgrade": "当前电脑端不支持订阅余量，请更新 Pairfob。",
   "quota.failed": "余量读取失败，请稍后刷新。",
   "quota.loading": "读取中…",
   "quota.refresh": "刷新余量",
   "quota.offline": "连接电脑后可查看余量。",
-  "quota.planUnknown": "套餐未提供",
   "quota.window": "{minutes} 分钟额度",
   "quota.remaining": "剩余 {percent}%",
   "quota.resets": "重置：{when}",

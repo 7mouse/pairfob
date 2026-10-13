@@ -10,13 +10,15 @@ import (
 	"time"
 )
 
-func copilotQuotaToken(ctx context.Context) string {
+// copilotQuotaToken finds the GitHub.com token to ask with. own is false for
+// one borrowed from gh, which proves a GitHub login and no Copilot subscription.
+func copilotQuotaToken(ctx context.Context) (token string, own bool, status string) {
 	if token := strings.TrimSpace(os.Getenv("COPILOT_GITHUB_TOKEN")); token != "" {
-		return token
+		return token, true, ""
 	}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return ""
+		return "", false, "not_logged_in"
 	}
 	dir := os.Getenv("XDG_CONFIG_HOME")
 	if dir == "" {
@@ -30,13 +32,13 @@ func copilotQuotaToken(ctx context.Context) string {
 			continue
 		}
 		if err != nil {
-			return ""
+			return "", false, "auth_required"
 		}
 		var hosts map[string]struct {
 			Token string `json:"oauth_token"`
 		}
 		if json.Unmarshal(raw, &hosts) != nil {
-			return ""
+			return "", false, "auth_required"
 		}
 		for host, account := range hosts {
 			if (host == "github.com" || strings.HasPrefix(host, "github.com:")) && account.Token != "" {
@@ -46,26 +48,47 @@ func copilotQuotaToken(ctx context.Context) string {
 	}
 	if len(tokens) == 1 {
 		for token := range tokens {
-			return token
+			return token, true, ""
 		}
 	}
 	if len(tokens) > 1 {
-		return ""
+		return "", false, "ambiguous"
 	} // Require explicit selection across both files.
 
 	raw, err := quotaCommand(ctx, 16384, "gh", "auth", "token", "--hostname", "github.com")
-	if err != nil {
-		return ""
+	if err != nil || strings.TrimSpace(string(raw)) == "" {
+		return "", false, "not_logged_in"
 	}
-	return strings.TrimSpace(string(raw))
+	return strings.TrimSpace(string(raw)), false, ""
 }
-func readCopilotQuota(ctx context.Context) AgentQuota {
-	token := copilotQuotaToken(ctx)
-	if token == "" || len(token) > 16384 {
-		return emptyQuota("copilot", "github_api", "auth_required")
+
+func locateCopilotQuota(ctx context.Context) (quotaRead, AgentQuota) {
+	token, own, status := copilotQuotaToken(ctx)
+	if status == "" && len(token) > 16384 {
+		status = "auth_required"
 	}
-	return fetchCopilotQuota(ctx, quotaHTTPClient(), token, time.Now())
+	if status != "" {
+		return nil, emptyQuota("copilot", "github_api", status)
+	}
+	return func(ctx context.Context) AgentQuota {
+		q := fetchCopilotQuota(ctx, quotaHTTPClient(), token, time.Now())
+		if !own {
+			q = borrowedCopilotQuota(q)
+		}
+		return q
+	}, AgentQuota{}
 }
+
+// A gh token that reads no Copilot allowance says this GitHub account has no
+// Copilot, which is nothing to sign in again for. A slow or throttled read
+// says nothing either way and stays what it is.
+func borrowedCopilotQuota(q AgentQuota) AgentQuota {
+	if q.Status == "auth_required" || q.Status == "unavailable" {
+		return emptyQuota(q.Provider, q.Source, "not_logged_in")
+	}
+	return q
+}
+
 func fetchCopilotQuota(ctx context.Context, c *http.Client, token string, now time.Time) AgentQuota {
 	q := emptyQuota("copilot", "github_api", "unavailable")
 	var raw json.RawMessage
@@ -91,12 +114,15 @@ func parseCopilotQuota(raw []byte, now time.Time) AgentQuota {
 		return q
 	}
 	q.Plan = payload.Plan
+	// Premium interactions are the subscription's allowance. Chat and
+	// completions are separate categories and never stand for the account.
 	for _, name := range []string{"premium_interactions", "chat", "completions"} {
 		v, ok := payload.Quotas[name]
 		if !ok {
 			continue
 		}
-		w := QuotaWindow{Name: strings.ReplaceAll(name, "_", " "), ResetsAt: quotaReset(payload.Reset), Unlimited: v.Unlimited}
+		w := QuotaWindow{Name: strings.ReplaceAll(name, "_", " "), ResetsAt: quotaReset(payload.Reset), Unlimited: v.Unlimited,
+			pool: quotaPool(name), headline: name == "premium_interactions"}
 		if !v.Unlimited {
 			if v.Remaining == nil || (v.Entitlement != nil && *v.Entitlement == 0) {
 				continue

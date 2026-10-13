@@ -3,7 +3,6 @@ import { goToScreen } from "../../app/navigation-store";
 import { ProtocolError } from "../../lib/protocol/errors";
 import { commitView } from "../../app/host";
 import { quotaSnapshot, setQuotaSnapshot } from "./store";
-import type { QuotaProvider } from "./model";
 
 /**
  * Quota controller — the feature's one connected adapter.
@@ -27,36 +26,56 @@ function alreadyLoading(): boolean {
   return !!session && quotaSnapshot(session)?.loading === true;
 }
 
-export async function refreshAgentQuota(): Promise<void> {
+/**
+ * How a refresh ended, for the control that asked: `unchanged` is an answer
+ * that says what the page already shows (the computer keeps a read for a
+ * minute), which would otherwise look like a press that did nothing.
+ */
+export type QuotaRefresh = "skipped" | "updated" | "unchanged" | "failed";
+
+export async function refreshAgentQuota(): Promise<QuotaRefresh> {
   const session = liveSession();
-  if (!session || !session.isConnected() || alreadyLoading()) return;
+  if (!session || !session.isConnected() || alreadyLoading()) return "skipped";
   const previous = quotaSnapshot(session);
-  setQuotaSnapshot(session, { loading: true, items: previous?.items ?? null, error: "" });
+  const kept = { items: previous?.items ?? null, legacy: previous?.legacy, unknown: previous?.unknown };
+  setQuotaSnapshot(session, { loading: true, ...kept, error: "" });
   try {
-    const items = await session.agentQuota();
-    setQuotaSnapshot(session, { loading: false, items, error: "" });
+    const report = await session.agentQuota();
+    const unchanged = !!previous?.items && !previous.error && sameSample(previous.items, report.accounts);
+    setQuotaSnapshot(session, { loading: false, items: report.accounts, legacy: report.legacy, unknown: report.unknown, error: "" });
+    return unchanged ? "unchanged" : "updated";
   } catch (error) {
-    setQuotaSnapshot(session, {
-      loading: false,
-      items: null,
-      error: error instanceof ProtocolError && error.code === "unknown_op" ? "quota.upgrade" : "quota.failed",
-    });
+    // What was read before stays on the page under the error: a failed read
+    // says nothing about the accounts, and each card shows how old it is.
+    const upgrade = error instanceof ProtocolError && error.code === "unknown_op";
+    setQuotaSnapshot(session, upgrade ? { loading: false, items: null, error: "quota.upgrade" } : { loading: false, ...kept, error: "quota.failed" });
+    return "failed";
   }
+}
+
+type Sampled = { readonly id: string; readonly state: string; readonly reason: string; readonly observed_at: number };
+
+/** Whether two answers are the same reads: the same accounts, in the same state, sampled at the same time. */
+function sameSample(left: readonly Sampled[], right: readonly Sampled[]): boolean {
+  return left.length === right.length && left.every((account, index) => {
+    const other = right[index];
+    return other.id === account.id && other.state === account.state && other.reason === account.reason && other.observed_at === account.observed_at;
+  });
 }
 
 /**
  * Navigation, so it repaints through the application port: the quota page has
- * to be composed first. Opening from one provider's row lands on its card.
+ * to be composed first. Opening from one account's row lands on its card.
  */
-export function openQuota(provider?: QuotaProvider): void {
+export function openQuota(id?: string): void {
   goToScreen("quota");
   commitView();
   void refreshAgentQuota();
-  if (provider) focusQuotaCard(provider);
+  if (id) focusQuotaCard(id);
 }
 
-function focusQuotaCard(provider: QuotaProvider): void {
-  const card = document.getElementById(`quota-${provider}`);
+function focusQuotaCard(id: string): void {
+  const card = document.getElementById(`quota-${id}`);
   if (!card) return;
   card.scrollIntoView({ block: "start" });
   card.classList.add("is-focused");

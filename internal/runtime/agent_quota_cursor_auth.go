@@ -29,7 +29,8 @@ func cursorQuotaToken(ctx context.Context) (string, string) {
 	}
 	switch cursorQuotaStore(goruntime.GOOS, os.Getenv("AGENT_CLI_CREDENTIAL_STORE")) {
 	case "memory":
-		return "", "auth_required"
+		// A login the CLI keeps only in its own process is one nobody else reads.
+		return "", "unsupported"
 	case "keychain":
 		return cursorQuotaKeychain(ctx)
 	}

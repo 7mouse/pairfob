@@ -52,7 +52,8 @@ func TestGrokQuotaCredentials(t *testing.T) {
 		{`{"https://auth.x.ai::a":{"key":"fixture","expires_at":"2027-01-20T00:00:00Z"},"https://auth.x.ai::b":{}}`, "auth_required"},
 		{`{"https://auth.x.ai::a":{"key":"fixture","expires_at":"2027-01-20T00:00:00Z"}}`, "unsupported"},
 
-		{`{"https://untrusted.example":{"key":"fixture","expires_at":"2027-01-20T00:00:00Z"}}`, "auth_required"},
+		{`{"https://untrusted.example":{"key":"fixture","expires_at":"2027-01-20T00:00:00Z"}}`, "not_logged_in"},
+		{`{"https://auth.x.ai::a":{"key":"xai-fixture","expires_at":"2027-01-20T00:00:00Z","principal_type":"User"}}`, "unsupported"},
 	} {
 		if err := os.WriteFile(filepath.Join(dir, "auth.json"), []byte(tc.body), 0600); err != nil {
 			t.Fatal(err)
@@ -96,7 +97,7 @@ func TestGrokQuotaLive(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 9*time.Second)
 	defer cancel()
-	q := readGrokQuota(ctx)
+	q := locatedQuota(ctx, locateGrokQuota)
 	raw, _ := json.Marshal(q)
 	t.Log(string(raw))
 	if q.Status != "ok" {

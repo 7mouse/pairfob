@@ -53,16 +53,21 @@ func TestClaudeQuotaAutomaticOAuthRead(t *testing.T) {
 func TestClaudeQuotaCredentialsRequireProfileScopeAndFreshLogin(t *testing.T) {
 	dir := t.TempDir()
 	t.Setenv("CLAUDE_CONFIG_DIR", dir)
-	for _, auth := range []string{
-		`{"claudeAiOauth":{"accessToken":"t"}}`,
-		`{"claudeAiOauth":{"accessToken":"t","scopes":["user:inference"]}}`,
-		`{"claudeAiOauth":{"accessToken":"t","expiresAt":1,"scopes":["user:profile"]}}`,
+	if _, status := claudeQuotaCredentials(context.Background()); status != "not_logged_in" {
+		t.Fatalf("no credential file: %s", status)
+	}
+	for _, tc := range []struct{ auth, status string }{
+		{`{"claudeAiOauth":{"accessToken":"t"}}`, "unsupported"},
+		{`{"claudeAiOauth":{"accessToken":"t","scopes":["user:inference"]}}`, "unsupported"},
+		{`{"claudeAiOauth":{"accessToken":"t","expiresAt":1,"scopes":["user:profile"]}}`, "auth_required"},
+		{`{"mcpOAuth":{}}`, "not_logged_in"},
+		{`{`, "auth_required"},
 	} {
-		if err := os.WriteFile(filepath.Join(dir, ".credentials.json"), []byte(auth), 0600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, ".credentials.json"), []byte(tc.auth), 0600); err != nil {
 			t.Fatal(err)
 		}
-		if _, status := claudeQuotaCredentials(context.Background()); status != "auth_required" {
-			t.Fatalf("%s", status)
+		if _, status := claudeQuotaCredentials(context.Background()); status != tc.status {
+			t.Fatalf("%s: %s, want %s", tc.auth, status, tc.status)
 		}
 	}
 	raw := `{"claudeAiOauth":{"accessToken":"t","scopes":["user:profile"]}}`
@@ -139,7 +144,22 @@ func TestCopilotQuotaRejectsAmbiguousCredentialFiles(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if got := copilotQuotaToken(context.Background()); got != "" {
-		t.Fatal("ambiguous accounts selected")
+	if got, _, status := copilotQuotaToken(context.Background()); got != "" || status != "ambiguous" {
+		t.Fatalf("ambiguous accounts selected: %q", status)
+	}
+	// One login is the account's own. With none, a missing gh is no login at
+	// all, never a reason to sign in again.
+	if err := os.Remove(filepath.Join(dir, "github-copilot", "apps.json")); err != nil {
+		t.Fatal(err)
+	}
+	if got, own, status := copilotQuotaToken(context.Background()); got != "account-a" || !own || status != "" {
+		t.Fatalf("single login: own=%v status=%q", own, status)
+	}
+	if err := os.Remove(filepath.Join(dir, "github-copilot", "hosts.json")); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", t.TempDir())
+	if got, own, status := copilotQuotaToken(context.Background()); got != "" || own || status != "not_logged_in" {
+		t.Fatalf("no login: own=%v status=%q", own, status)
 	}
 }

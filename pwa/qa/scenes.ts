@@ -33,6 +33,7 @@ import { acceptDaemonVersion, checkDaemonRelease } from "../src/features/setting
 import { clearBoardPreviews } from "../src/features/board/preview/store";
 import { refreshBoardPreviews } from "../src/features/board/preview/refresh";
 import { setQuotaSnapshot } from "../src/features/agent-quota/store";
+import { legacyQuotaAccounts } from "../src/lib/agent-quota-report";
 import { openCommandPalette } from "../src/features/command-palette";
 import { noteOverlayOrigin } from "../src/shared/ui/overlay/origin";
 import { loadHerdSessions } from "../src/features/herd-sessions/load";
@@ -110,7 +111,12 @@ export const scenes: FixtureScene[] = [
   { name: "settings-devices", description: "Self, offline and revoked device rows" },
   { name: "settings-loading", description: "Settings pending state" },
   { name: "settings-error", description: "Device and push configuration errors" },
-  { name: "quota", description: "Available, unlimited, stale and unavailable quotas" },
+  { name: "quota", description: "Accounts with numbers, one that needs the reader and one not set up" },
+  { name: "quota-many", description: "More accounts than the settings module shows; several per provider" },
+  { name: "quota-kinds", description: "Every meter kind: share, counts, balance, level, unlimited, past its reset" },
+  { name: "quota-partial", description: "Part read, timed out with an older sample, rate limited, login expired" },
+  { name: "quota-legacy", description: "A computer that only answers the first quota operation" },
+  { name: "settings-quota-many", description: "Settings with the quota module capped at four accounts" },
   { name: "quota-loading", description: "Quota loading state" },
   { name: "quota-error", description: "Quota unavailable/error state" },
   { name: "board", description: "Weighted split layout with ANSI previews" },
@@ -386,6 +392,7 @@ export function resetFixtureBaseline(session: FixtureSession): void {
   applyCapabilities(allCapabilities() as typeof NO_OPERATION_CAPABILITIES, AGENT_KINDS);
   setOperationBusy(false);
   clearNotice();
+  session.setQuotas(data.quotas());
   setQuotaSnapshot(session.live, { loading: false, items: data.quotas(), error: "" });
 }
 
@@ -491,6 +498,10 @@ export async function applyScene(name: string, session: FixtureSession): Promise
   if (name.startsWith("settings")) {
     setScreen("settings");
     if (name === "settings-devices") applyDeviceList(data.devices());
+    if (name === "settings-quota-many") {
+      session.setQuotas(data.manyQuotas());
+      setQuotaSnapshot(session.live, { loading: false, items: data.manyQuotas(), error: "" });
+    }
     if (name === "settings-loading") { applyDeviceList([]); setPushEnabled(null); beginSettingsRead(); }
     if (name === "settings-error") { setDevicesError(t("err.devicesLoad")); setPushConfigError(t("err.pushStatusLoad")); }
     acceptDaemonVersion({ build: "v2.4.0" });
@@ -498,7 +509,10 @@ export async function applyScene(name: string, session: FixtureSession): Promise
   }
   if (name.startsWith("quota")) {
     setScreen("quota");
-    setQuotaSnapshot(session.live, { loading: name === "quota-loading", items: name === "quota" ? data.quotas() : null,
+    const items = name === "quota" ? data.quotas() : name === "quota-many" ? data.manyQuotas() : name === "quota-kinds" ? data.kindQuotas()
+      : name === "quota-partial" ? data.partialQuotas() : name === "quota-legacy" ? legacyQuotaAccounts(data.legacyQuotas()) : null;
+    if (items) session.setQuotas(items, name === "quota-legacy");
+    setQuotaSnapshot(session.live, { loading: name === "quota-loading", items, legacy: name === "quota-legacy",
       error: name === "quota-error" ? "quota.failed" : "" });
   }
   if (name.startsWith("board")) {

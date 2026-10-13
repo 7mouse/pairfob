@@ -14,10 +14,13 @@ import { currentScreen, setScreen } from "../../app/navigation-store";
 import { setAgentChat, setFullTerminal } from "../../features/session/session-store";
 import { setOperationBusy } from "../../features/operations/capabilities-store";
 import { setLang, t } from "../../lib/i18n";
-import type { AgentQuota } from "../../lib/agent-quota";
+import { quotaAccount, quotaOff, quotaReport, quotaShare } from "../../../test-support/quota";
+import type { QuotaAccount } from "../../lib/agent-quota-v2";
+import type { QuotaReport } from "../../lib/agent-quota-report";
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { ProtocolError } from "../../lib/protocol/errors";
-import { quotaOverview, quotaResetIn, quotaTightestWindow } from "../../features/agent-quota/model";
+import { quotaResetIn } from "../../features/agent-quota/model";
+import { CREATE_MEMORY_KEY } from "../../features/operations/create-memory";
 import { refreshAgentQuota, openQuota } from "../../features/agent-quota/actions";
 import { views } from "../../features/agent-quota/store";
 import { resetTransitionState } from "../../app/transition";
@@ -31,18 +34,11 @@ import { stopPolling } from "../../features/connection/controller";
  * store subscriber registries.
  */
 
-const sample = (): AgentQuota => ({
-  provider: "codex",
-  plan: "pro",
-  status: "ok",
-  source: "app_server",
-  observed_at: Math.floor(Date.now() / 1000),
-  windows: [{ name: "codex", used_percent: 25, window_minutes: 300, resets_at: Math.floor(Date.now() / 1000) + 3600 }],
-});
+const sample = (): QuotaAccount => quotaAccount();
 
-/** Attach a fake session through the named action, inside act when mounted. */
-function useSession(read: () => Promise<AgentQuota[]>): LiveSession {
-  const next = { isConnected: () => true, agentQuota: read } as LiveSession;
+/** Attach a fake session through the named action, inside act when mounted. Its read answers accounts. */
+function useSession(read: () => Promise<QuotaAccount[]>, report: Omit<QuotaReport, "accounts"> = { legacy: false, unknown: 0 }): LiveSession {
+  const next = { isConnected: () => true, agentQuota: async () => ({ accounts: await read(), ...report }) } as LiveSession;
   act(() => { attachLiveSession(next); });
   return next;
 }
@@ -134,7 +130,7 @@ test("quota panel does not fetch while rendering", async () => {
       psk: new Uint8Array(32), daemonPk: new Uint8Array(32),
       relayOrigin: "https://pairfob.com", fp: "fp", label: "Phone", createdAt: 1,
     });
-    attachLiveSession({ isConnected: () => true, agentQuota: async () => { calls += 1; return [sample()]; } } as LiveSession);
+    attachLiveSession({ isConnected: () => true, agentQuota: async () => { calls += 1; return quotaReport(sample()); } } as LiveSession);
     batch(() => { setPhase("live"); setScreen("quota"); });
     mountApp();
   });
@@ -167,10 +163,10 @@ test("a refresh updates the mounted quota page through its subscription with no 
 
 test("late reply cannot appear under another computer", async () => {
   mountLiveOn("quota");
-  let resolve!: (q: AgentQuota[]) => void;
+  let resolve!: (q: QuotaAccount[]) => void;
   useSession(() => new Promise(r => { resolve = r; }));
   // Start the old read but do not await it while it is in flight.
-  let pending: Promise<void>;
+  let pending: Promise<unknown>;
   act(() => { pending = refreshAgentQuota(); });
   // The computer switches before the answer lands.
   useSession(async () => []);
@@ -192,7 +188,7 @@ test("old daemon gets an upgrade message and refresh cannot duplicate an in-flig
   expect(meterValue()).toBeNull();
 });
 
-test("the settings module shows one meter row per provider with data and opens that provider's card", async () => {
+test("the settings module shows one meter row per account with numbers and opens that account's card", async () => {
   mountLiveOn("settings");
   const q = sample();
   useSession(async () => [q]);
@@ -203,16 +199,11 @@ test("the settings module shows one meter row per provider with data and opens t
   expect(module?.querySelector(".set-help")).toBeNull();
   const rows = [...app.querySelectorAll<HTMLButtonElement>(".quota-row")];
   expect(rows.map((row) => row.querySelector(".set-item-label")?.textContent)).toEqual(["Codex"]);
-  expect(rows[0]!.querySelector(".set-item-sub")?.textContent).toBe(`5 小时 · ${quotaResetIn(q.windows[0]!.resets_at)}`);
+  expect(rows[0]!.querySelector(".set-item-sub")?.textContent).toBe(`5 小时 · ${quotaResetIn(q.meters[0]!.resets_at)}`);
   expect(meterValue()).toBe(75);
   expect(app.querySelector(".quota-card")).toBeNull();
-  // Providers without a fresh read collapse into the last row instead of empty meters.
-  expect(app.querySelector(".quota-all .set-val")?.textContent).toBe("5 个无数据");
-  expect(quotaOverview({ ...q, windows: [...q.windows, { ...q.windows[0]!, used_percent: 90 }] })).toBe(10);
-  expect(quotaTightestWindow({ ...q, windows: [...q.windows, { ...q.windows[0]!, name: "week", used_percent: 90 }] })?.name).toBe("week");
-  expect(quotaOverview({ ...q, observed_at: 1 })).toBeNull();
-  expect(quotaOverview({ ...q, provider: "copilot", windows: [{ ...q.windows[0]!, name: "chat" }] })).toBeNull();
-  expect(quotaOverview({ ...q, provider: "copilot", windows: [{ ...q.windows[0]!, name: "premium interactions" }] })).toBe(75);
+  // The last row counts the accounts instead of listing what this computer never used.
+  expect(app.querySelector(".quota-all .set-val")?.textContent).toBe("共 1 个");
   await act(async () => {
     rows[0]!.click();
     while (views.get(liveSession() as LiveSession)?.loading) await Promise.resolve();
@@ -241,17 +232,26 @@ test("openQuota composes the arriving quota page through the app commit port", a
   expect(appRoot().querySelector(".quota-card")).not.toBeNull();
 });
 
-test("a failed refresh drops the module's meters instead of retaining a full allowance", async () => {
+test("a failed refresh keeps the numbers that were read, and a first read that fails shows none", async () => {
   mountLiveOn("settings");
-  let fail = false;
+  let fail = true;
   useSession(async () => { if (fail) throw new Error("offline"); return [sample()]; });
+  await act(async () => { await refreshAgentQuota(); });
+  // Nothing was ever read: one line, never a full or an empty meter.
+  expect(appRoot().querySelector(".quota-row")).toBeNull();
+  expect(appRoot().querySelector(".quota-module")?.textContent).toContain(t("quota.failed"));
+  fail = false;
   await act(async () => { await refreshAgentQuota(); });
   expect(meterValue()).toBe(75);
   fail = true;
   await act(async () => { await refreshAgentQuota(); });
   await settle();
-  expect(appRoot().querySelector(".quota-row")).toBeNull();
-  expect(appRoot().querySelector(".quota-module")?.textContent).toContain(t("quota.failed"));
+  expect(meterValue()).toBe(75);
+  await act(async () => { openQuota(); });
+  await settle();
+  // The page says the read failed above the cards it still has.
+  expect(appRoot().querySelector(".quota-lede.is-error")?.textContent).toBe(t("quota.kept"));
+  expect(appRoot().querySelector("#quota-codex.quota-card")).not.toBeNull();
 });
 
 test("a session attached and refreshed reaches the quota page; a later detach clears it", async () => {
@@ -303,15 +303,13 @@ test("renders remaining quota and expired snapshots without a meter", async () =
 
 test("quota window names follow the selected language", async () => {
   mountLiveOn("quota");
-  useSession(async () => [{
-    ...sample(),
+  useSession(async () => [quotaAccount({
     provider: "copilot",
-    source: "github_api",
-    windows: [
-      { ...sample().windows[0]!, name: "chat", unlimited: true, used_percent: 0, resets_at: 0 },
-      { ...sample().windows[0]!, name: "premium interactions", window_minutes: 0, resets_at: 0 },
+    meters: [
+      { kind: "unlimited", name: "chat", pool: "chat", headline: false, window_minutes: 0, resets_at: 0 },
+      quotaShare({ name: "premium interactions", pool: "premium-interactions", window_minutes: 0, resets_at: 0 }),
     ],
-  }]);
+  })]);
   await act(async () => { await refreshAgentQuota(); });
   await act(async () => { setLang("zh"); });
   expect(appRoot().textContent).toContain("对话");
@@ -324,15 +322,13 @@ test("quota window names follow the selected language", async () => {
 
 test("unlimited buckets draw an unlimited meter and unknown reset never renders the epoch", async () => {
   mountLiveOn("quota");
-  useSession(async () => [{
-    ...sample(),
+  useSession(async () => [quotaAccount({
     provider: "copilot",
-    source: "github_api",
-    windows: [
-      { ...sample().windows[0]!, name: "chat", unlimited: true, used_percent: 0, resets_at: 0 },
-      { ...sample().windows[0]!, name: "premium", resets_at: 0 },
+    meters: [
+      { kind: "unlimited", name: "chat", pool: "chat", headline: false, window_minutes: 0, resets_at: 0 },
+      quotaShare({ name: "premium", resets_at: 0 }),
     ],
-  }]);
+  })]);
   await act(async () => { await refreshAgentQuota(); });
   expect(appRoot().textContent).toContain("GitHub Copilot");
   expect(appRoot().querySelectorAll(".quota-meter[aria-valuenow]")).toHaveLength(1);
@@ -342,7 +338,7 @@ test("unlimited buckets draw an unlimited meter and unknown reset never renders 
 
 test("Grok shows shared subscription allowance", async () => {
   mountLiveOn("quota");
-  useSession(async () => [{ ...sample(), provider: "grok", source: "oauth", plan: "SuperGrok Heavy" }]);
+  useSession(async () => [quotaAccount({ provider: "grok", plan: "SuperGrok Heavy" })]);
   await act(async () => { await refreshAgentQuota(); });
   expect(appRoot().textContent).toContain("Grok Build");
   expect(appRoot().textContent).toContain("Chat");
@@ -387,61 +383,179 @@ test("the refresh mark turns once for each press, and not because a read is unde
 });
 
 describe("Cursor CLI quota auth states", () => {
-  const cursor = (status: AgentQuota["status"]) => ({
-    ...sample(), provider: "cursor" as const, plan: "Cursor", status,
-  });
   const CMD = "export AGENT_CLI_CREDENTIAL_STORE=file\ncursor-agent login\npairfob service install";
 
-  test("auth_required shows the keychain hint and the exact three-line CLI command", async () => {
+  test("a refused Keychain read needs the reader: the hint and the exact three-line CLI command", async () => {
     mountLiveOn("quota");
-    useSession(async () => [cursor("auth_required")]);
+    useSession(async () => [quotaOff("cursor", "needs_action", "allow_keychain")]);
     await act(async () => { await refreshAgentQuota(); });
     await settle();
-    const card = appRoot().querySelector(".quota-missing")!;
-    // No meter, CLI help (not desktop phrasing).
+    const notice = appRoot().querySelector(".quota-attention #quota-cursor")!;
     expect(meterValue()).toBeNull();
-    expect(card.textContent).toContain("cursor-agent login");
-    expect(card.textContent).not.toContain("desktop");
-    expect(card.textContent).not.toContain("桌面应用");
-    // Help, keychain detail, then the copyable command.
-    expect(card.textContent).toContain(t("quota.cursorHelp"));
-    expect(card.textContent).toContain(t("quota.cursorKeychainHelp"));
-    const command = card.querySelector(".command-line code")!;
-    expect(command.textContent).toBe(CMD);
-    expect(card.textContent.indexOf(CMD)).toBeGreaterThan(card.textContent.indexOf(t("quota.cursorKeychainHelp")));
+    expect(notice.querySelector(".set-item-sub")!.textContent).toBe(t("quota.reason.allowKeychain"));
+    expect(notice.textContent).not.toContain("desktop");
+    expect(notice.textContent).not.toContain("桌面应用");
+    // The way out is under the row, shut until it is opened, with the copyable command last.
+    const toggle = notice.querySelector<HTMLButtonElement>("button.set-nav")!;
+    const steps = notice.querySelector<HTMLElement>(".fold")!;
+    expect([toggle.getAttribute("aria-expanded"), steps.inert, toggle.getAttribute("aria-controls")]).toEqual(["false", true, steps.id]);
+    await act(async () => toggle.click());
+    expect([toggle.getAttribute("aria-expanded"), steps.inert]).toEqual(["true", false]);
+    expect(steps.textContent).toContain(t("quota.cursorKeychainHelp"));
+    expect(steps.querySelector(".command-line code")!.textContent).toBe(CMD);
+    expect(steps.textContent.indexOf(CMD)).toBeGreaterThan(steps.textContent.indexOf(t("quota.cursorKeychainHelp")));
   });
 
-  test("not_logged_in keeps the CLI login guidance and no command", async () => {
+  test("an expired login keeps the CLI login guidance and its one command", async () => {
     mountLiveOn("quota");
-    useSession(async () => [cursor("not_logged_in")]);
+    useSession(async () => [quotaOff("cursor", "needs_action", "relogin")]);
     await act(async () => { await refreshAgentQuota(); });
     await settle();
-    const card = appRoot().querySelector(".quota-missing")!;
-    expect(meterValue()).toBeNull();
-    // cursorHelp keeps cursor-agent login; no desktop phrase; no command.
-    expect(card.textContent).toContain("cursor-agent login");
-    expect(card.textContent).not.toContain("desktop");
-    expect(card.textContent).not.toContain("桌面应用");
-    expect(card.textContent).toContain(t("quota.cursorHelp"));
-    expect(card.textContent).not.toContain("export AGENT_CLI_CREDENTIAL_STORE");
-    expect(card.querySelector(".command-line")).toBeNull();
+    const notice = appRoot().querySelector(".quota-attention #quota-cursor")!;
+    expect(notice.querySelector(".set-item-sub")!.textContent).toBe(t("quota.reason.relogin"));
+    expect(notice.textContent).toContain(t("quota.cursorHelp"));
+    expect(notice.textContent).not.toContain("export AGENT_CLI_CREDENTIAL_STORE");
+    expect(notice.querySelector(".command-line code")!.textContent).toBe("cursor-agent login");
   });
 
-  test("unsupported shows the dedicated Cursor guidance and no command", async () => {
+  test("no login at all is not a task: it sits under the supported ones with the guidance and no command", async () => {
     mountLiveOn("quota");
-    useSession(async () => [cursor("unsupported")]);
+    useSession(async () => [quotaOff("cursor", "not_configured", "no_login")]);
     await act(async () => { await refreshAgentQuota(); });
     await settle();
-    const card = appRoot().querySelector(".quota-missing")!;
+    expect(appRoot().querySelector(".quota-attention")).toBeNull();
+    const row = appRoot().querySelector(".quota-others #quota-cursor")!;
     expect(meterValue()).toBeNull();
-    // Same literal oracles as the other statuses: CLI login guidance kept, no
-    // desktop styling, and dedicated unsupported copy.
-    expect(card.textContent).toContain("cursor-agent login");
-    expect(card.textContent).not.toContain("desktop");
-    expect(card.textContent).not.toContain("桌面应用");
-    expect(card.textContent).toContain(t("quota.cursorUnsupportedHelp"));
-    expect(card.textContent).not.toContain("export AGENT_CLI_CREDENTIAL_STORE");
-    expect(card.querySelector(".command-line")).toBeNull();
+    expect(row.textContent).toContain(t("quota.reason.noLogin"));
+    expect(row.textContent).toContain("cursor-agent login");
+    expect(row.textContent).toContain(t("quota.cursorHelp"));
+    expect(row.textContent).not.toContain("桌面应用");
+    expect(row.querySelector(".command-line")).toBeNull();
+    // Shut by default: one line names what is not set up.
+    const toggle = appRoot().querySelector<HTMLButtonElement>(".quota-others button.set-nav")!;
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.textContent).toContain("1 个未配置");
+    expect(toggle.textContent).toContain("Cursor");
+    expect(row.closest<HTMLElement>(".fold")!.inert).toBeTrue();
+  });
+
+  test("a login without subscription quota shows the dedicated Cursor guidance and no command", async () => {
+    mountLiveOn("quota");
+    useSession(async () => [quotaOff("cursor", "not_configured", "unsupported_login")]);
+    await act(async () => { await refreshAgentQuota(); });
+    await settle();
+    const row = appRoot().querySelector(".quota-others #quota-cursor")!;
+    expect(row.textContent).toContain(t("quota.reason.unsupportedLogin"));
+    expect(row.textContent).toContain("cursor-agent login");
+    expect(row.textContent).toContain(t("quota.cursorUnsupportedHelp"));
+    expect(row.textContent).not.toContain("export AGENT_CLI_CREDENTIAL_STORE");
+    expect(row.querySelector(".command-line")).toBeNull();
+  });
+});
+
+describe("the quota page's groups", () => {
+  const several = (): QuotaAccount[] => [
+    sample(),
+    quotaAccount({ provider: "claude", plan: "max", meters: [
+      quotaShare({ name: "five hour", used_percent: 61 }),
+      quotaShare({ name: "seven day opus", pool: "seven-day-opus", headline: false, used_percent: 88, window_minutes: 10080 }),
+      quotaShare({ name: "seven day sonnet", pool: "seven-day-sonnet", headline: false, used_percent: 10, window_minutes: 10080 }),
+    ] }),
+    quotaOff("grok", "needs_action", "relogin"),
+    quotaOff("copilot", "needs_action", "choose_account"),
+    quotaOff("antigravity", "not_configured", "not_running"),
+  ];
+
+  test("what needs the reader comes first, then the cards, then what is not set up", async () => {
+    mountLiveOn("quota");
+    useSession(async () => several());
+    await act(async () => { await refreshAgentQuota(); });
+    await settle();
+    const panel = appRoot().querySelector(".quota-panel")!;
+    const order = [...panel.children].map(child => child.className.split(" ")[0] === "set-group" ? child.className.split(" ")[1] : child.className.split(" ")[0]);
+    expect(order.filter(name => name !== "quota-lede")).toEqual(["quota-attention", "set-group-label", "quota-cards", "quota-others"]);
+    expect(panel.querySelector(".quota-attention .set-group-label")!.textContent).toBe("需要处理 · 2");
+    expect([...panel.querySelectorAll(".quota-notice .set-item-label")].map(node => node.textContent)).toEqual(["GitHub Copilot", "Grok Build"]);
+    expect(panel.querySelector(".quota-cards-label")!.textContent).toBe("订阅 · 2刚刚更新");
+    expect([...panel.querySelectorAll(".quota-card")].map(card => card.id)).toEqual(["quota-codex", "quota-claude"]);
+    // With two or more, a wide page folds them into one strip that names each.
+    const strip = panel.querySelector<HTMLButtonElement>(".quota-attention.has-strip .quota-strip")!;
+    expect(strip.textContent).toContain("GitHub Copilot 电脑上有多个登录，还没选用哪个 · Grok Build 登录已过期");
+    expect(strip.getAttribute("aria-expanded")).toBe("false");
+    await act(async () => strip.click());
+    expect(panel.querySelector(".quota-attention")!.classList.contains("is-open")).toBeTrue();
+    expect(strip.getAttribute("aria-expanded")).toBe("true");
+    expect(panel.textContent).toContain(t("quota.why.title"));
+  });
+
+  test("a card's other allowances open and shut in place, and say that one is low while shut", async () => {
+    mountLiveOn("quota");
+    useSession(async () => several());
+    await act(async () => { await refreshAgentQuota(); });
+    await settle();
+    const card = appRoot().querySelector("#quota-claude")!;
+    const toggle = card.querySelector<HTMLButtonElement>(".quota-fold")!;
+    const fold = card.querySelector<HTMLElement>(".fold")!;
+    expect(toggle.textContent).toBe("其他额度 · 2 项1 项偏低");
+    expect([toggle.getAttribute("aria-expanded"), fold.inert]).toEqual(["false", true]);
+    expect([...card.querySelectorAll(":scope > .set-card > .quota-item .set-item-label")].map(node => node.textContent)).toEqual(["5 小时"]);
+    await act(async () => toggle.click());
+    expect([toggle.getAttribute("aria-expanded"), fold.inert]).toEqual(["true", false]);
+    expect([...fold.querySelectorAll(".set-item-label")].map(node => node.textContent)).toEqual(["Opus 7 天", "Sonnet 7 天"]);
+    // A refresh leaves the fold as the reader left it and the control where it was.
+    act(() => toggle.focus());
+    await act(async () => { await refreshAgentQuota(); });
+    await settle();
+    expectSameNode(appRoot().querySelector("#quota-claude .quota-fold"), toggle);
+    expectSameNode(document.activeElement, toggle);
+    expect(toggle.getAttribute("aria-expanded")).toBe("true");
+  });
+
+  test("an older computer is said to be older, with the way to update it, and not offered a command it lacks", async () => {
+    mountLiveOn("quota");
+    useSession(async () => [sample(), quotaOff("copilot", "failed", "unavailable"), quotaOff("grok", "not_configured", "sign_in")], { legacy: true, unknown: 0 });
+    await act(async () => { await refreshAgentQuota(); });
+    await settle();
+    const note = appRoot().querySelector(".quota-legacy")!;
+    expect(note.textContent).toBe(`${t("quota.legacyNote")}${t("quota.legacyUpdate")}`);
+    expect(note.querySelector("button")).not.toBeNull();
+    expect(appRoot().querySelector(".quota-attention")!.textContent).not.toContain("pairfob quota list");
+    expect(appRoot().querySelector(".quota-others #quota-grok")!.textContent).toContain(t("quota.authRequired"));
+    await act(async () => { useSession(async () => [sample(), quotaOff("copilot", "failed", "unavailable")], { legacy: false, unknown: 2 }); await refreshAgentQuota(); });
+    await settle();
+    expect(appRoot().querySelector(".quota-legacy")).toBeNull();
+    expect(appRoot().querySelector(".quota-attention .command-line code")!.textContent).toBe("pairfob quota list");
+    expect(appRoot().querySelector(".quota-panel")!.textContent).toContain(t("quota.unknownCount", { n: 2 }));
+  });
+
+  test("the cards and the settings rows follow the agents the reader starts most", async () => {
+    localStorage.setItem(CREATE_MEMORY_KEY, JSON.stringify({ pinned: ["grok"], uses: { cursor: 9, codex: 2 }, pinsSeeded: true }));
+    try {
+      mountLiveOn("settings");
+      useSession(async () => (["codex", "claude", "cursor", "grok"] as const).map(provider => quotaAccount({ provider })));
+      await act(async () => { await refreshAgentQuota(); });
+      await settle();
+      expect([...appRoot().querySelectorAll(".quota-row .set-item-label")].map(node => node.textContent)).toEqual(["Grok", "Cursor", "Codex", "Claude"]);
+      await act(async () => { openQuota(); });
+      await settle();
+      expect([...appRoot().querySelectorAll(".quota-card")].map(card => card.id)).toEqual(["quota-grok", "quota-cursor", "quota-codex", "quota-claude"]);
+    } finally {
+      localStorage.removeItem(CREATE_MEMORY_KEY);
+    }
+  });
+
+  test("a refresh that changed nothing says so on the control for a moment", async () => {
+    mountLiveOn("quota");
+    const fixed = sample();
+    useSession(async () => [fixed]);
+    await act(async () => { await refreshAgentQuota(); });
+    const refresh = appRoot().querySelector<HTMLButtonElement>(".quota-refresh")!;
+    expect(refresh.textContent).toBe("刷新余量");
+    await act(async () => refresh.click());
+    await settle();
+    expectSameNode(appRoot().querySelector(".quota-refresh"), refresh);
+    expect(refresh.textContent).toBe(t("quota.upToDate"));
+    expect(refresh.disabled).toBeFalse();
   });
 });
 

@@ -4,6 +4,7 @@ import { enKeypadV2 } from "./i18n-keypad-v2";
 import { enChromeV2 } from "./i18n-chrome-v2";
 import { enPaneMenuV2 } from "./i18n-pane-menu-v2";
 import { enSettingsV3 } from "./i18n-settings-v3";
+import { enQuota } from "./i18n-quota";
 import { enRowbarV2 } from "./i18n-rowbar-v2";
 import { enAgentInfo } from "./i18n-en-agent-info";
 import { enBoardMenu } from "./i18n-board-menu";
@@ -28,6 +29,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   ...enChatWork,
   ...enPaneMenuV2,
   ...enSettingsV3,
+  ...enQuota,
   ...enRowbarV2,
   ...enWorkspace,
   ...enShell,
@@ -49,7 +51,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   "fileActions.conflict": "The file changed or the destination already exists. Refresh before trying again.",
   "fileActions.hint": "Long-press or right-click for file actions",
   "quota.authRequired": "Sign in or authorize this service on your computer",
-  "quota.notRunning": "Local service is not running",
   "quota.unlimited": "Unlimited",
   "quota.resetUnknown": "Reset time not reported",
   "quota.codexHelp": "Sign in to Codex on your computer.",
@@ -68,19 +69,12 @@ export const en: { [K in keyof typeof zh]: string } = {
   "quota.hours": "{count}-hour window",
   "quota.title": "Subscription quota",
   "quota.note": "Accounts configured on this computer. Sessions on the same account share quota.",
-  "quota.ok": "Quota available",
-  "quota.stale": "Snapshot expired. Refresh to check the current limits.",
-  "quota.notInstalled": "Required service command not found",
-  "quota.notLoggedIn": "Sign in to this service on your computer",
-  "quota.unsupported": "Subscription quota is unavailable for this login method",
-  "quota.unavailable": "Quota data is currently unavailable",
   "quota.setupRequired": "Run this command on your computer, then start a new Claude Code session.",
   "quota.upgrade": "Update Pairfob on this computer to view subscription quota.",
   "quota.failed": "Could not read quota. Try refreshing shortly.",
   "quota.loading": "Loading…",
   "quota.refresh": "Refresh quota",
   "quota.offline": "Connect to your computer to view quota.",
-  "quota.planUnknown": "Plan not reported",
   "quota.window": "{minutes}-minute window",
   "quota.remaining": "{percent}% remaining",
   "quota.resets": "Resets: {when}",

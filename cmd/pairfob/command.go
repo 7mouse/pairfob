@@ -18,6 +18,7 @@ const commandUsage = `Pairfob — this computer, on another device.
   pairfob update            Install the latest version
   pairfob doctor            Check this computer
   pairfob setup             Check, install if requested, and start Herdr
+  pairfob quota list        Subscription quota this computer can read
   pairfob quota-setup-claude Enable Claude subscription quota collection
   pairfob service status|start|restart|stop|install
                             Manage the login service
@@ -40,6 +41,8 @@ func runCommand(args []string, sock string) error {
 		return quotaStatusline(args[1:], os.Stdin, os.Stdout)
 	case "quota-setup-claude":
 		return setupClaudeQuota(args[1:])
+	case "quota":
+		return quotaCLI(args[1:], os.Stdout)
 	case "version", "-v", "--version":
 		return versionCommand()
 	case "enroll":

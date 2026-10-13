@@ -109,16 +109,22 @@ func antigravityQuotaPorts(ctx context.Context, pid int) []int {
 	}
 	return ports
 }
-func readAntigravityQuota(ctx context.Context) AgentQuota {
-	q := emptyQuota("antigravity", "local_api", "not_running")
+func locateAntigravityQuota(ctx context.Context) (quotaRead, AgentQuota) {
 	processes := antigravityQuotaProcesses(ctx)
+	if len(processes) == 0 {
+		return nil, emptyQuota("antigravity", "local_api", "not_running")
+	}
+	return func(ctx context.Context) AgentQuota { return readAntigravityProcesses(ctx, processes) }, AgentQuota{}
+}
+
+func readAntigravityProcesses(ctx context.Context, processes []antigravityQuotaProcess) AgentQuota {
+	q := emptyQuota("antigravity", "local_api", "unavailable")
 	// TLS verification is disabled only in this isolated, proxy-free loopback
 	// client, and its URL is assembled from a validated port owned by this user.
 	transport := &http.Transport{TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, ResponseHeaderTimeout: time.Second}
 	defer transport.CloseIdleConnections()
 	client := &http.Client{Transport: transport, Timeout: 1500 * time.Millisecond, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
 	for _, p := range processes {
-		q.Status = "unavailable"
 		for _, port := range antigravityQuotaPorts(ctx, p.pid) {
 			if ctx.Err() != nil {
 				return q

@@ -42,8 +42,8 @@ func TestCursorQuotaSecurityReadIsBoundedAndFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct{ result, status string }{
-		{"ok", ""}, {"max", ""}, {"missing", "not_logged_in"}, {"denied", "auth_required"},
-		{"oversized", "auth_required"}, {"empty", "auth_required"}, {"blocked", "auth_required"},
+		{"ok", ""}, {"max", ""}, {"missing", "not_logged_in"}, {"denied", "keychain_denied"},
+		{"oversized", "keychain_denied"}, {"empty", "keychain_denied"}, {"blocked", "keychain_denied"},
 	} {
 		t.Run(tc.result, func(t *testing.T) {
 			t.Setenv("PAIRFOB_CURSOR_SECURITY_RESULT", tc.result)

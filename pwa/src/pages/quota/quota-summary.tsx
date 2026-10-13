@@ -4,6 +4,7 @@ import { quotaModuleModel } from "../../features/agent-quota/model";
 import { QuotaModuleView } from "../../features/agent-quota/quota-module-view";
 import { quotaSnapshot, subscribeQuota } from "../../features/agent-quota/store";
 import { useEstablishedSession } from "./quota-page";
+import { quotaOrder } from "./quota-order";
 
 /**
  * The quota module the settings page composes.
@@ -15,5 +16,5 @@ import { useEstablishedSession } from "./quota-page";
 export function AgentQuotaModule() {
   const session = useEstablishedSession();
   const snapshot = useSyncExternalStore(subscribeQuota, () => quotaSnapshot(session));
-  return <QuotaModuleView model={quotaModuleModel(snapshot, session?.isConnected() === true)} onOpen={openQuota} />;
+  return <QuotaModuleView model={quotaModuleModel(snapshot, session?.isConnected() === true, quotaOrder())} onOpen={openQuota} />;
 }

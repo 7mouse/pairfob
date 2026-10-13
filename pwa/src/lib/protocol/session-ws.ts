@@ -3,7 +3,7 @@ import { parseWorkspaceReference } from "./workspace-reference";
 import { RecoveryDiagnostics } from "./recovery-diagnostics";
 import { parseAgentInspection } from "../agent-inspect";
 import { pageHidden, watchPageVisibility } from "./page-activity.ts";
-import { parseAgentQuota } from "../agent-quota";
+import { readQuotaReport } from "../agent-quota-report";
 import { validDaemonId, validDeviceId } from "../identifiers.ts";
 import { fingerprint16 } from "./hello.ts";
 import { parseMachineLink, parseMachineList } from "./machine-link.ts";
@@ -299,7 +299,9 @@ class ReconnectingSession implements LiveSession {
   };
   ping = (t: number) => this.readRPC("Ping", { t_ms: t });
   agentInspect = async (paneId: string) => parseAgentInspection(await this.readRPC("AgentInspect", { pane_id: paneId }));
-  agentQuota = async () => parseAgentQuota(await this.readRPC("AgentQuota", {}, 12_000));
+  /** Whether this computer answered `unknown_op` to AgentQuotaV2 (see `readQuotaReport`). */
+  private readonly quotaWire = { legacy: false };
+  agentQuota = () => readQuotaReport(op => this.readRPC(op, {}, 12_000), this.quotaWire);
   daemonUpdateStatus = () => this.readRPC("DaemonUpdateStatus", {});
   daemonUpdate = (target: string) => this.trackedMutation("DaemonUpdate", { target });
   listMachines = async () => parseMachineList(await this.readRPC("ListMachines", {}, 12_000));
@@ -675,6 +677,8 @@ class ReconnectingSession implements LiveSession {
     transport.recoveryDiagnostic = this.recovery.context();
     this.transport = transport;
     this.attempt = 0;
+    // A computer that was updated comes back on a new connection.
+    this.quotaWire.legacy = false;
     transport.onDisconnect((error) => this.onDisconnect(transport, error));
     if (this.transport !== transport) return;
     this.emit({ type: "connected" });

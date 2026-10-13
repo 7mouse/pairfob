@@ -85,7 +85,7 @@ printf '%s\n' '{"id":3,"result":{"rateLimits":{"primary":{"usedPercent":12,"wind
 	if err := os.WriteFile(filepath.Join(dir, "codex"), []byte(script), 0700); err != nil {
 		t.Fatal(err)
 	}
-	if q := readCodexQuota(context.Background()); q.Status != "ok" || q.Plan != "pro" || q.Windows[0].UsedPercent != 12 {
+	if q := locatedQuota(context.Background(), locateCodexQuota); q.Status != "ok" || q.Plan != "pro" || q.Windows[0].UsedPercent != 12 {
 		t.Fatalf("%+v", q)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "codex"), []byte("#!/bin/sh\nread init\nread forever\n"), 0700); err != nil {
@@ -94,7 +94,7 @@ printf '%s\n' '{"id":3,"result":{"rateLimits":{"primary":{"usedPercent":12,"wind
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
 	start := time.Now()
-	if q := readCodexQuota(ctx); q.Status != "unavailable" {
+	if q := locatedQuota(ctx, locateCodexQuota); q.Status != "timeout" {
 		t.Fatalf("%+v", q)
 	}
 	if time.Since(start) > 2*time.Second {
@@ -106,9 +106,22 @@ func TestAgentQuotaLive(t *testing.T) {
 	if os.Getenv("PAIRFOB_TEST_LIVE_QUOTA") != "1" {
 		t.Skip("explicit local account read only")
 	}
-	q := ReadAgentQuotas(context.Background())
-	raw, _ := json.Marshal(q)
-	t.Log(string(raw))
+	ctx, cancel := context.WithTimeout(context.Background(), 9*time.Second)
+	defer cancel()
+	for _, reading := range ReadQuotaAccounts(ctx) {
+		account, _ := json.Marshal(reading.Account)
+		legacy, _ := json.Marshal(reading.Legacy)
+		t.Logf("%s\n  first wire: %s", account, legacy)
+	}
+}
+
+// locatedQuota runs a provider's two steps the way one read does.
+func locatedQuota(ctx context.Context, locate func(context.Context) (quotaRead, AgentQuota)) AgentQuota {
+	read, q := locate(ctx)
+	if read == nil {
+		return q
+	}
+	return read(ctx)
 }
 
 func TestClaudeQuotaRejectsNonRegularCache(t *testing.T) {

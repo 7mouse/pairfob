@@ -90,21 +90,21 @@ func TestCursorQuotaDoesNotBorrowAnotherAccount(t *testing.T) {
 	raw, _ := json.Marshal(map[string]string{"accessToken": token})
 	cursorTestAuthFile(t, string(raw))
 	t.Setenv("AGENT_CLI_CREDENTIAL_STORE", "memory")
-	if q := readCursorQuota(context.Background()); q.Status != "auth_required" || len(q.Windows) != 0 {
+	if q := locatedQuota(context.Background(), locateCursorQuota); q.Status != "unsupported" || len(q.Windows) != 0 {
 		t.Fatalf("memory store borrowed disk login: %+v", q)
 	}
 	t.Setenv("AGENT_CLI_CREDENTIAL_STORE", "file")
 	t.Setenv("PAIRFOB_CURSOR_QUOTA_NO_STORED_LOGIN", "1")
-	if q := readCursorQuota(context.Background()); q.Status != "unsupported" {
+	if q := locatedQuota(context.Background(), locateCursorQuota); q.Status != "unsupported" {
 		t.Fatal("installed service borrowed a saved account after dropping explicit credentials")
 	}
 	t.Setenv("PAIRFOB_CURSOR_QUOTA_NO_STORED_LOGIN", "")
 	t.Setenv("CURSOR_API_KEY", "another-account-key")
-	if q := readCursorQuota(context.Background()); q.Status != "unsupported" {
+	if q := locatedQuota(context.Background(), locateCursorQuota); q.Status != "unsupported" {
 		t.Fatal("API-key account borrowed disk login")
 	}
 	t.Setenv("CURSOR_AUTH_TOKEN", "expired-or-invalid-override")
-	if q := readCursorQuota(context.Background()); q.Status != "auth_required" {
+	if q := locatedQuota(context.Background(), locateCursorQuota); q.Status != "auth_required" {
 		t.Fatal("invalid explicit login fell back to a saved account")
 	}
 	t.Setenv("CURSOR_AUTH_TOKEN", token)
@@ -113,7 +113,7 @@ func TestCursorQuotaDoesNotBorrowAnotherAccount(t *testing.T) {
 		t.Fatal("explicit auth token did not take precedence")
 	}
 	t.Setenv("CURSOR_API_ENDPOINT", "https://custom.example")
-	if q := readCursorQuota(context.Background()); q.Status != "unsupported" {
+	if q := locatedQuota(context.Background(), locateCursorQuota); q.Status != "unsupported" {
 		t.Fatal("custom endpoint login could be sent to Cursor")
 	}
 }
@@ -128,7 +128,7 @@ func TestCursorQuotaInvalidCLIFileNeverBecomesAnAllowance(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			cursorTestAuthFile(t, tc.raw)
-			q := readCursorQuota(context.Background())
+			q := locatedQuota(context.Background(), locateCursorQuota)
 			want := "auth_required"
 			if tc.name == "missing" {
 				want = "not_logged_in"
@@ -139,7 +139,7 @@ func TestCursorQuotaInvalidCLIFileNeverBecomesAnAllowance(t *testing.T) {
 		})
 	}
 	cursorTestAuthFile(t, `{"apiKey":"only-api-key"}`)
-	if q := readCursorQuota(context.Background()); q.Status != "unsupported" {
+	if q := locatedQuota(context.Background(), locateCursorQuota); q.Status != "unsupported" {
 		t.Fatal("API key was treated as an access token")
 	}
 }
@@ -199,7 +199,7 @@ func TestCursorQuotaUsesOnlyFixedReadOnlyEndpoint(t *testing.T) {
 			return &http.Response{StatusCode: code, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(body))}, nil
 		})}
 		q := fetchCursorQuota(context.Background(), client, cookie, now)
-		want := map[int]string{200: "ok", 401: "auth_required", 403: "auth_required", 429: "unavailable"}[code]
+		want := map[int]string{200: "ok", 401: "auth_required", 403: "auth_required", 429: "throttled"}[code]
 		if calls != 1 || q.Status != want {
 			t.Fatalf("HTTP %d: calls=%d, quota=%+v", code, calls, q)
 		}

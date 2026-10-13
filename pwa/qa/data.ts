@@ -1,5 +1,4 @@
 import type { SnapshotWire } from "../src/lib/dashboard";
-import type { AgentQuota } from "../src/lib/agent-quota";
 import type { AgentTraceItem } from "../src/lib/operations";
 import type { PairResult } from "../src/lib/protocol/client";
 import type { DeviceSummary } from "../src/lib/protocol/session-types";
@@ -118,22 +117,6 @@ export function devices(): DeviceSummary[] {
     { device_id: "dev_aaaaaaaaaaaa", label: "iPhone 16", self: true, connected: true, created_at: sec - 604800, last_seen: sec - 30 },
     { device_id: "dev_bbbbbbbbbbbb", label: "iPad mini", connected: false, created_at: sec - 864000, last_seen: sec - 7200 },
     { device_id: "dev_cccccccccccc", label: "Old phone", connected: false, created_at: sec - 864000, last_seen: sec - 86400, revoked_at: sec - 3600 },
-  ];
-}
-
-export function quotas(): AgentQuota[] {
-  const sec = Math.floor(FIXED_NOW / 1000);
-  return [
-    { provider: "codex", plan: "Pro", status: "ok", source: "app_server", observed_at: sec - 30,
-      windows: [{ name: "five_hour", used_percent: 28, window_minutes: 300, resets_at: sec + 7200 }, { name: "seven_day", used_percent: 54, window_minutes: 10080, resets_at: sec + 345600 }] },
-    { provider: "claude", plan: "Max", status: "ok", source: "statusline", observed_at: sec - 60,
-      windows: [{ name: "five_hour", used_percent: 61, window_minutes: 300, resets_at: sec + 10800 }] },
-    { provider: "copilot", plan: "Pro", status: "ok", source: "github_api", observed_at: sec - 20,
-      windows: [{ name: "premium interactions", used_percent: 0, window_minutes: 43200, resets_at: 0, unlimited: true }] },
-    { provider: "cursor", plan: "Pro", status: "stale", source: "web_api", observed_at: sec - 3600,
-      windows: [{ name: "Included plan", used_percent: 45, window_minutes: 43200, resets_at: sec + 864000 }] },
-    { provider: "antigravity", plan: "", status: "not_running", source: "local_api", observed_at: 0, windows: [] },
-    { provider: "grok", plan: "", status: "auth_required", source: "oauth", observed_at: 0, windows: [] },
   ];
 }
 
@@ -342,3 +325,5 @@ export function diff(path = "src/app.ts", layer: "staged" | "worktree" = "worktr
   return { path, layer, patch: 'diff --git a/src/app.ts b/src/app.ts\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,4 +1,6 @@\n import { createRoot } from "react-dom/client";\n \n-export const ready = false;\n+export function App() {\n+  return <main className="workspace">Ready</main>;\n+}\n \n@@ -24,3 +26,3 @@ function mount(root: HTMLElement) {\n   const app = createRoot(root);\n-  app.render(<App />);\n+  app.render(<App ready />);\n }\n', additions: 4, deletions: 2,
     binary: false, truncated: false, revision: REVISION };
 }
+
+export { kindQuotas, legacyQuotas, manyQuotas, partialQuotas, quotas } from "./quota-data";

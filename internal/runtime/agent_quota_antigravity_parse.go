@@ -30,6 +30,8 @@ type antigravityModelQuota struct {
 	} `json:"quotaInfo"`
 }
 
+// Each model bucket meters its own usage and none is the plan's total, so
+// every one is marked as standing for the account: the tightest is what matters.
 func parseAntigravityQuota(raw []byte, now time.Time) AgentQuota {
 	q := emptyQuota("antigravity", "local_api", "unavailable")
 	var payload struct {
@@ -100,7 +102,7 @@ func parseAntigravityQuota(raw []byte, now time.Time) AgentQuota {
 			if group.Name != "" {
 				name = group.Name + " / " + name
 			}
-			q.Windows = append(q.Windows, QuotaWindow{Name: name, UsedPercent: 100 * (1 - *fraction), ResetsAt: quotaReset(bucket.Reset)})
+			q.Windows = append(q.Windows, QuotaWindow{Name: name, UsedPercent: 100 * (1 - *fraction), ResetsAt: quotaReset(bucket.Reset), pool: quotaPool(name), headline: true})
 		}
 	}
 	if len(q.Windows) > 0 {
@@ -128,7 +130,7 @@ func parseAntigravityQuota(raw []byte, now time.Time) AgentQuota {
 		if model.Quota == nil || model.Quota.Fraction == nil {
 			continue
 		}
-		q.Windows = append(q.Windows, QuotaWindow{Name: model.Label, UsedPercent: 100 * (1 - *model.Quota.Fraction), ResetsAt: quotaReset(model.Quota.Reset)})
+		q.Windows = append(q.Windows, QuotaWindow{Name: model.Label, UsedPercent: 100 * (1 - *model.Quota.Fraction), ResetsAt: quotaReset(model.Quota.Reset), pool: quotaPool(model.Label), headline: true})
 	}
 	return finishQuota(q, now)
 }

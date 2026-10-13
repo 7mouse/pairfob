@@ -2,7 +2,7 @@ import type { WorkspaceReference } from "./workspace-reference";
 import type { WorkspaceSearchPage } from "../workspace";
 import type { RecoveryClock } from "./recovery-diagnostics";
 import type { AgentInspection } from "../agent-inspect";
-import type { AgentQuota } from "../agent-quota";
+import type { QuotaReport } from "../agent-quota-report";
 import type { MachineLinkStatus, MachineSummary } from "./machine-link.ts";
 import type {
   AgentTracePage,
@@ -79,7 +79,7 @@ export type LiveSession = {
   connectionRecovery?: () => RecoveryClock | undefined;
   ping: (t: number) => Promise<unknown>;
   agentInspect?: (paneId: string) => Promise<AgentInspection>;
-  agentQuota: () => Promise<AgentQuota[]>;
+  agentQuota: () => Promise<QuotaReport>;
   daemonUpdateStatus?: () => Promise<unknown>;
   daemonUpdate?: (target: string) => Promise<unknown>;
   listMachines?: () => Promise<MachineSummary[]>;

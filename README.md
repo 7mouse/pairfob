@@ -96,6 +96,7 @@ pairfob forget 1            # unpair by index or name
 pairfob doctor              # diagnose this computer (never changes anything)
 pairfob setup               # check, optionally install, and start Herdr
 pairfob update              # latest release, then restart the service
+pairfob quota list          # subscription quota this computer can read, and why not
 pairfob quota-setup-claude  # enable Claude subscription quota collection
 pairfob service status      # login service: start / stop / restart / install / uninstall
 ```

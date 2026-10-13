@@ -12,6 +12,8 @@ import type { FixtureTerminalFrame } from "./types";
 import * as data from "./data";
 import type { SnapshotWire } from "../src/lib/dashboard";
 import type { GitStatus } from "../src/lib/workspace";
+import type { QuotaAccount } from "../src/lib/agent-quota-v2";
+import type { QuotaReport } from "../src/lib/agent-quota-report";
 
 export type FixtureSession = {
   live: LiveSession;
@@ -20,6 +22,8 @@ export type FixtureSession = {
   /** Frames this session has delivered, its own screen and injected ones alike. */
   terminalFrames(): number;
   setConnected(connected: boolean): void;
+  /** What this computer answers a quota read with, so a refresh on a scene keeps the scene's accounts. */
+  setQuotas(accounts: QuotaAccount[], legacy?: boolean): void;
   setTrace(items: AgentTraceItem[]): void;
   appendChatTurn(): void;
   appendChatStep(): void;
@@ -97,6 +101,7 @@ export function createSession(source: SessionSource = {}): FixtureSession {
       if (terminal?.id === id) sendFrame(screen(terminal.cols, terminal.rows));
     }, 0);
   };
+  let quotas: QuotaReport = { accounts: data.quotas(), legacy: false, unknown: 0 };
   const request = async <T>(method: string, args: unknown[], run: () => T | Promise<T>, mutation = false): Promise<T> => {
     record(mutation ? "mutation" : "read", method, args);
     if (held.has(method)) await new Promise<void>((resolve, reject) => {
@@ -154,7 +159,7 @@ export function createSession(source: SessionSource = {}): FixtureSession {
       return { detailRef, input: item?.input, output: item?.output, truncated: false };
     }),
     agentInspect: (paneId: string) => request("agentInspect", [paneId], () => ({ status: "idle" as const, manifest_source: "builtin", manifest_version: "1.2.0", matched_rule: "ready-prompt", screen_detection_skipped: false, rules: [{ id: "ready-prompt", state: "idle" as const, matched: true }] })),
-    agentQuota: () => request("agentQuota", [], data.quotas),
+    agentQuota: () => request("agentQuota", [], () => structuredClone(quotas)),
     workspaceResolve: (paneId: string, root: string, input: string) => request("workspaceResolve", [paneId, root, input], () => {
       const absolute = input.replace(/^~\//, '/work/');
       if (root !== data.ROOT || (absolute !== root && !absolute.startsWith(root + '/'))) throw new ProtocolError('forbidden');
@@ -239,6 +244,7 @@ export function createSession(source: SessionSource = {}): FixtureSession {
     terminalFrame: sendFrame,
     terminalFrames: () => terminalFrames,
     setConnected(value) { connected = value; },
+    setQuotas(accounts, legacy = false) { quotas = { accounts: structuredClone(accounts), legacy, unknown: 0 }; },
     setTrace(items) { trace = structuredClone(items); appendedTurns = 0; appendedSteps = 0; },
     appendChatTurn() {
       if (trace.length >= 200) throw new Error("QA chat trace reached its 200-item bound");

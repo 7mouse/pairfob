@@ -1,9 +1,18 @@
-# AgentQuota
+# AgentQuota and AgentQuotaV2
 
-`AgentQuota` is an additive, read-only inner RPC on an Established Pairfob
-session. It uses the existing encrypted transport. The origin never reads the
-result. Existing RPC fields, the eleven operation capabilities, and envelope
-cryptography are unchanged.
+`AgentQuota` and `AgentQuotaV2` are additive, read-only inner RPCs on an
+Established Pairfob session. They use the existing encrypted transport. The
+origin never reads either result. Existing RPC fields, the eleven operation
+capabilities, and envelope cryptography are unchanged.
+
+`AgentQuota` is the first operation: at most six items, one per provider of a
+closed list, each a set of percentage windows. A phone that decodes it refuses
+a seventh item or a provider it does not know, so nothing can be added to it.
+`AgentQuotaV2` reports the same reads as accounts and is where new providers,
+several accounts of one provider and allowances that are not percentages go.
+Both are answered from one read of each account; neither is deprecated.
+
+## AgentQuota
 
 Request: `{"v":1,"id":"q1","op":"AgentQuota","params":{}}`.
 All parameters are rejected; the phone cannot select an executable, path,
@@ -24,6 +33,102 @@ Statuses: `ok`, `stale`, `not_installed`, `not_logged_in`, `unsupported`,
 expired reset timestamp does not imply renewed quota: a new sample is needed.
 The UI hides percentages for expired samples and samples older than 15 minutes.
 
+## AgentQuotaV2
+
+Request: `{"v":1,"id":"q2","op":"AgentQuotaV2","params":{}}`. As with the first
+operation every parameter is rejected: the phone selects no executable, path,
+account, credential, region or provider URL.
+
+Result: `{"items":[...]}`, at most 64 accounts, defined by `agentQuotaV2Result`
+in `rpc.schema.json`. An account has:
+
+- `id`: an opaque token, unique in the result. It is the key of the account and
+  nothing to show. Today each provider has one account and its `id` is the
+  provider's name; a phone must not rely on that.
+- `provider`: a token. A phone drops an item whose provider it cannot name and
+  shows the rest; any other item that does not fit the schema refuses the
+  whole result.
+- `plan`: empty when unknown. Optional `scope` (`personal` or `org`), `region`,
+  `label` and `source` tell one account of a provider from another; an
+  ordinary single personal account carries none of the first three.
+- `state` and, where the state needs one, `reason` (below).
+- `observed_at`: Unix seconds of the sample in `meters`, zero with no meters.
+- `retry_at`: only with `throttled`, when the provider said when to ask again.
+- `meters`: at most 32.
+
+| `state` | `reason` | Meaning | `meters` |
+| --- | --- | --- | --- |
+| `ok` | none | Read now. | One or more, none `unread`. |
+| `partial` | none | Read now, but the provider answered for only some allowances. | Some read, some `unread`. |
+| `failed` | `timeout`, `unavailable` | This read did not go through. | The last sample that worked if it is under 15 minutes old, with its own `observed_at`; otherwise none. |
+| `throttled` | none | The provider refused for rate. The account is not asked again before `retry_at`. | As for `failed`. |
+| `needs_action` | `relogin`, `allow_keychain`, `choose_account`, `setup` | A login is on this computer but cannot be read. | None: numbers of a login that stopped reading may be another account's. |
+| `not_configured` | `no_login`, `not_installed`, `not_running`, `unsupported_login` | Nothing to read: no trace of a login, a missing command, an app that is not open, or a login (an API key) that has no subscription allowance. | None. |
+
+`needs_action` is something for the user to fix; `not_configured` is not, and
+a UI does not raise it as a task. The split depends on the provider read
+looking for the login locally before any request: with no trace of one, no
+request is made and the account is `not_configured`.
+
+A meter has a `kind`, a `name` (an identifier this document lists, or the
+provider's own display name), a `pool` token, and `headline: true` when it
+stands for the account:
+
+| `kind` | Fields | Notes |
+| --- | --- | --- |
+| `quota` | `used_percent` (0 to 100), optional `window_minutes`, `resets_at`, and optionally `used`, `limit`, `unit` together (with `scale`) | The share is always present and normalized by the daemon. The counts are for display and come whole or not at all. |
+| `balance` | `amount`, `unit`, optional `scale`, `resets_at` | An amount with no ceiling. It has no share and is never drawn as one. |
+| `level` | `level`: `full`, `high`, `medium`, `low`, `empty` | The provider reports a step, not a number. It is not converted to a percentage. |
+| `unlimited` | optional `resets_at` | Only when the provider says so explicitly. |
+| `unread` | none | An allowance the provider has but this read did not get. Never zero, never full. |
+
+Amounts are integers with `scale` decimal places (`1240` at scale `2` is
+12.40); no floating-point money crosses the wire. `unit` is one of `usd`,
+`cny`, `credits`, `requests`, `hours`. A field that is zero or false is left
+out. A provider that reports no ceiling gets a `balance`, or no meter, never a
+`quota` with an invented limit.
+
+Meters of one `pool` limit the same usage. Meters of different pools are never
+compared, added or multiplied by the number of sessions. A summary of an
+account is the tightest `quota` or `level` among its `headline` meters, else a
+headline `unlimited`, else a headline `balance`; an account with no headline
+meter is summed up only by a meter that is its only one. The daemon decides
+which meters are headline, because it knows each provider's shapes:
+
+| Provider | Headline | Not headline |
+| --- | --- | --- |
+| Codex | The bucket named `codex` (both of its windows); every bucket when none has that name | Other buckets, each its own pool |
+| Claude Code | `five hour`, `seven day` | Per-model and per-feature windows, each its own pool; the statusline's `spend limit` |
+| GitHub Copilot | `premium interactions` | `chat`, `completions` |
+| Cursor | `Included plan` | |
+| Grok Build | `Shared subscription quota` | |
+| Antigravity | Every model bucket, each its own pool: none is the plan's total | |
+
+Freshness is judged where it is shown. All meters of one read share the
+account's `observed_at`; each is also past use once its own `resets_at` has
+passed, without affecting the others. The UI shows a sample for 15 minutes.
+
+### Versions
+
+| Phone | Computer | Behavior |
+| --- | --- | --- |
+| Knows `AgentQuotaV2` | Answers it | The accounts above. |
+| Knows `AgentQuotaV2` | Answers `unknown_op` | The phone asks `AgentQuota` instead, for the rest of that connection, and shows its six items as accounts. It marks Claude's two plan windows and Copilot's premium interactions as headline, as a current daemon would, and does not raise that daemon's `auth_required` as a task, since it cannot tell an expired login from none. |
+| Knows only `AgentQuota` | Answers both | Unchanged: the six items in their original shape. |
+
+Only `unknown_op` causes the fallback. A timeout, a refused session or a
+malformed result is an error of the read. A status the first operation never
+defined is reported on it as the nearest of its nine (a refused Keychain read
+and an ambiguous login as `auth_required`; a provider's rate limit and a
+timeout as `unavailable`).
+
+### Local diagnosis
+
+`pairfob quota list` runs the same reads once, with no cache, and prints each
+account's state, plan and headline meters. It prints no credential, path or
+raw provider reply. It reads with the environment of the shell it is run in,
+which can differ from the one the background service was installed from.
+
 ## Sources and refresh
 
 - Codex: the local `codex app-server` using `initialize`, `account/read`, and
@@ -34,15 +139,23 @@ The UI hides percentages for expired samples and samples older than 15 minutes.
   Reads `CLAUDE_CONFIG_DIR/.credentials.json`, or the default macOS
   `Claude Code-credentials` Keychain service via `/usr/bin/security`, matching
   the CLI-compatible reader used for Cursor. macOS may request Keychain access;
-  denied or timed-out reads report `auth_required`.
-  Requires a readable, unexpired credential with `user:profile` scope. No login
+  denied or timed-out reads need the user (`allow_keychain`; `auth_required`
+  on the first operation). No credential file and no Keychain item is
+  `not_logged_in`. An expired credential is `auth_required`; one without the
+  `user:profile` scope cannot read usage and is `unsupported`. A 403 from the
+  endpoint is a network Anthropic does not serve, not a login to renew, and is
+  `unavailable`. No login
   flow, refresh-token rotation, settings modification, or model turn occurs.
   Custom config directories currently require the credential file.
 - GitHub Copilot: fixed `https://api.github.com/copilot_internal/user` query.
   Uses `COPILOT_GITHUB_TOKEN`, otherwise the unique public GitHub credential
   across Copilot hosts/apps files, then `gh auth token --hostname github.com`
   only when no Copilot token exists. Ambiguous accounts require explicit
-  selection. Enterprise tokens are never sent to github.com.
+  selection (`choose_account`; `auth_required` on the first operation): keep
+  one GitHub.com login. No Copilot login and no `gh` login is `not_logged_in`.
+  A `gh` token proves a GitHub login, not a Copilot subscription, so a refusal
+  of one is `not_logged_in` rather than a login to renew. Enterprise tokens
+  are never sent to github.com.
 - Cursor: reads the Cursor CLI login, then GETs
   `https://cursor.com/api/usage-summary`. No editor or sqlite3 is required.
   `CURSOR_AUTH_TOKEN` takes precedence. Otherwise, the CLI's default store is
@@ -58,8 +171,10 @@ The UI hides percentages for expired samples and samples older than 15 minutes.
   as its CLI; authorization can differ from a JXA reader. macOS may request
   Keychain access. The read has a three-second deadline, bounded stdout and
   discarded stderr. It does not change Keychain permissions or unlock it.
-  Missing credentials report `not_logged_in`; expired, denied or timed-out
-  reads report `auth_required`.
+  Missing credentials report `not_logged_in`; an expired or invalid login
+  reports `auth_required`; a denied or timed-out Keychain read needs the user
+  (`allow_keychain`; `auth_required` on the first operation). The `memory`
+  store is `unsupported`.
   API-key-only credentials and
   custom API endpoints are unsupported. No API-key exchange, token refresh,
   model turn, browser-cookie collection, or credential write occurs.
@@ -79,8 +194,10 @@ The UI hides percentages for expired samples and samples older than 15 minutes.
   products, not exclusive to Build. On-demand spending is not a subscription
   allowance and is never used as a fallback percentage.
   A concurrent `/v1/settings` request adds `subscription_tier_display` with a
-  two-second deadline; failure does not discard the quota. Expired, missing,
-  or ambiguous credentials require `grok login`; non-User or missing principal types are unsupported.
+  two-second deadline; failure does not discard the quota. Expired or
+  ambiguous credentials require `grok login`; no `auth.json`, or one with no
+  x.ai login, is `not_logged_in`; an API key and non-User or missing principal
+  types are unsupported.
   No CLI process, model turn, token refresh, or browser-cookie collection occurs.
 
 Gemini CLI is deliberately excluded. Each provider represents the locally
@@ -89,11 +206,22 @@ endpoints other than the Codex app-server are vendor-internal interfaces and
 may change. Missing, rejected or unrecognized quota data is not a full allowance.
 Remote requests reject redirects and have bounded responses and deadlines.
 
-The daemon caches a complete read for 60 seconds. Concurrent refreshes return
-`rate_limited` rather than starting another process. Account-read failures
-produce a provider status and do not expose raw subprocess output. The UI has
-an explicit refresh button and does not poll in the background. Older daemons
-return `unknown_op`, displayed as an upgrade prompt.
+Each provider read has two steps. The first looks for the login on this
+computer and makes no request to the provider; with nothing to ask it ends
+there. Only a located login is read. HTTP reads run together, so a batch takes
+as long as its slowest provider; reads that start a CLI (Codex today) share
+three slots. The batch has a nine-second deadline.
+
+The daemon caches each account's read for 60 seconds, on its own: one
+provider's failure or age never decides another's. Concurrent refreshes, from
+one phone or several and through either operation, share the read in flight
+rather than starting another process or request. A provider that answers 429
+is `throttled` and, when it sent `Retry-After`, is not asked again before then
+(held to between one minute and one hour). Nothing is retried automatically.
+Account-read failures produce a state and do not expose raw subprocess output.
+The UI has an explicit refresh button and does not poll in the background.
+A daemon that answers `unknown_op` to both operations is displayed as an
+upgrade prompt.
 
 ## Cursor CLI login
 

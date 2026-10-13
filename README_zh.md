@@ -85,6 +85,7 @@ pairfob forget 1            # 按序号或名字解除配对
 pairfob doctor              # 检查这台电脑（只诊断，不改任何东西）
 pairfob setup               # 检查 Herdr，按需安装并启动
 pairfob update              # 更新到最新版本并重启服务
+pairfob quota list          # 这台电脑能读到的订阅余量，读不到的写明原因
 pairfob quota-setup-claude  # 开启 Claude 订阅余量采集
 pairfob service status      # 登录服务：start / stop / restart / install / uninstall
 ```

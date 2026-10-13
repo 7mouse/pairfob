@@ -9,34 +9,131 @@ import (
 	"pairfob/internal/runtime"
 )
 
+const (
+	quotaFreshFor  = time.Minute
+	quotaBatchTime = 9 * time.Second
+)
+
+// quotaCache keeps one entry per account, so a slow or failing provider never
+// decides how fresh another's numbers are, and both quota operations answer
+// from the same read.
 type quotaCache struct {
 	mu      sync.Mutex
-	sampled time.Time
-	items   []runtime.AgentQuota
+	entries map[string]*quotaEntry
 }
 
+type quotaEntry struct {
+	reading runtime.QuotaReading
+	sampled time.Time
+	// good is the last read that produced numbers, kept for a read that fails.
+	good *runtime.QuotaAccount
+	// running is closed when the read in flight has stored its result.
+	running chan struct{}
+}
+
+func (entry *quotaEntry) fresh(now time.Time) bool {
+	if entry.sampled.IsZero() {
+		return false
+	}
+	// A provider that asked to be left alone is not asked again before then.
+	return now.Sub(entry.sampled) < quotaFreshFor ||
+		(entry.reading.Account.State == "throttled" && now.Unix() < entry.reading.Account.RetryAt)
+}
+
+// read returns the account's reading: the cached one while it is fresh, the
+// result of a read already in flight, or a new read. Two phones refreshing
+// together share one read rather than starting a second process or request.
+func (c *quotaCache) read(ctx context.Context, source runtime.QuotaSource) runtime.QuotaReading {
+	for {
+		c.mu.Lock()
+		if c.entries == nil {
+			c.entries = map[string]*quotaEntry{}
+		}
+		entry := c.entries[source.ID]
+		if entry == nil {
+			entry = &quotaEntry{}
+			c.entries[source.ID] = entry
+		}
+		if entry.fresh(time.Now()) {
+			reading := entry.reading
+			c.mu.Unlock()
+			return reading
+		}
+		if running := entry.running; running != nil {
+			c.mu.Unlock()
+			<-running
+			continue
+		}
+		running := make(chan struct{})
+		entry.running = running
+		c.mu.Unlock()
+
+		reading := source.Read(ctx)
+		now := time.Now()
+		c.mu.Lock()
+		switch {
+		case runtime.QuotaAccountSampled(reading.Account):
+			account := reading.Account
+			entry.good = &account
+		case reading.Account.State == "failed" || reading.Account.State == "throttled":
+			reading.Account = runtime.CarryQuotaSample(reading.Account, entry.good, now)
+		default:
+			entry.good = nil
+		}
+		entry.reading, entry.sampled, entry.running = reading, now, nil
+		c.mu.Unlock()
+		close(running)
+		return reading
+	}
+}
+
+// quotaReadings reads every account once, bounded as a batch. Account queries
+// run off the session queue so terminal traffic never waits on a provider.
+func (e *Engine) quotaReadings() []runtime.QuotaReading {
+	sources := runtime.QuotaSources
+	if e.QuotaSources != nil {
+		sources = e.QuotaSources
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), quotaBatchTime)
+	defer cancel()
+	list := sources()
+	out := make([]runtime.QuotaReading, len(list))
+	var wg sync.WaitGroup
+	for i, source := range list {
+		wg.Add(1)
+		go func() { defer wg.Done(); out[i] = e.quotas.read(ctx, source) }()
+	}
+	wg.Wait()
+	return out
+}
+
+// rpcAgentQuota answers the first quota operation: the six providers it
+// defined, in its item shape, from the read AgentQuotaV2 shares.
 func (e *Engine) rpcAgentQuota(s *sess, id string, params json.RawMessage) {
 	var p struct{}
 	if badParams(params, &p) {
 		e.replyErr(s, id, "invalid_argument", "AgentQuota takes no parameters")
 		return
 	}
-	// One bounded account query across all phones; do not let refresh requests
-	// accumulate processes or block terminal traffic on the session queue.
-	if !e.quotas.mu.TryLock() {
-		e.replyErr(s, id, "rate_limited", "quota refresh already running")
+	items := []runtime.AgentQuota{}
+	for _, reading := range e.quotaReadings() {
+		if reading.Legacy != nil {
+			items = append(items, *reading.Legacy)
+		}
+	}
+	e.reply(s, id, map[string]any{"items": items})
+}
+
+func (e *Engine) rpcAgentQuotaV2(s *sess, id string, params json.RawMessage) {
+	var p struct{}
+	if badParams(params, &p) {
+		e.replyErr(s, id, "invalid_argument", "AgentQuotaV2 takes no parameters")
 		return
 	}
-	defer e.quotas.mu.Unlock()
-	if e.quotas.items == nil || time.Since(e.quotas.sampled) >= time.Minute {
-		ctx, cancel := context.WithTimeout(context.Background(), 9*time.Second)
-		read := e.QuotaReader
-		if read == nil {
-			read = runtime.ReadAgentQuotas
-		}
-		e.quotas.items = read(ctx)
-		cancel()
-		e.quotas.sampled = time.Now()
+	readings := e.quotaReadings()
+	items := make([]runtime.QuotaAccount, len(readings))
+	for i, reading := range readings {
+		items[i] = reading.Account
 	}
-	e.reply(s, id, map[string]any{"items": e.quotas.items})
+	e.reply(s, id, map[string]any{"items": items})
 }

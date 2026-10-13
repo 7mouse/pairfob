@@ -1,5 +1,5 @@
 import { immutableCopy, type Immutable } from "../../shared/model/domain-store";
-import type { QuotaRead } from "../../lib/agent-quota";
+import type { QuotaAccountRead } from "../../lib/agent-quota-v2";
 import type { LiveSession } from "../../lib/protocol/session-types";
 
 /**
@@ -28,8 +28,17 @@ import type { LiveSession } from "../../lib/protocol/session-types";
  * carries the previous published snapshot into a loading state, and neither
  * should have to hand over a writable array.
  * Errors produced by the controller are copy keys, translated by the view.
+ * `legacy` and `unknown` describe the answer `items` came from: a computer that
+ * only knows the first quota operation, and how many accounts this build left
+ * out because it cannot name their provider.
  */
-export type QuotaSnapshotInput = { loading: boolean; items: readonly QuotaRead[] | null; error: string };
+export type QuotaSnapshotInput = {
+  loading: boolean;
+  items: readonly QuotaAccountRead[] | null;
+  error: string;
+  legacy?: boolean;
+  unknown?: number;
+};
 
 /** Published snapshot: deep read-only, and frozen at runtime to match. */
 export type QuotaSnapshot = Immutable<QuotaSnapshotInput>;

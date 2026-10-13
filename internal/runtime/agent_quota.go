@@ -1,14 +1,12 @@
 package runtime
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"math"
 	"os"
 	"path/filepath"
-	"sync"
 	"time"
 )
 
@@ -29,6 +27,11 @@ type QuotaWindow struct {
 	UsedPercent   float64 `json:"used_percent"`
 	WindowMinutes int64   `json:"window_minutes"`
 	ResetsAt      int64   `json:"resets_at"`
+
+	// How AgentQuotaV2 groups this window (see QuotaMeter). The first
+	// AgentQuota wire has neither; an unmarked window is its plan's own.
+	pool     string
+	headline bool
 }
 
 func emptyQuota(provider, source, status string) AgentQuota {
@@ -37,19 +40,6 @@ func emptyQuota(provider, source, status string) AgentQuota {
 
 func validQuotaWindow(w QuotaWindow) bool {
 	return (!w.Unlimited || w.UsedPercent == 0) && w.Name != "" && len(w.Name) <= 160 && !math.IsNaN(w.UsedPercent) && !math.IsInf(w.UsedPercent, 0) && w.UsedPercent >= 0 && w.UsedPercent <= 100 && w.WindowMinutes >= 0 && w.WindowMinutes <= 525600 && w.ResetsAt >= 0 && w.ResetsAt <= 4102444800
-}
-
-// ReadAgentQuotas only reads the daemon user's locally configured accounts.
-func ReadAgentQuotas(ctx context.Context) []AgentQuota {
-	readers := []func(context.Context) AgentQuota{readCodexQuota, readClaudeAutoQuota, readAntigravityQuota, readCopilotQuota, readCursorQuota, readGrokQuota}
-	result := make([]AgentQuota, len(readers))
-	var wg sync.WaitGroup
-	for i, read := range readers {
-		wg.Add(1)
-		go func() { defer wg.Done(); result[i] = read(ctx) }()
-	}
-	wg.Wait()
-	return result
 }
 
 // ClaudeQuotaPath is shared with the statusline collector. No credentials,
@@ -102,6 +92,9 @@ func readClaudeQuota(now time.Time) AgentQuota {
 		q.Windows = []QuotaWindow{}
 		q.Status = "unavailable"
 		return q
+	}
+	for i := range q.Windows {
+		markClaudeWindow(&q.Windows[i])
 	}
 	if now.Unix()-q.ObservedAt > 900 {
 		q.Status = "stale"

@@ -1,24 +1,36 @@
 import { t } from "../../lib/i18n";
-import { SetGroup } from "../../shared/ui/primitives";
+import { Button } from "../../shared/ui/primitives";
 import { useArrivals } from "./arrivals";
 import type { QuotaPanelModel } from "./model";
-import { QuotaCardView, QuotaMissingItem } from "./quota-card-view";
+import { QuotaCardView } from "./quota-card-view";
+import { QuotaAttentionGroup, QuotaOthersGroup } from "./quota-notice-view";
 
-/** The full quota page body. Pure: the caller decided which session's snapshot this is. */
-export function QuotaPanelView({ panel }: { panel: QuotaPanelModel }) {
-  const withData = panel.cards.filter(card => card.state !== "missing");
-  const missing = panel.cards.filter(card => card.state === "missing");
+/**
+ * The full quota page body, in the order of what the reader has to do about
+ * it: accounts that need them, accounts with numbers, then what this computer
+ * has no login for. Pure: the caller decided which session's snapshot this is,
+ * and where "update" leads.
+ */
+export function QuotaPanelView({ panel, onUpdate }: { panel: QuotaPanelModel; onUpdate?: () => void }) {
   // A card that joins the page after it was drawn has just been read.
-  const arrivals = useArrivals(withData, card => card.provider);
+  const arrivals = useArrivals(panel.cards, card => card.id);
   return (
     <section className="quota-panel" aria-busy={panel.busy}>
       <p className="quota-lede">{t("quota.note")}</p>
       {panel.error ? <p className="quota-lede is-error">{panel.error}</p> : null}
       {panel.offline ? <p className="quota-lede">{panel.offlineCopy}</p> : null}
-      {arrivals.map(({ item: card, arrive }) => <QuotaCardView key={card.provider} card={card} arrive={arrive} />)}
-      {missing.length ? <SetGroup className="quota-missing-group" label={`${t("quota.noDataGroup")} · ${missing.length}`}>
-        {missing.map(card => <QuotaMissingItem key={card.provider} card={card} />)}
-      </SetGroup> : null}
+      {panel.legacy ? <p className="quota-lede quota-legacy">{t("quota.legacyNote")}
+        {onUpdate ? <Button className="set-action" onClick={onUpdate}>{t("quota.legacyUpdate")}</Button> : null}</p> : null}
+      {panel.unknown ? <p className="quota-lede">{t("quota.unknownCount", { n: panel.unknown })}</p> : null}
+      {panel.attention.length ? <QuotaAttentionGroup notices={panel.attention} /> : null}
+      {arrivals.length ? <>
+        <h2 className="set-group-label quota-cards-label"><span>{`${t("quota.group.accounts")} · ${arrivals.length}`}</span>
+          {panel.updated ? <span className="set-group-aside">{panel.updated}</span> : null}</h2>
+        <div className="quota-cards">
+          {arrivals.map(({ item: card, arrive }) => <QuotaCardView key={card.id} card={card} arrive={arrive} />)}
+        </div>
+      </> : null}
+      {panel.pending ? null : <QuotaOthersGroup notices={panel.others} />}
     </section>
   );
 }

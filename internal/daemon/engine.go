@@ -196,9 +196,9 @@ type Engine struct {
 	operations   map[string]*operationRecord
 	operationSeq uint64
 
-	reads       observeGroup
-	quotas      quotaCache
-	QuotaReader func(context.Context) []runtimeapi.AgentQuota
+	reads        observeGroup
+	quotas       quotaCache
+	QuotaSources func() []runtimeapi.QuotaSource
 
 	media            *mediaRegistry
 	mediaTestHold    <-chan struct{}

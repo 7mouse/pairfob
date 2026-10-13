@@ -81,7 +81,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		t.Fatal(err)
 	}
 	wantOps := []string{
-		"Ping", "GetConfig", "DaemonUpdateStatus", "DaemonUpdate", "AgentQuota", "AgentInspect", "Snapshot", "PaneRead", "SendText", "SendKeys",
+		"Ping", "GetConfig", "DaemonUpdateStatus", "DaemonUpdate", "AgentQuota", "AgentQuotaV2", "AgentInspect", "Snapshot", "PaneRead", "SendText", "SendKeys",
 		"PushSubscribe", "RevokeDevice", "ListDevices", "ListSessions", "History", "AgentTrace", "AgentTraceSummary", "AgentTraceModelSummary", "AgentTraceDetail", "RenamePane",
 		"RenameTab", "RenameWorkspace", "ClosePane", "CloseTab", "CloseWorkspace",
 		"CreateConversation", "CreateTab", "SplitPane", "PromptAgent", "ListWorktrees",
@@ -275,6 +275,22 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 	if len(quotaParams.Properties) != 0 || quotaParams.AdditionalProperties == nil || *quotaParams.AdditionalProperties {
 		t.Error("AgentQuota must reject all parameters")
 	}
+	// The second quota operation is as closed as the first: the phone selects nothing.
+	quotaV2Params := paramsByOp["AgentQuotaV2"]
+	if len(quotaV2Params.Properties) != 0 || quotaV2Params.AdditionalProperties == nil || *quotaV2Params.AdditionalProperties {
+		t.Error("AgentQuotaV2 must reject all parameters")
+	}
+	requireExactObject(t, schema.Defs, "agentQuotaV2Result", []string{"items"})
+	requireExactObjectFields(t, schema.Defs, "agentQuotaAccount",
+		[]string{"id", "provider", "plan", "scope", "region", "label", "source", "state", "reason", "observed_at", "retry_at", "meters"},
+		[]string{"id", "provider", "plan", "state", "observed_at", "meters"})
+	requireExactObjectFields(t, schema.Defs, "agentQuotaMeterQuota",
+		[]string{"kind", "name", "pool", "headline", "used_percent", "used", "limit", "scale", "unit", "window_minutes", "resets_at"},
+		[]string{"kind", "name", "pool", "used_percent"})
+	requireExactObjectFields(t, schema.Defs, "agentQuotaMeterBalance", []string{"kind", "name", "pool", "headline", "amount", "scale", "unit", "resets_at"}, []string{"kind", "name", "pool", "amount", "unit"})
+	requireExactObjectFields(t, schema.Defs, "agentQuotaMeterLevel", []string{"kind", "name", "pool", "headline", "level", "window_minutes", "resets_at"}, []string{"kind", "name", "pool", "level"})
+	requireExactObjectFields(t, schema.Defs, "agentQuotaMeterUnlimited", []string{"kind", "name", "pool", "headline", "window_minutes", "resets_at"}, []string{"kind", "name", "pool"})
+	requireExactObject(t, schema.Defs, "agentQuotaMeterUnread", []string{"kind", "name", "pool"})
 	requireExactObject(t, schema.Defs, "agentQuotaResult", []string{"items"})
 	requireExactObject(t, schema.Defs, "agentQuotaItem", []string{"provider", "plan", "status", "source", "observed_at", "windows"})
 	requireExactObjectFields(t, schema.Defs, "agentQuotaWindow", []string{"name", "used_percent", "window_minutes", "resets_at", "unlimited"}, []string{"name", "used_percent", "window_minutes", "resets_at"})

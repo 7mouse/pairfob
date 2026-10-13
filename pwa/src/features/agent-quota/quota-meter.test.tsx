@@ -15,11 +15,11 @@ import { QuotaModuleView } from "./quota-module-view";
  */
 const css = compile(fileURLToPath(new URL("./styles/quota.scss", import.meta.url)), { style: "expanded" }).css.replace(/\/\*[\s\S]*?\*\//g, "");
 const row = (provider: string, remaining: number): QuotaModuleRow => ({
-  provider: provider as QuotaModuleRow["provider"], name: provider, sub: "5h",
+  id: provider, provider: provider as QuotaModuleRow["provider"], name: provider, sub: "5h",
   meter: { kind: "limited", remaining, tone: "ok" as never, aria: `${provider} ${remaining}` },
 });
-const ready = (...rows: QuotaModuleRow[]): QuotaModuleModel => ({ state: "ready", rows, noData: 0, updated: "just now" });
-const loading: QuotaModuleModel = { state: "loading", rows: [], noData: 0, updated: null };
+const ready = (...rows: QuotaModuleRow[]): QuotaModuleModel => ({ state: "ready", rows, total: rows.length, attention: 0, updated: "just now" });
+const loading: QuotaModuleModel = { state: "loading", rows: [], total: 0, attention: 0, updated: null };
 const draw = (model: QuotaModuleModel) => renderReact(<QuotaModuleView model={model} onOpen={() => {}} />);
 const meters = () => [...document.querySelectorAll<HTMLElement>(".quota-row .quota-meter")];
 const bar = (meter: HTMLElement) => meter.querySelector<HTMLElement>(".quota-bar i")!;
@@ -102,4 +102,40 @@ test("the bar travels on its width, grows only when arriving, and keeps neither 
   expect(reduced).toMatch(/\.quota-meter\.is-arriving \.quota-bar i,\s*\.quota-refresh > svg\.is-turning\s*\{[^}]*animation:\s*none/);
   // The fade of an arriving row is kept: it is not travel.
   expect(reduced).not.toMatch(/quota-row|quota-card/);
+});
+
+test("a level, a balance and a meter with nothing current are drawn without a bar or a percentage", () => {
+  const kinds: QuotaModuleRow[] = [
+    { ...row("claude", 0), meter: { kind: "level", pips: 1, word: "偏低", tone: "warn", aria: "level" } },
+    { ...row("cursor", 0), meter: { kind: "balance", text: "$12.40", aria: "balance" } },
+    { ...row("grok", 0), meter: { kind: "pending", text: "待刷新", aria: "pending" } },
+  ];
+  draw(ready(...kinds));
+  const [level, balance, pending] = meters();
+  expect(level.classList.contains("is-level") && level.classList.contains("is-warn")).toBeTrue();
+  expect([...level.querySelectorAll(".quota-pips i")].map(pip => pip.classList.contains("is-on"))).toEqual([true, false, false, false, false]);
+  expect(level.querySelector(".quota-word")!.textContent).toBe("偏低");
+  expect(balance.querySelector(".quota-amount")!.textContent).toBe("$12.40");
+  expect(pending.querySelector(".quota-word")!.textContent).toBe("待刷新");
+  for (const meter of [level, balance, pending]) {
+    expect(meter.getAttribute("role")).toBe("img");
+    expect(meter.hasAttribute("aria-valuenow")).toBeFalse();
+    expect(meter.querySelector(".quota-bar, .quota-pct")).toBeNull();
+  }
+  // A balance that changes is swapped in like a share's number.
+  draw(ready(kinds[0], { ...kinds[1], meter: { kind: "balance", text: "$9.10", aria: "balance" } }, kinds[2]));
+  expect(meters()[1].querySelector(".quota-amount")!.classList.contains("swap-in")).toBeTrue();
+});
+
+test("the way into the full page counts the accounts and, apart, the ones that need the reader", () => {
+  draw({ ...ready(row("codex", 46)), total: 9, attention: 2 });
+  const value = document.querySelector(".quota-all .set-val")!;
+  expect(value.textContent).toBe("共 9 个 · 2 个需要处理");
+  expect(value.querySelector(".quota-attention-count")!.textContent).toBe("2 个需要处理");
+  draw({ ...ready(row("codex", 46)), total: 3, attention: 0 });
+  expect(document.querySelector(".quota-all .set-val")!.textContent).toBe("共 3 个");
+  draw({ ...ready(), total: 0, attention: 1 });
+  expect(document.querySelector(".quota-all .set-val")!.textContent).toBe("1 个需要处理");
+  draw({ ...ready(), total: 0, attention: 0 });
+  expect(document.querySelector(".quota-all .set-val")).toBeNull();
 });

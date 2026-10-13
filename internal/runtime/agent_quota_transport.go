@@ -36,11 +36,22 @@ func quotaJSON(ctx context.Context, c *http.Client, url string, headers map[stri
 	}
 	resp, err := c.Do(req)
 	if err != nil {
+		var timeout interface{ Timeout() bool }
+		if errors.As(err, &timeout) && timeout.Timeout() {
+			return "timeout"
+		}
 		return "unavailable"
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == 401 || resp.StatusCode == 403 {
+		if resp.StatusCode == 403 {
+			noteQuotaForbidden(ctx)
+		}
 		return "auth_required"
+	}
+	if resp.StatusCode == http.StatusTooManyRequests {
+		noteQuotaRetry(ctx, resp.Header.Get("Retry-After"), time.Now())
+		return "throttled"
 	}
 	if resp.StatusCode != 200 {
 		return "unavailable"
