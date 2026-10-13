@@ -43,12 +43,21 @@ Daemon commands use the binary and state directory `dev-up` created:
 
 ```sh
 PAIRFOB_STATE_DIR="$PWD/.dev/state" .dev/pairfob list
+```
+
+Run `pair offer` in a persistent terminal and leave its stdin open until
+pairing completes:
+
+```sh
 PAIRFOB_STATE_DIR="$PWD/.dev/state" .dev/pairfob pair offer
 ```
 
-`pair offer` prints one JSON line containing `pair_url`. Opening that URL
-pairs the browser; the command accepts the device after the page proves the
-code. If a previous copy is still recorded under `.dev/*.pid`, run
+The command prints one JSON line containing `pair_url`, then waits. Opening
+that URL pairs the browser; after the page proves the code, the same process
+accepts the device. Closing stdin is the operator walking away, so the command
+denies the slot as soon as it has printed `pair_url`. An agent shell that
+closes stdin does that: the URL is already cancelled, and opening it cannot
+pair the browser. If a previous copy is still recorded under `.dev/*.pid`, run
 `./scripts/dev-down.sh` before starting another one.
 
 ## Testing on a real phone
