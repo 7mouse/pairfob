@@ -37,9 +37,18 @@ The offer does not wait for ICE gathering to complete: that only happens once
 every interface has heard from STUN or given up on it, which on some phones is
 the whole 8-second budget. The phone sends the offer 300 ms after its first
 server-reflexive candidate, or with host candidates alone once 3 seconds have
-passed, and in any case after 8 seconds with whatever it has. Candidates are
-not trickled afterwards; the daemon learns any other working address from the
+passed, and in any case after 8 seconds with whatever it has. The daemon's
+answer does the same on its side: 300 ms after its first server-reflexive
+candidate, with host candidates alone after 2 seconds, or once gathering
+completes, instead of waiting out a STUN reply that was lost. Candidates are
+not trickled afterwards; each end learns any other working address from the
 connectivity checks themselves.
+
+A candidate that is ready while relay requests are still out (the reads a
+screen issues as it connects) lets them finish for up to 8 seconds before step
+4, while new requests still flow. Step 4's drain then holds new requests back
+for at most 2 seconds; if requests are still out after that, the attempt fails
+and the retry schedule below applies.
 
 If the relay drops while the candidate is still proving itself in step 5, the
 candidate keeps its 3-second Ping and a relay standby (the first flight of

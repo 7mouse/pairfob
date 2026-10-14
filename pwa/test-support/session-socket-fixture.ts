@@ -20,6 +20,8 @@ export type SocketScript = {
   establishLate?: boolean;
   forgeSignature?: boolean;
   failOps?: string[];
+  /** Answer TransportCommit as a computer that moved the session would. */
+  answerCommit?: boolean;
 };
 const secret = new Uint8Array(32).fill(7);
 const pk = ed25519.getPublicKey(secret);
@@ -113,7 +115,9 @@ export class SessionSocket extends EventTarget {
       if (this.script.dropAhead && !this.establishedSent) return;
       const answer = this.script.failOps?.includes(req.op)
         ? { v: 1, id: req.id, ok: false, error: { code: "herdr_offline", message: "fixture" } }
-        : { v: 1, id: req.id, ok: true, result: { t_ms: req.params.t_ms, op: req.op } };
+        : req.op === "TransportCommit" && this.script.answerCommit
+          ? { v: 1, id: req.id, ok: true, result: { attempt_id: req.params.attempt_id, route_id: req.params.route_id, transport: "webrtc" } }
+          : { v: 1, id: req.id, ok: true, result: { t_ms: req.params.t_ms, op: req.op } };
       const payload = this.out.seal(this.route, new TextEncoder().encode(JSON.stringify(answer)));
       this.reply("ping", { ...frame, payload }); return;
     }

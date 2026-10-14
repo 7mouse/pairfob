@@ -361,12 +361,18 @@ export class SessionTransport {
   }
 
   async waitIdle(timeoutMs = 2_000): Promise<void> {
+    if (!await this.idleWithin(timeoutMs)) throw new ProtocolError("timeout", "等待在途请求完成超时");
+  }
+
+  /** True once no request is in flight; false when `timeoutMs` passes or `signal` aborts first. */
+  async idleWithin(timeoutMs: number, signal?: AbortSignal): Promise<boolean> {
     const deadline = performance.now() + timeoutMs;
     while (this.pending.size > 0) {
       if (this.stopped) throw this.stopError ?? new ProtocolError("disconnected", "连接已断开");
-      if (performance.now() >= deadline) throw new ProtocolError("timeout", "等待在途请求完成超时");
+      if (signal?.aborted || performance.now() >= deadline) return false;
       await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 5));
     }
+    return true;
   }
 
   close(reason = "local_close"): void {

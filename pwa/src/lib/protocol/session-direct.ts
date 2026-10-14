@@ -1,5 +1,7 @@
 import { parseNetworkMode, type NetworkMode } from "../network-mode.ts";
+import { recordConnectionDiagnostic } from "./connection-diagnostics.ts";
 import {
+  DIRECT_COMMIT_IDLE_MS,
   DIRECT_HEALTH_PING_MS,
   FOREGROUND_RECOVERY_MS,
   RELAY_WARMUP_DELAY_MS,
@@ -8,6 +10,7 @@ import {
 } from "./direct-retry-policy.ts";
 import {
   DirectError,
+  asDirectError,
   directFailureDiagnostic,
   type DirectFailureDiagnostic,
   type DirectICEGathering,
@@ -349,16 +352,24 @@ export class DirectSessionDriver {
     let candidate: Awaited<ReturnType<typeof prepareDirectSession>> | null = null;
     let switchLease: TransportSwitchLease | null = null;
     const commit = { abandon: new AbortController(), standby: false };
+    const startedAt = performance.now();
     try {
       candidate = await prepareDirectSession(relay, this.host.pair, muxProtocolFromRelayURL(this.host.relayWS), controller.signal,
         () => this.host.spendHello());
       const iceGathering = candidate.iceGathering;
-      if (this.host.stopped || this.host.getTransport() !== relay || !this.host.networkAvailable) {
+      // Reads a screen issues as it connects can outlast the drain below, which
+      // holds new requests back: let them finish while requests still flow.
+      await relay.idleWithin(DIRECT_COMMIT_IDLE_MS, controller.signal).catch(() => false);
+      if (controller.signal.aborted || this.host.stopped || this.host.getTransport() !== relay || !this.host.networkAvailable) {
         throw new DirectError("cancelled", "P2P 直连尝试已取消");
       }
       switchLease = this.host.beginSwitch();
       this.commitAttempt = commit;
-      await relay.waitIdle();
+      try {
+        await relay.waitIdle();
+      } catch (error) {
+        throw asDirectError(error, "commit", "等待在途请求完成超时");
+      }
       const direct = await commitDirectSession(relay, candidate, (event) => this.host.emit(event), commit.abandon.signal);
       candidate = null;
       // The candidate answered first: the relay prepared beside it is not needed.
@@ -378,6 +389,10 @@ export class DirectSessionDriver {
       relay.close("transport_upgrade");
     } catch (error) {
       const diagnostic = directFailureDiagnostic(error);
+      recordConnectionDiagnostic({
+        event: "direct_failed", transport: "p2p", reason: diagnostic,
+        code: error instanceof ProtocolError ? error.code : undefined, elapsed_ms: performance.now() - startedAt,
+      });
       this.host.observe({
         result: diagnostic === "cancelled" ? "cancelled" : "failed",
         extra: diagnostic,

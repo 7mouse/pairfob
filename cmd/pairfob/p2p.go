@@ -81,16 +81,14 @@ func (a *webRTCAcceptor) Accept(
 		link.Close()
 		return "", nil, err
 	}
-	gathered := webrtc.GatheringCompletePromise(peer)
+	gathered, reflexive := gatheringSignals(peer)
 	if err := peer.SetLocalDescription(answer); err != nil {
 		link.Close()
 		return "", nil, err
 	}
-	select {
-	case <-ctx.Done():
+	if err := awaitAnswerCandidates(ctx, gathered, reflexive, func() bool { return hasLocalCandidate(peer) }, p2pAnswerPace); err != nil {
 		link.Close()
-		return "", nil, ctx.Err()
-	case <-gathered:
+		return "", nil, err
 	}
 	local := peer.LocalDescription()
 	if local == nil || local.SDP == "" {
@@ -136,14 +134,12 @@ func (c *webRTCConn) Restart(ctx context.Context, offer string) (string, error) 
 	if err != nil {
 		return "", err
 	}
-	gathered := webrtc.GatheringCompletePromise(peer)
+	gathered, reflexive := gatheringSignals(peer)
 	if err := peer.SetLocalDescription(answer); err != nil {
 		return "", err
 	}
-	select {
-	case <-ctx.Done():
-		return "", ctx.Err()
-	case <-gathered:
+	if err := awaitAnswerCandidates(ctx, gathered, reflexive, func() bool { return hasLocalCandidate(peer) }, p2pAnswerPace); err != nil {
+		return "", err
 	}
 	local := peer.LocalDescription()
 	if local == nil || local.SDP == "" || !strings.Contains(local.SDP, "m=application") {
