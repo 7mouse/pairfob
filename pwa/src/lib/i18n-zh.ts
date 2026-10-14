@@ -497,7 +497,7 @@ export const zh = {
   "connect.manual": "输入配对码",
   "connect.submit": "连接",
   "connect.installTitle": "在电脑上安装 pairfob",
-  "connect.installReq": "macOS 或 Linux，Herdr 0.8 及以上。",
+  "connect.installReq": "支持 macOS 或 Linux。未安装 Herdr 时，安装器会自动安装其最新稳定版。",
   "connect.installRunBefore": "在那台电脑的终端运行 ",
   "connect.installRunAfter": "，然后运行 pairfob pair。",
   "connect.installPlugin": "用 Herdr 插件的话，在 Herdr 里执行 Pair a device 动作也一样。",
