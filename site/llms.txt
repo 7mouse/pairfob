@@ -1,0 +1,20 @@
+# Pairfob
+
+> Pairfob is a free, open-source (Apache-2.0) phone and browser surface for Herdr: it lets you continue the coding-agent sessions (Claude Code, Codex CLI, Gemini CLI, Grok and other Herdr-supported agents) that are already running on your macOS or Linux computer from your phone's browser. Pair once by QR code; no app, no account, no VPN, no inbound ports. Sessions are end-to-end encrypted (direct WebRTC when possible, otherwise through the pairfob.com relay, which cannot read content).
+
+Key facts:
+- Host: macOS or Linux with Herdr 0.8+ (the installer offers to install Herdr if missing). Windows hosts: not supported.
+- Client: any modern mobile browser (iOS Safari, Android Chrome); installable to the Home Screen as a PWA. No App Store app.
+- Same live session, not a copy: approve commands, reply (incl. dictation), review diffs, get "Needs you" push notifications.
+- Install: `curl -fsSL https://pairfob.com/install.sh | sh && pairfob pair`, then open https://pairfob.com/pair on the phone and scan. Or inside Herdr: `herdr plugin install arronKler/pairfob`.
+- Price: free. Source: https://github.com/arronKler/pairfob
+
+## Docs
+- [What it is](https://pairfob.com/doc/): concept and scope
+- [Get started](https://pairfob.com/doc/start): install and first pairing
+- [Pairing](https://pairfob.com/doc/pair): QR / 14-character code, admitting a device
+- [FAQ](https://pairfob.com/doc/faq): security, relay, troubleshooting
+
+## Optional
+- [中文首页](https://pairfob.com/zh/)
+- [GitHub Releases (binaries + SHA-256)](https://github.com/arronKler/pairfob/releases)

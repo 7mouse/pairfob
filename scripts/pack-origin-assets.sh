@@ -29,7 +29,7 @@ fi
 # must remain absent from its build output. index.html is the one intentional
 # overlap: the original PWA shell is copied to /pair after the site replaces /.
 reserved_pwa_paths=(
-  css doc dl home-i18n.js home-motion.js img install.sh lang.js og-en.png og.png
+  css doc dl home-i18n.js home-motion.js img install.sh lang.js llms.txt og-en.png og.png
   preview-runner.asset pair pair.html pair-shell.asset robots.txt site.js sitemap.xml zh zh-shell.asset
 )
 for path in "${reserved_pwa_paths[@]}"; do
@@ -87,6 +87,7 @@ cp "$SITE/og.png" "$DEST/og.png"
 cp "$SITE/og-en.png" "$DEST/og-en.png"
 cp "$SITE/robots.txt" "$DEST/robots.txt"
 cp "$SITE/sitemap.xml" "$DEST/sitemap.xml"
+cp "$SITE/llms.txt" "$DEST/llms.txt"
 (cd "$ROOT/site/doc" && bun run build)
 rm -rf "$DEST/doc"
 cp -R "$ROOT/site/doc/.vitepress/dist" "$DEST/doc"
