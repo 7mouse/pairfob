@@ -62,6 +62,7 @@ func (f *realServiceHerdr) checkUnavailableDownload(binary string) {
 	f.t.Helper()
 	var requests atomic.Int32
 	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		f.t.Logf("rejected network request: %s %s", r.Method, r.Host)
 		requests.Add(1)
 		http.Error(w, "test download channel unavailable", http.StatusServiceUnavailable)
 	}))
@@ -113,13 +114,17 @@ func (f *realServiceHerdr) checkUnavailableDownload(binary string) {
 	}
 	f.check("download-unavailable")
 	// Stop only the fixture's verified runtime, then prove ordinary setup can
-	// launch its installed binary without asking the unreachable release server.
+	// launch its installed binary while all proxied requests remain rejected.
+	// Herdr itself can contact herdr.dev on startup; zero requests is not the
+	// offline-availability contract. No downloaded bytes can pass this proxy.
 	f.stop()
-	before := requests.Load()
 	run(0, "setup", "--non-interactive")
-	if requests.Load() != before {
-		f.t.Fatal("installed runtime cold start unexpectedly requested a download")
+	for i, path := range paths {
+		body, err := os.ReadFile(path)
+		if err != nil || !bytes.Equal(body, saved[i]) {
+			f.t.Fatalf("offline cold start changed %s: %v", path, err)
+		}
 	}
 	f.check("offline-cold-start")
-	f.t.Log("unavailable download: update failed, binary/receipt preserved, local cold start succeeded without network requests")
+	f.t.Log("unavailable download: update failed, binary/receipt preserved, local cold start succeeded with all proxy requests rejected")
 }
