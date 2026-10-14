@@ -101,6 +101,41 @@ Choose checks by change scope and stage; the full rules are in
   relevant environment remain unchanged. Rerun checks affected by later edits;
   a new commit or status request alone does not require another full run.
 
+### Herdr install and upgrade in Docker
+
+`scripts/herdr-docker/` exercises the installer against the real official Herdr
+downloads on Linux: clean install, upgrade from an older release, TTY restart
+confirmation, and the full repository gate with the host checkout read-only.
+
+```sh
+# Install, upgrade and regression tests.
+docker build -t pairfob-herdr-test -f scripts/herdr-docker/Dockerfile .
+docker run --rm -v "$PWD:/src:ro" \
+  -v pairfob-herdr-gomod:/go/pkg/mod \
+  -v pairfob-herdr-gocache:/root/.cache/go-build pairfob-herdr-test
+
+# Full repository gate inside Docker.
+docker build -t pairfob-herdr-full -f scripts/herdr-docker/Dockerfile.full .
+docker run --rm -v "$PWD:/src:ro" \
+  -v pairfob-herdr-gomod:/go/pkg/mod \
+  -v pairfob-herdr-gocache:/cache pairfob-herdr-full
+```
+
+The live chain (PWA protocol client → local Worker → Pairfob in Docker → real
+Herdr) needs a local Worker at an address both the host and the container can
+reach, such as the host's LAN IP. Never point it at the production origin. From
+`workers/pairfob-origin`:
+
+```sh
+bunx wrangler d1 migrations apply DB --local --persist-to /tmp/pairfob-herdr-worker
+bunx wrangler dev --local --ip 0.0.0.0 --port 18786 --persist-to /tmp/pairfob-herdr-worker
+```
+
+Then, from the repository root, run `PAIRFOB_TEST_ORIGIN=http://HOST_IP:18786
+scripts/herdr-docker/live.sh`. With Vite serving the PWA on port 5180,
+`ego-browser nodejs < scripts/herdr-docker/browser-qa.mjs` drives the page with
+real input.
+
 ## Protocol invariants
 
 Envelope bytes stay `pairfob.v1` (`proto/envelope.md`, `proto/rpc.schema.json`,
@@ -144,7 +179,9 @@ existing official downloads; earlier versions remain available as Git tags.
 The hosted PWA can advance independently of the daemon version.
 
 For a new daemon version, use the current branch and checkout. Finish and
-commit the intended changes, choose an unused `vX.Y.Z` tag, and build once
+commit the intended changes, including `version = "X.Y.Z"` in
+`herdr-plugin.toml` and its assertion in `plugin/herdr/plugin.test.ts`,
+choose an unused `vX.Y.Z` tag, and build once
 from a clean tree with `VERSION=vX.Y.Z ./scripts/release.sh`. Run the full
 `./scripts/verify.sh` gate on that candidate before publishing. For an origin
 deployment, follow the asset-continuity steps below and use

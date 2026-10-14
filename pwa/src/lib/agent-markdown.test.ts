@@ -61,7 +61,7 @@ describe('opt-in chat file references', () => {
     expect(links('[Report](/work/My%20Project/report.html) `src/app.ts:12` See public/data.json')).toEqual(['/work/My Project/report.html', 'src/app.ts:12', 'public/data.json']);
   });
   test('plain home and absolute directories, inline spaces and Markdown links', () => {
-    expect(links('目录 ~/Project/github/pairfob 或 /Users/arron/Project/github/pairfob。')).toEqual(['~/Project/github/pairfob', '/Users/arron/Project/github/pairfob']);
+    expect(links('目录 ~/Project/github/pairfob 或 /Users/alice/Project/github/pairfob。')).toEqual(['~/Project/github/pairfob', '/Users/alice/Project/github/pairfob']);
     expect(links('`~/My Project/report.html:4` [目录](~/Project/github/pairfob)')).toEqual(['~/My Project/report.html:4', '~/Project/github/pairfob']);
     expect(links('https://example.com/path ftp://host/path /work/../secret README words and/or')).toEqual([]);
   });

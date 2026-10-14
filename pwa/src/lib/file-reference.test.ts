@@ -26,7 +26,7 @@ describe('file reference candidates', () => {
 });
 
 test('rooted directory candidates, spaces and home paths stay distinct from cwd-relative files', () => {
-  for (const path of ['~/Project/github/pairfob', '/Users/arron/Project/github/pairfob', '/work/My Project/report.html']) {
+  for (const path of ['~/Project/github/pairfob', '/Users/alice/Project/github/pairfob', '/work/My Project/report.html']) {
     expect(parseFileReference(path)).toEqual({ path });
   }
   expect(parseFileReference('~/Project/github/pairfob/')).toEqual({ path: '~/Project/github/pairfob' });

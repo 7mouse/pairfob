@@ -51,17 +51,16 @@ Split on **duty**, not line number. Prefer these seams:
 | `internal/daemon` | session handshake, RPC dispatch, concrete mutations (worktree / layout / keys / push), persistence |
 | `internal/mux` | daemon register, pairing bind, session attach, FWD forward |
 | `internal/runtime` | transport/fault, snapshot adapt, Herdr calls for each Command |
-| `pwa/src/main.ts` | boot/pairing/SAS, dashboard, pane session, settings |
+| `pwa/src/features/<domain>` | one subdirectory per screen part or flow (session: `chat/`, `full-terminal/`, `keypad/`, `attachments/`, …) |
 | `pwa/src/lib/protocol` | pairing handshake, session RPC, frame checks |
-| `pwa/src/style.css` | by screen or control family, imported CSS sources, no copied selectors |
+| `pwa/src/style.scss` | by screen or control family in `pwa/src/styles/` and next to the feature, no copied selectors |
 
-There are no over-limit files right now. Recheck with `wc -l` after edits; split
-before continuing if a file went over.
+Recheck with `wc -l` after edits; split before continuing if a file went over.
 
 `internal/runtime/herdr.go`, `internal/mux/hub.go`,
-`pwa/src/lib/protocol/client.ts`, and `pwa/src/style.css` are already split by
+`pwa/src/lib/protocol/client.ts`, and `pwa/src/style.scss` are already split by
 duty. Herdr adapt lives in `herdr_observe.go` / `herdr_execute.go`, the session
-screen in `pwa/src/ui/session/`, PWA styles in `pwa/src/styles/`.
+screen in `pwa/src/features/session/`, PWA styles in `pwa/src/styles/`.
 
 Multiple files in one Go package is normal. After a TypeScript split, re-export
 from the original module so imports do not churn.
@@ -76,10 +75,21 @@ from the original module so imports do not churn.
 | `internal/mux` | frame routing; does not touch FWD plaintext |
 | `internal/daemon` | pairing, session, RPC, push, operation ledger |
 | `internal/runtime` | Herdr adapt; Herdr method names must not cross the `Runtime` interface |
-| `internal/envelope` `aeadfwd` `canon` `hkdfk` `spake2plus` `session` | protocol primitives |
+| `internal/envelope` `internal/crypto/*` | protocol primitives (AEAD, canon, HKDF, SPAKE2+, session keys, PGP words) |
+| `internal/workspace` | bounded views and file operations inside a live workspace root |
+| `internal/journal` | agent transcript adapters (Claude Code, Codex, Grok, Pi, Cursor, Hermes, opencode) |
+| `internal/state` `admin` `audit` | durable identity and devices, local operator socket, security audit log |
+| `internal/phone` | Go phone client for daemon end-to-end tests only |
+| `pwa/src/app` | boot, lifecycle, layout, width tier and input mode; `main.ts` only calls `startApplication` |
+| `pwa/src/pages` | per-route bridges between application state and features |
+| `pwa/src/features/<domain>` | screens and flows; import rules in `src/architecture-boundaries.test.ts` and `features/layer-boundaries.test.ts` |
+| `pwa/src/shared` | UI primitives and models with no page, store or protocol imports (`shared/ui/README.md`) |
+| `pwa/src/lib` | pure functions, i18n strings, codecs |
 | `pwa/src/lib/protocol` | browser protocol |
-| `pwa/src/lib` | UI pure functions and DOM helpers; `main.ts` only orchestrates |
-| `proto/` | frozen envelope, RPC schema, vectors, PGP words |
+| `pwa/qa` | fixture scenes for browser checks and site stills |
+| `proto/` | frozen envelope, RPC schema, vectors, PGP words; per-feature protocol notes (`agent-*`, `workspace-*`, `machine-link`, …) |
+| `site/` `site/doc` | homepage and VitePress docs, packed into the Worker by `scripts/pack-origin-assets.sh` |
+| `herdr-plugin.toml` `plugin/herdr` | Herdr plugin listing and its pane scripts |
 | `scripts/verify.sh` | format, vet, Go tests (including race), PWA tests, Worker origin tests, typecheck, production build |
 | `scripts/install.sh` | one-line install of pairfob (checksum, enroll, user-level service) |
 | `scripts/release.sh` | cross-compile SemVer `dist/dl/pairfob-{os}-{arch}` + SHA256SUMS (`git tag vX.Y.Z`) |
