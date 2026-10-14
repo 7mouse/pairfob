@@ -109,6 +109,18 @@ describe("worker static overlay", () => {
     expect(await res.text()).toContain("pairfob");
   });
 
+  test("GET /llms.txt is UTF-8 text/plain", async () => {
+    const env = testEnv({
+      assets: assets({
+        "/llms.txt": "# Pairfob\n",
+      }),
+    });
+    const res = await handleFetch(new Request("https://pairfob.com/llms.txt"), env);
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Content-Type")).toBe("text/plain; charset=utf-8");
+    expect(await res.text()).toBe("# Pairfob\n");
+  });
+
   test("GET /manifest.webmanifest follows the language cookie", async () => {
     const env = testEnv({
       assets: assets({

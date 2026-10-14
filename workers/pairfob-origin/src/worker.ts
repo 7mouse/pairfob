@@ -273,6 +273,9 @@ function staticAssetHeaders(path: string, ok: boolean, contentType: string | nul
   if (path === "/install.sh") {
     return { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "max-age=300" };
   }
+  if (path === "/llms.txt") {
+    return { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" };
+  }
   if (path === "/dl/VERSION" || path === "/dl/SHA256SUMS") {
     return { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" };
   }
