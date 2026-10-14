@@ -1,6 +1,6 @@
-/* Computer version and update: one row (version + check) and, when there is
-   something to say or do, a block of feedback, the update action and the
-   manual command. Inside the computer page's card. */
+/* Computer version and update, inside the computer page's card, in three
+   places that do not move: the version row (version + check), the stage (one
+   sentence and at most one action) and the manual commands folded last. */
 .daemon-update-check { color: var(--accent); }
 
 .daemon-update-detail { padding-top: 0; }
@@ -8,18 +8,74 @@
 .daemon-update-detail .btn-primary { margin-top: 2px; }
 
 .daemon-update-feedback {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin: 0;
   color: var(--muted);
   font-size: var(--text-body);
   line-height: 1.55;
   overflow-wrap: anywhere;
+  text-wrap: balance;
 }
 
+.daemon-update-feedback svg { flex: none; }
 .daemon-update-feedback[data-tone="ok"] { color: var(--ok); }
 .daemon-update-feedback[data-tone="warn"] { color: var(--warn); }
 .daemon-update-feedback[data-tone="error"] { color: var(--error); }
+.daemon-update-pending .spinner { width: 14px; height: 14px; color: var(--accent); }
+
+.daemon-update-detail > .set-note { margin: 0; color: var(--muted); font-size: var(--text-secondary); line-height: 1.55; text-wrap: balance; }
 
 .daemon-update-version code { color: var(--muted); font-family: var(--mono); }
+
+/* The move the button makes, old to new, in the version row's own face. */
+.daemon-update-diff {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0;
+  color: var(--muted);
+  font: 500 var(--text-lead) var(--mono);
+}
+
+.daemon-update-diff strong { color: var(--ink); font-weight: 600; }
+
+/* The computer's three phases: done ticks, the current one turns, the rest wait. */
+.daemon-update-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.daemon-update-steps li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 30px;
+  color: var(--muted);
+  font-size: var(--text-body);
+}
+
+.daemon-update-steps li[data-state="done"] { color: var(--ink); }
+.daemon-update-steps li[data-state="now"] { color: var(--ink); font-weight: 600; }
+
+.daemon-update-step-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+}
+
+.daemon-update-steps li[data-state="next"] .daemon-update-step-mark { box-shadow: inset 0 0 0 1.5px var(--line-strong); transform: scale(0.75); }
+.daemon-update-steps li[data-state="done"] .daemon-update-step-mark { background: var(--ok); color: var(--accent-ink); }
+.daemon-update-steps li[data-state="done"] .daemon-update-step-mark svg { width: 12px; height: 12px; stroke-width: 3; }
+.daemon-update-steps .spinner { width: 16px; height: 16px; color: var(--accent); }
 
 /* The question is the whole row and opens in place: the settings family's
    turning chevron at its end says so, as on "how to enable". */
@@ -32,8 +88,12 @@
   cursor: pointer;
   font-size: var(--text-body);
   text-wrap: balance;
+  list-style: none;
 }
 
+.daemon-update-help summary::-webkit-details-marker { display: none; }
+.daemon-update-help summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 8px; }
+.daemon-update-help summary small { margin-left: 8px; color: var(--muted); font-size: var(--text-caption); }
 .daemon-update-help summary .set-disclosure { flex: none; color: var(--muted); }
 .daemon-update-help[open] summary .set-disclosure { transform: rotate(180deg); }
 
@@ -44,6 +104,41 @@
   font-size: var(--text-secondary);
   line-height: 1.55;
   text-wrap: balance;
+}
+
+/* Inside the card the row is the card's last line, ruled off from the stage. */
+.set-item-block.daemon-update-help { padding-block: 0; border-top: 1px solid var(--line); }
+.set-item-block.daemon-update-help[open] { padding-bottom: 14px; }
+
+.daemon-update-commands { display: flex; flex-direction: column; gap: 14px; }
+
+.daemon-update-help p.daemon-update-command-label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  margin: 0;
+  color: var(--ink);
+  font-size: var(--text-body);
+  font-weight: 600;
+}
+
+.daemon-update-command-label span { color: var(--muted); font-size: var(--text-secondary); font-weight: 400; }
+
+.daemon-update-doc {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  color: var(--accent);
+  font-size: var(--text-secondary);
+  text-decoration: none;
+}
+
+.daemon-update-doc:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+
+@media (hover: hover) and (pointer: fine) {
+  .daemon-update-help summary:hover { color: var(--accent); }
+  .daemon-update-doc:hover { text-decoration: underline; }
 }
 
 /* Closed, the card is its one row, with the same room above and below it; the

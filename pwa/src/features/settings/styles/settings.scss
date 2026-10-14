@@ -520,6 +520,9 @@
   overflow-wrap: anywhere;
 }
 
+/* A word longer than the line still breaks inside itself; any other moves down whole. */
+.command-line .command-word { display: inline-block; max-width: 100%; }
+
 .command-line .set-action { margin-block: 0; }
 
 .set-group .skel {

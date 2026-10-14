@@ -120,7 +120,7 @@ go run ./cmd/pairfob
 
 ## Herdr 运行组件更新
 
-`pairfob update` 和网页里的“更新 Pairfob”只更新 Pairfob。Pairfob 安装并能确认来源的 Herdr 使用：
+`pairfob update` 和网页里的“更新到 v…”只更新 Pairfob。Pairfob 安装并能确认来源的 Herdr 使用：
 
 ```sh
 pairfob setup --update-herdr

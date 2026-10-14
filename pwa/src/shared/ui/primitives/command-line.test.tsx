@@ -47,3 +47,14 @@ test("a refused copy says so on the same face; a missing clipboard is a refusal,
   await act(async () => (document.querySelector(".command-copy") as HTMLButtonElement).click());
   expect(face().dataset.state).toBe("failed");
 });
+
+test("the command reads and copies as written while each word is its own box", async () => {
+  const written: string[] = [];
+  clipboard(async text => { written.push(text); });
+  renderReact(<CommandLine command="pairfob setup --update-herdr" labels={labels} />);
+  const code = document.querySelector(".command-line code")!;
+  expect(code.textContent).toBe("pairfob setup --update-herdr");
+  expect([...code.querySelectorAll(".command-word")].map(word => word.textContent)).toEqual(["pairfob", "setup", "--update-herdr"]);
+  await act(async () => (document.querySelector(".command-copy") as HTMLButtonElement).click());
+  expect(written).toEqual(["pairfob setup --update-herdr"]);
+});

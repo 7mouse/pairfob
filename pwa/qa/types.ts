@@ -64,6 +64,10 @@ export type FixtureAPI = {
   hold(method: string): void;
   release(method: string): void;
   failNext(method: string, code: string): void;
+  /** The fixture computer's next update: how it ends, and whether the computer has the update operations. */
+  setDaemonUpdate(options: { ending?: "complete" | "failed" | "rolled_back"; supported?: boolean }): void;
+  /** Move the frozen fixture clock on by `ms` until the next scene; returns the new time. */
+  advanceClock(ms: number): number;
 };
 
 declare global {

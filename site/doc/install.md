@@ -121,7 +121,7 @@ Local pairing and checks are in the repository README.
 
 ## Update the Herdr runtime
 
-`pairfob update` and **Update Pairfob** in the browser update Pairfob only. For Herdr installed and still managed by Pairfob, run:
+`pairfob update` and **Update to v…** in the browser update Pairfob only. For Herdr installed and still managed by Pairfob, run:
 
 ```sh
 pairfob setup --update-herdr

@@ -11,6 +11,7 @@ const { currentDaemonId } = await import("../computers/catalog-store");
 const { setScreen, currentScreen } = await import("../../app/navigation-store");
 const {
   acceptDaemonVersion, daemonVersion, refreshDaemonUpdate, startDaemonUpdate, checkDaemonRelease, markDaemonConfigIncompatible,
+  UNCERTAIN_WAIT_MS,
 } = await import("./daemon-update");
 const { DaemonUpdate, DaemonUpdateRow, ManualUpdateHelp } = await import("./daemon-update-view");
 const { setLang, t } = await import("../../lib/i18n");
@@ -114,8 +115,8 @@ test("completion requires the target to be running", async () => {
   connect({ daemonUpdateStatus: async () => ({ ...idle, phase: "complete", target: "1.1.0", operation_id: "op_abcdefghijklmnop" }), getConfig: async () => ({ build: "1.0.0" }) });
   await act(async () => { await refreshDaemonUpdate(); });
   paintDaemon(true);
-  expect(host!.textContent).toContain("等待确认运行版本");
-  expect(host!.textContent).not.toContain("更新完成");
+  expect(host!.textContent).toContain(t("update.waitConfirm", { version: "1.1.0" }));
+  expect(host!.textContent).not.toContain(t("update.complete", { version: "1.1.0" }));
 });
 
 test("previous computer status cannot overwrite the current view", async () => {
@@ -336,7 +337,8 @@ test("release check has a visible busy state and explicit success or failure fee
   expect(busy.disabled).toBeTrue();
   expect(busy.textContent).toContain("正在检查");
   expect(busy.classList.contains("btn-ghost")).toBeFalse();
-  expect(host!.querySelector('[role="status"]')?.textContent).toContain("正在查询");
+  // The button says it is checking; the stage stays quiet until there is an answer.
+  expect(host!.querySelector(".daemon-update-feedback")).toBeNull();
   await act(async () => { finish(new Response("1.1.0")); await pending; });
   expect(host!.querySelector<HTMLButtonElement>(".daemon-update-check")?.disabled).toBeFalse();
   expect(host!.querySelector('[data-tone="ok"]')?.textContent).toContain("已是最新版本");
@@ -344,6 +346,8 @@ test("release check has a visible busy state and explicit success or failure fee
   await act(async () => { await checkDaemonRelease(true); });
   expect(host!.querySelector('[data-tone="error"]')?.textContent).toContain("检查失败");
   expect(host!.querySelector('[data-tone="ok"]')).toBeNull();
+  // After a failed check the reader asked for, the same button offers the retry.
+  expect(host!.querySelector(".daemon-update-check")?.textContent).toBe(t("update.retryCheck"));
   paintDaemon(true);
   expect(host!.querySelector('[data-tone="error"]')?.textContent).toContain("检查失败");
 });
@@ -424,7 +428,8 @@ test("copying the update command is confirmed in the button's own room; a refusa
   expect(button.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent).toBe(t("update.copied"));
   Object.defineProperty(navigator, "clipboard", { value: { writeText: async () => { throw new Error("denied"); } }, configurable: true });
   await act(async () => button.click());
-  expect(button.textContent).toBe(t("update.copyManual"));
+  expect(button.querySelector(".copy-ack")?.getAttribute("data-state")).toBe("failed");
+  expect(button.querySelector('.copy-ack-face[aria-hidden="false"]')?.textContent).toBe(t("update.copyManual"));
 });
 
 test("the persistent manual update copy label follows the language on the same node", () => {
@@ -501,4 +506,153 @@ test("compact later hides even when browser storage is unavailable", async () =>
     Object.defineProperty(globalThis, "localStorage", originalStorageDescriptor);
     expect(globalThis.localStorage).toBe(originalStorage);
   }
+});
+
+const running = (phase: string) => ({ available: true, phase, target: "1.1.0", operation_id: "op_abcdefghijklmnop" });
+const buttons = () => [...host!.querySelectorAll("button")].map(b => b.textContent);
+
+test("an available update says the move, its effect and one action naming the target", async () => {
+  connect({ daemonUpdateStatus: async () => idle });
+  await act(async () => { await refreshDaemonUpdate(); });
+  paintDaemon(true);
+  expect(host!.querySelector(".daemon-update")?.getAttribute("data-stage")).toBe("available");
+  expect(host!.querySelector(".daemon-update-diff")?.textContent).toBe("1.0.0→1.1.0");
+  expect(host!.textContent).toContain(t("update.effect"));
+  expect(host!.querySelector(".daemon-update-start")?.textContent).toBe(t("update.now", { version: "1.1.0" }));
+  // The manual commands are folded, not a second path beside the button.
+  const manual = host!.querySelector<HTMLDetailsElement>("details.daemon-update-manual")!;
+  expect(manual.open).toBeFalse();
+  expect(manual.querySelectorAll(".command-line code").length).toBe(2);
+  expect([...manual.querySelectorAll(".command-line code")].map(c => c.textContent)).toEqual(["pairfob update", "pairfob setup --update-herdr"]);
+});
+
+test("a running update shows its three steps and no action at all", async () => {
+  for (const [phase, done] of [["downloading", 0], ["restarting", 1], ["verifying", 2]] as const) {
+    connect({ daemonUpdateStatus: async () => running(phase) });
+    await act(async () => { await refreshDaemonUpdate(); });
+    paintDaemon(true);
+    const steps = [...host!.querySelectorAll(".daemon-update-steps li")];
+    expect(steps.map(s => s.getAttribute("data-state"))).toEqual(["done", "done", "done"].map((_, i) => i < done ? "done" : i === done ? "now" : "next"));
+    expect(steps[done]!.getAttribute("aria-current")).toBe("step");
+    // No update, refresh or check button while it runs: only the folded commands' copy buttons.
+    expect(host!.querySelector(".daemon-update-start, .daemon-update-check")).toBeNull();
+    expect(buttons().every(label => label?.startsWith(t("update.copyCommand")))).toBeTrue();
+  }
+});
+
+test("an unconfirmed request only waits and says it will not be sent again", async () => {
+  let writes = 0;
+  connect({ daemonUpdateStatus: async () => idle, daemonUpdate: async () => { writes++; throw new ProtocolError("unknown_outcome"); } });
+  await act(async () => { await refreshDaemonUpdate(); });
+  await act(async () => { await startDaemonUpdate(); });
+  paintDaemon(true);
+  expect(host!.querySelector(".daemon-update")?.getAttribute("data-stage")).toBe("uncertain");
+  expect(host!.textContent).toContain(t("update.uncertainNote"));
+  expect(host!.querySelector(".daemon-update-start, .daemon-update-check")).toBeNull();
+  expect(writes).toBe(1);
+});
+
+test("a failed or rolled back update offers a retry and opens the manual commands", async () => {
+  for (const phase of ["failed", "rolled_back"] as const) {
+    connect({ daemonUpdateStatus: async () => running(phase) });
+    await act(async () => { await refreshDaemonUpdate(); });
+    paintDaemon(true);
+    expect(host!.querySelector('[data-tone="error"]')?.textContent)
+      .toBe(phase === "failed" ? t("update.failed") : t("update.rolledBack", { version: "1.0.0" }));
+    expect(host!.querySelector(".daemon-update-start")?.textContent).toBe(t("update.retry"));
+    expect(host!.querySelector<HTMLDetailsElement>("details.daemon-update-manual")!.open).toBeTrue();
+  }
+});
+
+test("a finished update is news once: watched, it says so; met later, the card is quiet", async () => {
+  let phase = "downloading";
+  connect({ daemonUpdateStatus: async () => running(phase), getConfig: async () => ({ build: "1.1.0" }) });
+  await act(async () => { await refreshDaemonUpdate(); });
+  phase = "complete";
+  await act(async () => { await refreshDaemonUpdate(); });
+  paintDaemon(true);
+  expect(host!.querySelector('[data-tone="ok"]')?.textContent).toBe(t("update.complete", { version: "1.1.0" }));
+  expect(host!.querySelector(".daemon-update-version code")?.textContent).toBe("1.1.0");
+  act(() => { root!.unmount(); root = null; });
+  paintDaemon(true);
+  expect(host!.querySelector(".daemon-update")?.getAttribute("data-stage")).toBe("current");
+  expect(host!.querySelector(".daemon-update-detail")).toBeNull();
+  // A computer met already updated, with no update seen here, shows nothing either.
+  connect({ daemonUpdateStatus: async () => running("complete") }, "1.1.0");
+  await act(async () => { await refreshDaemonUpdate(); });
+  paintDaemon(true);
+  expect(host!.querySelector(".daemon-update-detail")).toBeNull();
+});
+
+test("a computer without the update operation gets the command as the answer, once", async () => {
+  connect({ daemonUpdateStatus: async () => { throw new ProtocolError("unknown_op"); } });
+  await act(async () => { await refreshDaemonUpdate(); });
+  paintDaemon(true);
+  expect(host!.querySelector(".daemon-update")?.getAttribute("data-stage")).toBe("manual");
+  expect(host!.querySelector(".daemon-update-detail .command-line code")?.textContent).toBe("pairfob update");
+  // The folded row keeps only Herdr and is named after it.
+  const manual = host!.querySelector("details.daemon-update-manual")!;
+  expect(manual.querySelector("summary")?.textContent).toBe(t("update.herdrTitle"));
+  // The row is named after Herdr already: its one section does not say the name again.
+  expect(manual.querySelector(".daemon-update-command-label")?.textContent).toBe(t("update.herdrHint"));
+  expect([...host!.querySelectorAll(".command-line code")].filter(c => c.textContent === "pairfob update")).toHaveLength(1);
+});
+
+test("the sidebar banner says the update is running and stops offering to postpone it", async () => {
+  connect({ daemonUpdateStatus: async () => running("restarting") });
+  await act(async () => { await refreshDaemonUpdate(); });
+  render(createElement(DaemonUpdate, { compact: true }));
+  expect(host!.querySelector("section.daemon-update strong")?.textContent).toBe(t("set.updating"));
+  expect(buttons()).toEqual([t("update.viewProgress")]);
+});
+
+test("an unanswered request holds the button back, and gives it back once the computer never showed that update", async () => {
+  let writes = 0, phase = "idle";
+  connect({
+    daemonUpdateStatus: async () => (phase === "idle" ? idle : running(phase)),
+    daemonUpdate: async () => { writes++; throw new ProtocolError("unknown_outcome"); },
+  });
+  await act(async () => { await refreshDaemonUpdate(); });
+  const now0 = originalNow(); let now = now0;
+  Date.now = () => now;
+  await act(async () => { await startDaemonUpdate(); });
+  paintDaemon(true);
+  expect(host!.querySelector(".daemon-update")?.getAttribute("data-stage")).toBe("uncertain");
+  // Inside the wait a status read changes nothing and a second start sends nothing.
+  now += UNCERTAIN_WAIT_MS - 1;
+  await act(async () => { await refreshDaemonUpdate(); });
+  await act(async () => { await startDaemonUpdate(); });
+  expect(writes).toBe(1);
+  expect(daemonVersion()?.uncertain).toBeTrue();
+  // Past it, with no update shown, the reader has the button back and a note saying why.
+  now += 2;
+  await act(async () => { await refreshDaemonUpdate(); });
+  expect(daemonVersion()?.uncertain).toBeFalse();
+  expect(host!.querySelector(".daemon-update")?.getAttribute("data-stage")).toBe("available");
+  expect(host!.querySelector('[data-tone="warn"]')?.textContent).toBe(t("update.unconfirmed"));
+  expect(host!.querySelector<HTMLButtonElement>(".daemon-update-start")!.disabled).toBeFalse();
+  // Nothing went out on its own: the next request is the reader's.
+  expect(writes).toBe(1);
+  await act(async () => { await startDaemonUpdate(); });
+  expect(writes).toBe(2);
+  expect(daemonVersion()?.unconfirmed).toBeFalse();
+});
+
+test("a late update that does show up ends the wait as progress, not as a fresh offer", async () => {
+  let phase = "idle";
+  connect({
+    daemonUpdateStatus: async () => (phase === "idle" ? idle : running(phase)),
+    daemonUpdate: async () => { throw new ProtocolError("unknown_outcome"); },
+  });
+  await act(async () => { await refreshDaemonUpdate(); });
+  const now0 = originalNow(); let now = now0;
+  Date.now = () => now;
+  await act(async () => { await startDaemonUpdate(); });
+  now += UNCERTAIN_WAIT_MS + 1;
+  phase = "downloading";
+  await act(async () => { await refreshDaemonUpdate(); });
+  paintDaemon(true);
+  expect(daemonVersion()?.uncertain).toBeFalse();
+  expect(daemonVersion()?.unconfirmed).toBeFalsy();
+  expect(host!.querySelector(".daemon-update")?.getAttribute("data-stage")).toBe("busy");
 });

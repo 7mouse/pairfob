@@ -30,8 +30,12 @@ export type FixtureSession = {
   hold(method: string): void;
   release(method: string): void;
   failNext(method: string, code: string): void;
+  /** How this computer's next update ends, and whether it has the update operations at all. */
+  setDaemonUpdate(options: DaemonUpdateFixture): void;
   dispose(): void;
 };
+
+export type DaemonUpdateFixture = { ending?: "complete" | "failed" | "rolled_back"; supported?: boolean };
 
 /** What a scene's computer reports; the baseline fixture when a scene names none. */
 export type SessionSource = {
@@ -50,6 +54,8 @@ export type SessionSource = {
   herdSessions?: HerdSessionSummary[];
   /** The working tree's changes, where a scene needs other than the usual three. */
   status?: () => GitStatus;
+  /** The pairfob build the computer reports; the release (`/dl/VERSION`) when a scene names none. */
+  build?: string;
 };
 
 /** Every request is local and logged. Holds/errors allow deliberate async interaction probes. */
@@ -101,6 +107,22 @@ export function createSession(source: SessionSource = {}): FixtureSession {
       if (terminal?.id === id) sendFrame(screen(terminal.cols, terminal.rows));
     }, 0);
   };
+  // An update runs as on a computer: each status read moves it one phase on,
+  // and a completed one leaves the computer running the target.
+  let build = source.build ?? "v2.4.0";
+  let update = { available: true, phase: "idle", target: "", operation_id: "" };
+  let updateEnding: NonNullable<DaemonUpdateFixture["ending"]> = "complete";
+  let updateSupported = true;
+  const UPDATE_STEPS = ["downloading", "restarting", "verifying"];
+  const updateStatus = () => {
+    if (!updateSupported) throw new ProtocolError("unknown_op");
+    const at = UPDATE_STEPS.indexOf(update.phase);
+    if (at >= 0) {
+      update.phase = UPDATE_STEPS[at + 1] ?? updateEnding;
+      if (update.phase === "complete") build = update.target;
+    }
+    return { ...update };
+  };
   let quotas: QuotaReport = { accounts: data.quotas(), legacy: false, unknown: 0 };
   const request = async <T>(method: string, args: unknown[], run: () => T | Promise<T>, mutation = false): Promise<T> => {
     record(mutation ? "mutation" : "read", method, args);
@@ -131,7 +153,7 @@ export function createSession(source: SessionSource = {}): FixtureSession {
     ping: (time: number) => request("ping", [time], () => ({ t: time })),
     getConfig: () => request("getConfig", [], () => ({
       // The whole GetConfig shape: Settings reads it through the same strict parser as production.
-      protocol: 1, build: "v2.4.0", daemon_id: "d_aaaaaaaaaaaaaaaaaaaa", hostname: "MacBook Pro", runtime: "herdr",
+      protocol: 1, build, daemon_id: "d_aaaaaaaaaaaaaaaaaaaa", hostname: "MacBook Pro", runtime: "herdr",
       vapid_public: "", submit_keys: ["Enter"], idle_pause_ms: 30 * 60 * 1000, push_delivery: "webpush", push_enabled: false,
       capabilities, agent_kinds: source.agentKinds ?? ["codex", "claude", "grok", "pi"],
     })),
@@ -228,8 +250,12 @@ export function createSession(source: SessionSource = {}): FixtureSession {
       listHerdSessions: () => request("listHerdSessions", [], () => structuredClone(source.herdSessions)),
       herdSession: () => null,
     } : {}),
-    daemonUpdateStatus: () => request("daemonUpdateStatus", [], () => ({ available: true, phase: "idle", target: "", operation_id: "" })),
-    daemonUpdate: (target: string) => mutation("daemonUpdate", [target]),
+    daemonUpdateStatus: () => request("daemonUpdateStatus", [], updateStatus),
+    daemonUpdate: (target: string) => mutation("daemonUpdate", [target], () => {
+      if (!updateSupported) throw new ProtocolError("unknown_op");
+      update = { available: true, phase: "downloading", target, operation_id: op() };
+      return { ...update };
+    }),
     async switchTransport(target: "auto" | "p2p" | "relay") {
       record("lifecycle", "switchTransport", [target]);
       setSessionTransport(target === "relay" ? "relay" : "p2p");
@@ -265,6 +291,10 @@ export function createSession(source: SessionSource = {}): FixtureSession {
     hold(method) { held.add(method); },
     release(method) { held.delete(method); for (const waiter of waiters.get(method) ?? []) waiter.resolve(); waiters.delete(method); },
     failNext(method, code) { failures.set(method, code); },
+    setDaemonUpdate({ ending, supported }) {
+      if (ending) updateEnding = ending;
+      if (supported !== undefined) updateSupported = supported;
+    },
     dispose() {
       disposed = true;
       terminal = null;

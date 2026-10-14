@@ -94,7 +94,7 @@ Even when the file is already current, the command verifies the responding daemo
 
 Downloads report bytes received and retry once after a transient failure. Each attempt allows ten minutes total, with a 45-second limit without progress. SHA-256 verification still runs before replacement. If a proxy repeatedly stalls, inspect the terminal's proxy configuration; the updater does not change it.
 
-The phone checks for new computer versions and shows an update reminder. In Settings, supported service-managed installations offer **Update Pairfob**. Confirming briefly disconnects the phone while the verified binary starts; completion is shown only after the running version is confirmed. Failed startup can restore the previous binary. Older daemons require one manual `pairfob update` to enable this flow. Updates are never installed automatically.
+The phone checks for new computer versions and shows an update reminder. In Settings, supported service-managed installations offer **Update to v…** with the new version in its name. Confirming briefly disconnects the phone while the verified binary starts; completion is shown only after the running version is confirmed. Failed startup can restore the previous binary. Older daemons require one manual `pairfob update` to enable this flow. Updates are never installed automatically.
 
 
 ## Advanced (omitted from default help)

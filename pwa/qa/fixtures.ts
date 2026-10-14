@@ -25,7 +25,7 @@ import { isAgentChat, isFullTerminal, paneFollow, termSelect } from "../src/feat
 import { scenes, resetFixtureBaseline, applyScene, afterScenePaint, sceneSource, terminalSceneReadiness, applyFocusedStatus, applyExtraSessions } from "./scenes";
 import { createSession, type FixtureSession } from "./session";
 import { renderTerminalShell, disposeTerminalShell } from "./terminal-shell";
-import { calls, errors, record, settlePaint } from "./environment";
+import { advanceClock, calls, errors, record, resetClock, settlePaint } from "./environment";
 import type { FixtureAPI, FixtureRect, FixtureSnapshot, FixtureTerminalFrame, FixtureMode } from "./types";
 
 /**
@@ -200,6 +200,7 @@ export async function createFixtureAPI(language: "zh" | "en", initialScene: stri
     currentScene = name;
     calls.length = 0;
     errors.length = 0;
+    resetClock();
     resetFixtureBaseline(session);
     try {
       await applyScene(name, session);
@@ -276,6 +277,8 @@ export async function createFixtureAPI(language: "zh" | "en", initialScene: stri
     hold(method) { session.hold(method); },
     release(method) { session.release(method); },
     failNext(method, code) { session.failNext(method, code); },
+    setDaemonUpdate(options) { session.setDaemonUpdate(options); },
+    advanceClock(ms) { return advanceClock(ms); },
   };
   api.ready = api.setScene(initialScene).then(() => undefined);
   return api;

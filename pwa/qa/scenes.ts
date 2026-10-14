@@ -206,6 +206,7 @@ const TERMINAL_SCREENS: Record<string, NonNullable<SessionSource["terminalScreen
 /** The computer a scene talks to: busy scenes bring their own snapshot and screens. */
 export function sceneSource(name: string): SessionSource {
   if (name === "chat-needs-you") return { snapshot: blockedFocusedSnapshot, paneText: () => data.NEEDS_YOU_SCREEN };
+  if (name === "home-update") return { build: OUTDATED_BUILD };
   if (name === "home-herd-sessions") return { herdSessions: [{ name: null, running: true }, { name: "release", running: true }, { name: "scratch", running: false }] };
   // One pane, read both ways: changing view by hand shows the same screen in the other.
   if (name === "guided-icons" || name === "terminal-icons") return { terminalScreen: iconScreen, paneText: () => ICON_PANE_TEXT };

@@ -197,7 +197,7 @@ test("daemon release check updates the mounted subtree without repainting the ap
     expectSameNode(appRoot().firstElementChild, host);
     expectSameNode(appRoot().querySelector(".daemon-update-check"), button);
     expect(button.disabled).toBeFalse();
-    expect(appRoot().querySelector(".daemon-update-feedback")?.textContent).toContain("1.1.0");
+    expect(appRoot().querySelector(".daemon-update-diff")?.textContent).toContain("1.1.0");
     // The subtree updated through its own subscription: no whole-App commit.
     expect(counts.commit).toBe(0);
     expect(counts.requestCommit).toBe(0);

@@ -17,6 +17,16 @@ export function clockAt<T>(time: number, action: () => T): T {
     clock = before;
   }
 }
+/**
+ * Move the fixture clock on and leave it there, for a probe that waits on
+ * time the application measures itself (how long an update request has gone
+ * unanswered). The next scene starts at `FIXED_NOW` again.
+ */
+export function advanceClock(ms: number): number {
+  clock += ms;
+  return clock;
+}
+export function resetClock(): void { clock = FIXED_NOW; }
 export const calls: FixtureCall[] = [];
 export const errors: string[] = [];
 export function record(kind: FixtureCall["kind"], method: string, args: unknown[] = []): void {

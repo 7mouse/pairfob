@@ -1,5 +1,5 @@
-import { Check, ChevronDown } from "lucide-react";
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { Check } from "lucide-react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 import {
   checkDaemonRelease,
   daemonReleaseCheckState,
@@ -11,15 +11,17 @@ import {
   subscribeDaemonUpdates,
   type DaemonVersion,
 } from "./daemon-update";
-import { updateInProgress } from "../../lib/daemon-update-status";
+import { updateInProgress, type UpdateStatus } from "../../lib/daemon-update-status";
 import { legacyBuild } from "../../lib/daemon-version";
 import { askConfirm } from "../../shared/ui/overlay/basic-dialogs";
-import { lang, t } from "../../lib/i18n";
+import { t } from "../../lib/i18n";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
-import { useCopied } from "../../shared/react/use-copied";
-import { Button, CopyAck, SetNavItem, Spinner } from "../../shared/ui/primitives";
+import { Button, SetNavItem, Spinner } from "../../shared/ui/primitives";
 import { openSettingsSection } from "./actions";
 import { PageRefresh } from "./page-refresh";
+import { ManualUpdate, ManualUpdateHelp, PairfobCommand } from "./daemon-update-manual";
+
+export { ManualUpdateHelp };
 
 function configIncompatible(view: DaemonVersion): boolean {
   // A known legacy placeholder has its own manual-upgrade guidance. Other
@@ -45,92 +47,25 @@ function laterKeyFor(view: DaemonVersion): string {
   return `pairfob-update-later:${currentDaemonId()}:${issue}`;
 }
 
-function phaseCopy(phase: string, build: string, target: string): string {
-  switch (phase) {
-    case "downloading":
-      return t("update.downloading");
-    case "restarting":
-      return t("update.restarting");
-    case "verifying":
-      return t("update.verifying");
-    case "complete":
-      return build === target ? t("update.complete") : t("update.waitConfirm");
-    case "failed":
-      return t("update.failed");
-    case "rolled_back":
-      return t("update.rolledBack");
-    default:
-      return "";
-  }
-}
-
-/**
- * The command to run by hand, with its copy button. A copy is confirmed on the
- * button's own face (`CopyAck`), so the command beside it is not cut again,
- * and the button is itself again afterwards. A refused copy is said in full
- * instead: it is the one case where the reader needs the sentence, and it is
- * too long to hold room for on every other day.
- */
-function UpdateCommand() {
-  const [copied, confirm] = useCopied<"copied" | "failed">();
-  return (
-    <div className="command-line">
-      <code>pairfob update</code>
-      <Button
-        className="set-action command-copy"
-        onClick={() => {
-          // Called inside the tap: some browsers only allow clipboard writes there.
-          const write = navigator.clipboard?.writeText("pairfob update") ?? Promise.reject(new Error("no clipboard"));
-          void write.then(() => confirm("copied"), () => confirm("failed"));
-        }}
-      >{copied === "failed" ? t("update.copyManual") : <CopyAck state={copied ?? "idle"} idle={t("update.copyCommand")}
-        copied={<><Check size={14} aria-hidden="true" />{t("update.copied")}</>} />}</Button>
-    </div>
-  );
-}
-
-function RuntimeUpdateHelp() {
-  return <><p className="set-note">{t("update.runtimeSeparate")}</p><a className="set-action" href={`https://pairfob.com/doc/${lang() === "zh" ? "zh/" : ""}install#herdr-runtime`} target="_blank" rel="noreferrer">{t("update.runtimeHelp")}</a></>;
-}
-
-/** `inline` sits inside the computer page's card; the picker footer keeps its own card. */
-export function ManualUpdateHelp({ inline = false }: { inline?: boolean }) {
-  return (
-    <details className={inline ? "set-item-block daemon-update-help" : "set-card daemon-update-help"}>
-      <summary>{t("update.helpTitle")}<ChevronDown className="set-disclosure" size={14} aria-hidden="true" /></summary>
-      <p className="set-note">{t("update.helpBody")}</p>
-      <UpdateCommand />
-      <RuntimeUpdateHelp />
-    </details>
-  );
-}
-
-function feedbackCopy(view: DaemonVersion): { text: string; tone?: "error" | "warn" | "ok" } {
-  const checking = daemonReleaseCheckState() === "checking";
-  if (configIncompatible(view)) return { text: t("update.incompatibleNote"), tone: "warn" };
-  if (checking) return { text: t("update.querying") };
-  if (view.error || daemonReleaseCheckState() === "error") return { text: t("update.checkFailed"), tone: "error" };
-  if (legacyBuild(view.build)) return { text: t("update.needManual"), tone: "warn" };
-  if (needsDaemonUpdate(view)) return { text: t("update.newVersion", { version: view.latest }), tone: "warn" };
-  if (daemonReleaseCheckState() === "success") {
-    return { text: view.build === view.latest ? t("update.latest") : t("update.noAuto"), tone: "ok" };
-  }
-  return { text: t("update.checkHint") };
+/** Whether an update is on its way: asked for, running, or sent without an answer yet. */
+function updateBusy(view: DaemonVersion): boolean {
+  return !!view.requesting || !!view.uncertain || updateInProgress(view.status);
 }
 
 function CompactBody({ view, laterKey, onHide }: { view: DaemonVersion; laterKey: string; onHide: () => void }) {
-  const note = configIncompatible(view) ? t("update.incompatibleNote")
+  const busy = updateBusy(view);
+  const note = busy ? null : configIncompatible(view) ? t("update.incompatibleNote")
     : legacyBuild(view.build) ? t("update.legacyNote") : `${view.build} → ${view.latest}`;
   return (
     <section className="set-card daemon-update">
       <div className="set-row set-row-stack">
-        <strong>{updateTitle(view)}</strong>
-        <p className="set-note">{note}</p>
+        <strong>{busy ? t("set.updating") : updateTitle(view)}</strong>
+        {note ? <p className="set-note">{note}</p> : null}
         <Button
           className="btn btn-small"
           onClick={showDaemonUpdate}
-        >{t(configIncompatible(view) ? "update.viewCompatibility" : "update.view")}</Button>
-        <Button
+        >{t(busy ? "update.viewProgress" : configIncompatible(view) ? "update.viewCompatibility" : "update.view")}</Button>
+        {busy ? null : <Button
           className="btn btn-small btn-ghost"
           onClick={() => {
             try {
@@ -140,81 +75,166 @@ function CompactBody({ view, laterKey, onHide }: { view: DaemonVersion; laterKey
             }
             onHide();
           }}
-        >{t("update.later")}</Button>
+        >{t("update.later")}</Button>}
       </div>
     </section>
   );
 }
 
-function DetailedBody({ view }: { view: DaemonVersion }) {
-  const checking = daemonReleaseCheckState() === "checking";
-  const old = legacyBuild(view.build) || view.incompatible;
+/**
+ * What the card's middle says, one at a time. Each stage is a sentence and at
+ * most one action; the order is which fact wins when several hold at once.
+ */
+type Stage = "incompatible" | "busy" | "uncertain" | "waiting" | "done" | "current" | "failed" | "manual" | "available";
+
+function updateStage(view: DaemonVersion): Stage {
   const status = view.status;
-  const feedback = feedbackCopy(view);
-  const showFeedback = view.checkedManually || needsDaemonUpdate(view);
-  const phase = status && status.phase !== "idle" ? status.phase : null;
-  const detail = showFeedback || phase || view.rejected || view.uncertain || needsDaemonUpdate(view);
+  if (configIncompatible(view)) return "incompatible";
+  if (view.requesting || updateInProgress(status)) return "busy";
+  if (view.uncertain) return "uncertain";
+  // Installed but the computer still reports the old build: a restart is pending.
+  if (status?.phase === "complete" && status.target && view.build !== status.target) return "waiting";
+  if (status?.phase === "complete" && view.watched) return "done";
+  if (!needsDaemonUpdate(view)) return "current";
+  if (status?.phase === "failed" || status?.phase === "rolled_back") return "failed";
+  if (legacyBuild(view.build) || view.noRemote || status?.available === false) return "manual";
+  return "available";
+}
+
+const STEPS = [
+  ["downloading", "update.stepDownload"], ["restarting", "update.stepRestart"], ["verifying", "update.stepVerify"],
+] as const;
+
+/** The three phases the computer reports, the current one turning. A request not yet answered is the first. */
+function UpdateSteps({ phase }: { phase?: UpdateStatus["phase"] }) {
+  const at = Math.max(0, STEPS.findIndex(([name]) => name === phase));
   return (
-    <div className="daemon-update">
+    <ol className="daemon-update-steps" role="status" aria-live="polite">
+      {STEPS.map(([name, key], index) => {
+        const state = index < at ? "done" : index === at ? "now" : "next";
+        return <li key={name} data-state={state} aria-current={state === "now" ? "step" : undefined}>
+          <span className="daemon-update-step-mark" aria-hidden="true">
+            {state === "done" ? <Check size={14} /> : state === "now" ? <Spinner /> : null}
+          </span>
+          {t(key)}
+        </li>;
+      })}
+    </ol>
+  );
+}
+
+function Line({ tone, children, live = false }: { tone?: "error" | "warn" | "ok"; children: ReactNode; live?: boolean }) {
+  return <p className="daemon-update-feedback" {...(tone ? { "data-tone": tone } : {})} {...(live ? { role: "status", "aria-live": "polite" as const } : {})}>{children}</p>;
+}
+
+function UpdateButton({ view, label }: { view: DaemonVersion; label: string }) {
+  return (
+    <Button
+      className="btn btn-primary daemon-update-start"
+      disabled={updateBusy(view) || !view.status?.available || !liveSession()?.isConnected()}
+      onClick={() => {
+        const session = liveSession();
+        void askConfirm({ title: t("confirm.updateTitle"), message: t("confirm.updateEffect"),
+          confirmLabel: t("update.now", { version: view.latest }), tone: "primary" }).then((yes) => {
+          if (yes && session === liveSession()) void startDaemonUpdate();
+        });
+      }}
+    >{label}</Button>
+  );
+}
+
+/** What a reader's own check found, said only after they asked. */
+function checkResult(view: DaemonVersion): ReactNode {
+  if (!view.checkedManually) return null;
+  const state = daemonReleaseCheckState();
+  if (state === "checking") return null;
+  if (view.error || state === "error") return <Line tone="error" live>{t("update.checkFailed")}</Line>;
+  if (state !== "success") return null;
+  return <Line tone="ok" live>{view.build === view.latest ? <><Check size={14} aria-hidden="true" />{t("update.latest")}</> : t("update.noAuto")}</Line>;
+}
+
+function StageBody({ view, stage }: { view: DaemonVersion; stage: Stage }) {
+  const status = view.status;
+  switch (stage) {
+    case "incompatible":
+      return <><Line tone="warn">{t("update.incompatibleNote")}</Line><PageRefresh key={currentDaemonId()} /></>;
+    case "busy":
+      return <><UpdateSteps phase={status?.phase} /><p className="set-note">{t("update.busyNote")}</p></>;
+    case "uncertain":
+      return <>
+        <p className="daemon-update-feedback daemon-update-pending" role="status" aria-live="polite"><Spinner />{t("update.uncertain")}</p>
+        <p className="set-note">{t("update.uncertainNote")}</p>
+      </>;
+    case "waiting":
+      return <Line live>{t("update.waitConfirm", { version: status!.target })}</Line>;
+    case "done":
+      return <Line tone="ok" live><Check size={14} aria-hidden="true" />{t("update.complete", { version: view.build })}</Line>;
+    case "current":
+      return checkResult(view);
+    case "failed":
+      return <>
+        <Line tone="error" live>{status?.phase === "rolled_back" ? t("update.rolledBack", { version: view.build }) : t("update.failed")}</Line>
+        {status?.available ? <UpdateButton view={view} label={t("update.retry")} /> : null}
+      </>;
+    case "manual":
+      return <><Line tone="warn">{t("update.needManual")}</Line><PairfobCommand /></>;
+    case "available":
+      return <>
+        {view.error && view.checkedManually ? <Line tone="error" live>{t("update.checkFailed")}</Line> : null}
+        {view.rejected ? <Line tone="error" live>{t("update.rejected")}</Line> : null}
+        {view.unconfirmed ? <Line tone="warn" live>{t("update.unconfirmed")}</Line> : null}
+        <p className="daemon-update-diff"><span>{view.build}</span><span aria-hidden="true">→</span><strong>{view.latest}</strong></p>
+        <p className="set-note">{t("update.effect")}</p>
+        <UpdateButton view={view} label={t("update.now", { version: view.latest })} />
+      </>;
+  }
+}
+
+function CheckButton({ view }: { view: DaemonVersion }) {
+  const checking = daemonReleaseCheckState() === "checking";
+  const retry = !checking && !!view.checkedManually && (view.error || daemonReleaseCheckState() === "error");
+  return (
+    <Button
+      className="set-action daemon-update-check"
+      disabled={checking}
+      aria-busy={checking}
+      onClick={() => {
+        view.checkedManually = true;
+        void (async () => {
+          await checkDaemonRelease(true);
+          await refreshDaemonUpdate();
+        })();
+      }}
+    >
+      {checking ? <Spinner /> : null}{t(checking ? "update.checking" : retry ? "update.retryCheck" : "update.check")}
+    </Button>
+  );
+}
+
+/**
+ * The computer page's update card: the version row, the stage in the middle
+ * and the manual commands folded at the end. The three keep their places; only
+ * what they hold changes.
+ */
+function DetailedBody({ view }: { view: DaemonVersion }) {
+  const stage = updateStage(view);
+  const body = StageBody({ view, stage });
+  // A finished update is news once: leaving the page lets go of it.
+  useEffect(() => () => {
+    const current = daemonVersion();
+    if (current && current.status?.phase === "complete") current.watched = false;
+  }, []);
+  return (
+    <div className="daemon-update" data-stage={stage}>
       <div className="set-item daemon-update-version-row">
         <span className="set-item-text daemon-update-version">
           <span className="set-item-label">{t("update.computerVersion")}</span>
           <code className="set-item-sub">{legacyBuild(view.build) ? t("update.versionUnknown") : view.build}</code>
         </span>
-        <Button
-          className="set-action daemon-update-check"
-          disabled={checking}
-          aria-busy={checking}
-          onClick={() => {
-            view.checkedManually = true;
-            void (async () => {
-              await checkDaemonRelease(true);
-              await refreshDaemonUpdate();
-            })();
-          }}
-        >
-          {checking ? <Spinner /> : null}{t(checking ? "update.checking" : "update.check")}
-        </Button>
+        {stage === "busy" || stage === "uncertain" ? null : <CheckButton view={view} />}
       </div>
-      {detail ? (
-        <div className="set-item-block daemon-update-detail">
-          {showFeedback ? (
-            <p className="daemon-update-feedback" role="status" aria-live="polite" {...(feedback.tone ? { "data-tone": feedback.tone } : {})}>
-              {feedback.text}
-            </p>
-          ) : null}
-          {phase ? (
-            <p className="daemon-update-feedback" role="status"
-              {...(phase === "failed" || phase === "rolled_back" ? { "data-tone": "error" } : {})}>
-              {phaseCopy(phase, view.build, status!.target)}
-            </p>
-          ) : null}
-          {view.rejected ? <p className="daemon-update-feedback">{t("update.rejected")}</p> : null}
-          {view.uncertain ? <p className="daemon-update-feedback">{t("update.uncertain")}</p> : null}
-          {needsDaemonUpdate(view) ? (
-            <>
-              {status?.available && !old ? (
-                <Button
-                  className="btn btn-primary"
-                  disabled={!!view.requesting || !!view.uncertain || updateInProgress(status) || !liveSession()?.isConnected()}
-                  onClick={() => {
-                    const session = liveSession();
-                    void askConfirm({ title: t("confirm.updateTitle"), message: t("confirm.updateEffect"),
-                      confirmLabel: t("update.now"), tone: "primary" }).then((yes) => {
-                      if (yes && session === liveSession()) void startDaemonUpdate();
-                    });
-                  }}
-                >{t("update.now")}</Button>
-              ) : null}
-              {phase ? (
-                <Button className="set-action" onClick={() => void refreshDaemonUpdate()}>{t("update.refresh")}</Button>
-              ) : null}
-              {configIncompatible(view) ? <PageRefresh key={currentDaemonId()} /> : <UpdateCommand />}
-            </>
-          ) : null}
-        </div>
-      ) : null}
-      <div className="set-item-block"><RuntimeUpdateHelp /></div>
+      {body ? <div className="set-item-block daemon-update-detail">{body}</div> : null}
+      <ManualUpdate withPairfob={stage !== "manual" && stage !== "incompatible"} open={stage === "failed"} />
     </div>
   );
 }

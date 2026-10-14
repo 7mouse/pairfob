@@ -3,7 +3,24 @@ import { parseUpdateStatus, updateInProgress, type UpdateStatus } from "../../li
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { newerRelease, legacyBuild, releaseParts } from "../../lib/daemon-version";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
-export type DaemonVersion = { build: string; latest: string; error: boolean; checkedManually?: boolean; incompatible?: boolean; status?: UpdateStatus; uncertain?: boolean; requesting?: boolean; rejected?: boolean };
+/**
+ * One computer's version and update state. `noRemote`: the computer answered
+ * the status read with `unknown_op`, so it can only be updated by hand.
+ * `watched`: this page saw the update run, so a `complete` status is news
+ * rather than an old record; the view lets go of it once it has been shown.
+ * `uncertainSince`: when an update request went unanswered. `unconfirmed`:
+ * the computer never showed that update within `UNCERTAIN_WAIT_MS`, so the
+ * reader may decide again.
+ */
+export type DaemonVersion = { build: string; latest: string; error: boolean; checkedManually?: boolean; incompatible?: boolean; status?: UpdateStatus; uncertain?: boolean; uncertainSince?: number; unconfirmed?: boolean; requesting?: boolean; rejected?: boolean; noRemote?: boolean; watched?: boolean };
+
+/**
+ * How long an unanswered update request holds the action back. The page never
+ * sends it again by itself; once the computer's status has shown no update
+ * for this long, the reader gets the button back and a fresh request (new
+ * operation id) is theirs to make.
+ */
+export const UNCERTAIN_WAIT_MS = 30_000;
 const views = new Map<string, DaemonVersion>();
 let nextCheckAt = 0;
 let releaseTimer: ReturnType<typeof setTimeout> | null = null;
@@ -136,14 +153,24 @@ export async function refreshDaemonUpdate(): Promise<void> {
       const view = views.get(id);
       if (view) {
         view.status = result;
+        view.noRemote = false;
+        if (updateInProgress(result)) { view.watched = true; view.unconfirmed = false; }
         // A status read does not prove a lost update request was rejected.
         if (result.operation_id && result.target === view.latest && (updateInProgress(result) || result.phase === "complete")) view.uncertain = false;
+        else if (view.uncertain && !view.requesting && Date.now() - (view.uncertainSince ?? 0) >= UNCERTAIN_WAIT_MS) {
+          view.uncertain = false;
+          view.unconfirmed = true;
+        }
         if (result.phase === "complete") {
           const config = await session.getConfig();
           if (liveSession() === session && typeof config.build === "string") view.build = config.build;
         }
       }
-    } catch { /* Old daemons return unknown_op; keep the manual update path. */ }
+    } catch (error) {
+      // Old daemons return unknown_op: they only take the manual update path.
+      const view = views.get(id);
+      if (view && error instanceof ProtocolError && error.code === "unknown_op" && liveSession() === session) view.noRemote = true;
+    }
     finally {
       if (liveSession() === session && currentDaemonId() === id) {
         notifyUpdate();
@@ -172,6 +199,8 @@ export async function startDaemonUpdate(): Promise<void> {
   if (!id || !view || view.requesting || !updateDispatchReady(session, view)) return;
   view.requesting = true;
   view.rejected = false;
+  view.unconfirmed = false;
+  view.watched = true;
   notifyUpdate();
   // The requesting publication is an observable boundary: a subscriber may
   // switch to another computer/session or flag this build incompatible.
@@ -191,6 +220,7 @@ export async function startDaemonUpdate(): Promise<void> {
   } catch (error) {
     view.rejected = error instanceof ProtocolError && ["conflict", "invalid_argument", "unknown_op", "rate_limited", "not_connected", "disconnected"].includes(error.code);
     view.uncertain = !view.rejected;
+    if (view.uncertain) view.uncertainSince = Date.now();
   }
   finally {
     view.requesting = false;
