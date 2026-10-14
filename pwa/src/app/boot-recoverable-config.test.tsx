@@ -11,6 +11,8 @@ import { happy, resetBoardTestDOM } from "../../test-support/dom";
 // fetch — not source-string assertions.
 await resetBoardTestDOM();
 
+const { attachLiveSession } = await import("../features/computers/catalog-store");
+
 const telemetry = await import("../lib/telemetry");
 telemetry.setTelemetrySender(() => {});
 
@@ -191,6 +193,7 @@ function dispatchRecoveryEvents(): void {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  attachLiveSession(null);
   await (await import("./connected-loader")).loadConnectedRuntime();
   registerSessionOwnerPreparer(null);
   originalOnline = Object.getOwnPropertyDescriptor(navigator, "onLine");

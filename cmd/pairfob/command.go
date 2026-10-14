@@ -15,9 +15,11 @@ const commandUsage = `Pairfob — this computer, on another device.
   pairfob list              What's paired
   pairfob forget N          Unpair
   pairfob machine link NAME Pair with a machine Herdr reaches over SSH
-  pairfob update            Install the latest version
+  pairfob update            Update Pairfob (keeps Herdr unchanged)
   pairfob doctor            Check this computer
-  pairfob setup             Check, install if requested, and start Herdr
+  pairfob setup             Install missing Herdr and check the session runtime
+  pairfob setup --update-herdr
+                            Prepare the latest stable Herdr update
   pairfob quota list        Subscription quota this computer can read
   pairfob quota-setup-claude Enable Claude subscription quota collection
   pairfob service status|start|restart|stop|install

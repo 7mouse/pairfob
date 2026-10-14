@@ -32,6 +32,7 @@ type downloadProgress struct {
 }
 
 type downloadPolicy struct {
+	redirect    func(*http.Request, []*http.Request) error
 	timeout     time.Duration
 	idleTimeout time.Duration
 	attempts    int
@@ -122,7 +123,11 @@ func downloadAttempt(rawURL string, limit int64, policy downloadPolicy, attempt 
 	if err != nil {
 		return nil, err
 	}
-	resp, err := originHTTPClient(policy.timeout).Do(req)
+	client := originHTTPClient(policy.timeout)
+	if policy.redirect != nil {
+		client.CheckRedirect = policy.redirect
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		if cause := context.Cause(ctx); cause != nil {
 			return nil, cause

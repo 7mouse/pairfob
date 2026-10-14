@@ -104,6 +104,8 @@ export async function openCreateSheet(options: { workspaceId?: string; newWorksp
   if (!canCreateTab && !canCreateWorkspace) return;
   const { options: workspaces, anchors } = workspaceChoices(options.workspaceId ?? contextWorkspace());
   const kinds = [...advertisedAgentKinds()];
+  const session = liveSession();
+  let handled = false;
   const request = await askCreate({
     host: hostName(),
     workspaces,
@@ -115,9 +117,26 @@ export async function openCreateSheet(options: { workspaceId?: string; newWorksp
     canCreateTab,
     canCreateWorkspace,
     canCreateWorktree: capabilityEnabled("create_worktree"),
+    onCreate: async request => {
+      if (liveSession() !== session || session?.isConnected() !== true) return { ok: false, message: t("create.notRun") };
+      if (request.kind === "worktree") return { ok: true };
+      let outcome;
+      if (request.kind === "conversation") {
+        outcome = await startNewConversation({ cwd: request.cwd, ...(request.agentKind ? { agent_kind: request.agentKind } : {}), ...(request.label ? { label: request.label } : {}) });
+      } else {
+        const anchor = anchors.get(request.workspaceId);
+        if (!anchor) return { ok: false, message: t("create.notRun") };
+        outcome = await createSelectedTab(anchor, { ...(request.agentKind ? { agent_kind: request.agentKind } : {}), ...(request.label ? { label: request.label } : {}) });
+      }
+      if (outcome.ok) {
+        handled = true;
+        rememberCreate(request.kind === "conversation" ? { kind: request.agentKind, cwd: request.cwd } : { kind: request.agentKind, workspaceId: request.workspaceId });
+      }
+      return outcome;
+    },
   });
   // The sheet may have been open across a disconnect or a computer switch.
-  if (!request || liveSession()?.isConnected() !== true) return;
+  if (!request || handled || liveSession() !== session || session?.isConnected() !== true) return;
   run(request, anchors);
 }
 

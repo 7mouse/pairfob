@@ -39,6 +39,7 @@ import { clearNotice } from "./notices-store";
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("./connected-loader")).loadConnectedRuntime();
   happy.happyDOM.setWindowSize({ width: 390, height: 844 });
   registerSessionOwnerPreparer(null);
   resetTransitionState();
@@ -77,6 +78,7 @@ afterEach(async () => {
   resetTransitionState();
   resetCommitState();
   resetRuntime();
+  attachLiveSession(null);
 });
 
 type NativeStubOptions = {

@@ -30,17 +30,16 @@ func (f *setupRuntimeFixture) EnsureServer(context.Context) (runtime.HerdrServer
 
 func TestSetupHerdrLifecycle(t *testing.T) {
 	for _, tc := range []struct {
-		name                                                                string
-		states                                                              []string
-		explicit, consent, noPrompt, disableStart, installFails, startFails bool
-		wantInstalls, wantStarts, wantPrompts                               int
-		wantErr                                                             bool
+		name                                             string
+		states                                           []string
+		explicit, disableStart, installFails, startFails bool
+		wantInstalls, wantStarts                         int
+		wantErr                                          bool
 	}{
 		{name: "ready reuse", states: []string{"ready"}, explicit: true},
-		{name: "missing unattended without permission", states: []string{"missing"}, noPrompt: true, wantErr: true},
-		{name: "missing declined", states: []string{"missing"}, wantPrompts: 1, wantErr: true},
+		{name: "missing unattended without permission", states: []string{"missing"}, wantErr: true},
+		{name: "missing declined", states: []string{"missing"}, wantErr: true},
 		{name: "explicit install then start", states: []string{"missing", "stopped", "ready"}, explicit: true, wantInstalls: 1, wantStarts: 1},
-		{name: "consent install then start", states: []string{"missing", "stopped", "ready"}, consent: true, wantInstalls: 1, wantStarts: 1, wantPrompts: 1},
 		{name: "install with existing live server", states: []string{"missing", "ready"}, explicit: true, wantInstalls: 1},
 		{name: "download failed", states: []string{"missing"}, explicit: true, installFails: true, wantInstalls: 1, wantErr: true},
 		{name: "installed but still missing", states: []string{"missing", "missing"}, explicit: true, wantInstalls: 1, wantErr: true},
@@ -56,7 +55,7 @@ func TestSetupHerdrLifecycle(t *testing.T) {
 			if tc.startFails {
 				rt.startErr = errors.New("failed to start")
 			}
-			installs, prompts := 0, 0
+			installs := 0
 			actions := herdrSetupActions{autostart: !tc.disableStart, install: func() error {
 				installs++
 				if tc.installFails {
@@ -64,13 +63,10 @@ func TestSetupHerdrLifecycle(t *testing.T) {
 				}
 				return nil
 			}}
-			if !tc.noPrompt {
-				actions.confirm = func() bool { prompts++; return tc.consent }
-			}
 			var out bytes.Buffer
 			err := setupHerdr(rt, tc.explicit, actions, &out)
-			if (err != nil) != tc.wantErr || installs != tc.wantInstalls || rt.starts != tc.wantStarts || prompts != tc.wantPrompts {
-				t.Fatalf("err=%v installs=%d starts=%d prompts=%d output=%s", err, installs, rt.starts, prompts, out.String())
+			if (err != nil) != tc.wantErr || installs != tc.wantInstalls || rt.starts != tc.wantStarts {
+				t.Fatalf("err=%v installs=%d starts=%d output=%s", err, installs, rt.starts, out.String())
 			}
 			if tc.wantErr && strings.Contains(out.String(), "Herdr: ready") {
 				t.Fatalf("claimed ready: %s", out.String())

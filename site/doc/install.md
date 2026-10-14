@@ -16,15 +16,15 @@ The same command on a second computer. Then pair it from the phone: **Settings â
 
 ## Herdr checks and installation
 
-Before replacing Pairfob, enrolling, or installing its service, the installer checks Herdr. It reuses a ready server, starts an installed server when needed, and waits for its API. If Herdr is missing, it asks in the terminal before installing pinned version 0.8.2 into `~/.local/bin/herdr`, with SHA-256 verification and without replacing an existing Herdr.
+Before replacing Pairfob, enrolling, or installing its service, the installer checks Herdr. It reuses a ready server, starts an installed server when needed, and waits for its API. If Herdr is missing, it automatically installs the latest stable release into `~/.local/bin/herdr`, verifies SHA-256 and records its source. Existing installations are preserved.
 
 For unattended installation, explicitly allow the missing dependency:
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-interactive
+curl -fsSL https://pairfob.com/install.sh | sh -s -- --non-interactive
 ```
 
-`--non-interactive` never prompts and fails when Herdr is missing unless `--install-herdr` is also set. `--skip-herdr-check` installs Pairfob without claiming session readiness. `--no-service` still checks Herdr; for offline preparation use `--no-service --no-enroll --skip-herdr-check`.
+`--non-interactive` never prompts and still installs missing Herdr by default. Use `--no-install-herdr` to fail instead when Herdr is missing. `--skip-herdr-check` installs Pairfob without claiming session readiness. `--no-service` still checks Herdr; for offline preparation use `--no-service --no-enroll --skip-herdr-check`.
 
 Later, run `pairfob setup` to check and start Herdr, or `pairfob setup --install-herdr` to install a missing dependency. `pairfob doctor` only diagnoses; it never installs or starts anything. Incompatible protocols, startup failures, and invalid `HERDR_BIN` or socket settings must be resolved before continuing. Existing Herdr sessions are never automatically upgraded or restarted. Pairfob starts only the default server; with `PAIRFOB_HERDR_AUTOSTART=0`, start the configured Herdr server yourself. See [Named Herdr sessions](/app#named-herdr-sessions) for the autostart limits.
 
@@ -43,8 +43,9 @@ Later, run `pairfob setup` to check and start Herdr, or `pairfob setup --install
 | `--prefix DIR` | Install directory. A writable `/usr/local/bin` uses that; otherwise `~/.local/bin` |
 | `--no-service` | Binary and enroll only; no login service |
 | `--no-enroll` | Skip enrollment; service and Herdr checks still apply |
-| `--install-herdr` | Install pinned Herdr if missing, without prompting |
-| `--non-interactive` | Never prompt; missing dependencies fail unless installation is allowed |
+| `--no-install-herdr` | Fail instead of installing missing Herdr |
+| `--install-herdr` | Compatibility alias: install missing Herdr (the default) |
+| `--non-interactive` | Never prompt; install missing Herdr unless explicitly disabled |
 | `--skip-herdr-check` | Skip Herdr checks without claiming session readiness |
 
 Also valid:
@@ -107,10 +108,31 @@ Uninstalling the service does not delete the state directory. To drop pairings t
 
 ## From source
 
-Clone [the repository](https://github.com/arronKler/pairfob) for local comparison. Herdr still needs to be installed. Everyday use still follows the install command above.
+Clone [the repository](https://github.com/arronKler/pairfob) for local comparison. Run setup once to prepare Herdr automatically. Everyday use still follows the install command above.
 
 ```sh
+go run ./cmd/pairfob setup
 go run ./cmd/pairfob
 ```
 
 Local pairing and checks are in the repository README.
+
+<span id="herdr-runtime"></span>
+
+## Update the Herdr runtime
+
+`pairfob update` and **Update Pairfob** in the browser update Pairfob only. For Herdr installed and still managed by Pairfob, run:
+
+```sh
+pairfob setup --update-herdr
+```
+
+With running sessions, this only downloads and verifies the update. Exit code 2 means prepared but not active; tasks keep running. When tasks can be interrupted, run on that computer:
+
+```sh
+pairfob setup --update-herdr --restart-herdr
+```
+
+The command describes the target and impact and asks in the terminal before stopping the default service, updating and verifying. Stopping terminates terminal processes; agents may need recovery. Restoring a binary cannot restore those processes. Named sessions, custom sockets and externally supervised servers need local maintenance using their original setup. Non-interactive mode cannot authorize a restart.
+
+Update Homebrew, mise, Nix or unknown installations through their original installer. Older Pairfob installs without provenance are not adopted automatically. `pairfob doctor` reports installed and running versions and pending updates. Uninstalling Pairfob keeps Herdr, sessions and projects.

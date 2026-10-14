@@ -3,17 +3,17 @@ package main
 import (
 	"context"
 	"crypto/sha256"
-	"errors"
+
 	"fmt"
 	"net/http"
-	"net/http/httptest"
+
 	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
-	"sync/atomic"
+
 	"testing"
 	"time"
 )
@@ -74,26 +74,26 @@ func TestActivateHerdrChecksIntegrityAndNeverReplaces(t *testing.T) {
 }
 
 // Opt-in network smoke only installs into a temporary directory, never PATH.
-func TestPinnedHerdrDownloadWhenRequested(t *testing.T) {
+func TestLatestHerdrDownloadWhenRequested(t *testing.T) {
 	if os.Getenv("PAIRFOB_TEST_HERDR_DOWNLOAD") != "1" {
-		t.Skip("set PAIRFOB_TEST_HERDR_DOWNLOAD=1 for pinned release verification")
+		t.Skip("set PAIRFOB_TEST_HERDR_DOWNLOAD=1 for latest release verification")
 	}
-	release, ok := herdrReleases[runtime.GOOS+"/"+runtime.GOARCH]
-	if !ok {
-		t.Skip("unsupported automatic install platform")
+	release, err := latestHerdrRelease(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		t.Fatal(err)
 	}
-	payload, err := fetchHerdrArtifact("https://github.com/herdrdev/herdr/releases/download/v" + bundledHerdrVersion + "/" + release.asset)
+	payload, err := fetchHerdrArtifact(release.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
 	dest := filepath.Join(t.TempDir(), "herdr")
-	if err := activateHerdr(dest, payload, release.sha256); err != nil {
+	if err := activateHerdr(dest, payload, release.SHA256); err != nil {
 		t.Fatal(err)
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, dest, "--version").CombinedOutput()
-	if err != nil || strings.TrimSpace(string(out)) != "herdr "+bundledHerdrVersion {
+	if err != nil || strings.TrimSpace(string(out)) != "herdr "+release.Version {
 		t.Fatalf("version=%q err=%v", out, err)
 	}
 }
@@ -122,14 +122,10 @@ func TestHerdrDownloadRedirectPolicy(t *testing.T) {
 	}
 }
 
-func TestFetchHerdrArtifactRejectsRedirectBeforeSending(t *testing.T) {
-	var reached atomic.Bool
-	target := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { reached.Store(true); w.WriteHeader(http.StatusOK) }))
-	defer target.Close()
-	source := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, target.URL, http.StatusFound) }))
-	defer source.Close()
-	_, err := fetchHerdrArtifact(source.URL)
-	if !errors.Is(err, errHerdrDownloadRedirect) || reached.Load() {
-		t.Fatalf("err=%v reached=%v", err, reached.Load())
+func TestFetchHerdrArtifactRejectsUntrustedSource(t *testing.T) {
+	for _, raw := range []string{"http://localhost/file", "https://example.com/file", "https://github.com/other/repo/releases/download/v1/file"} {
+		if _, err := fetchHerdrArtifact(raw); err == nil {
+			t.Fatal("accepted", raw)
+		}
 	}
 }

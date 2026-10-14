@@ -35,6 +35,7 @@ export type HerdOperationOptions<T> = {
   owner?: OperationOwner;
   capability?: OperationCapability;
   conflictMessage?: string;
+  invalidArgumentMessage?: string;
   unsupportedMessage?: string;
   after?: (result: T, owner: OperationOwner) => Promise<void>;
   reconcileWorktrees?: ListWorktreesInput;
@@ -93,7 +94,7 @@ export async function runHerdOperation<T>(
     await ports.reconcile(owner.session, error, reconcileWorktrees, () => stillOwns(owner, ports));
     if (stillOwns(owner, ports)) {
       const override = error instanceof ProtocolError
-        ? ({ conflict: options.conflictMessage, unsupported: options.unsupportedMessage } as Record<string, string | undefined>)[error.code]
+        ? ({ conflict: options.conflictMessage, unsupported: options.unsupportedMessage, invalid_argument: options.invalidArgumentMessage } as Record<string, string | undefined>)[error.code]
         : undefined;
       const message = override ?? messageOf(error);
       showError(message, noticeScope);

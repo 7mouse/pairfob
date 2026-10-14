@@ -12,9 +12,11 @@ import (
 func TestPaneCreationAgentKindsAndDeduplication(t *testing.T) {
 	for _, op := range []string{"CreateTab", "SplitPane"} {
 		t.Run(op, func(t *testing.T) {
+			dir := t.TempDir()
+			t.Setenv("PAIRFOB_ALLOWED_ROOTS", dir)
 			fake := runtime.NewFake()
 			_, client := runtimeRPCClient(t, fake)
-			rootRaw, err := client.RPC("CreateConversation", map[string]any{"operation_id": "op_panekindroot0001", "cwd": "/tmp/pairfob"})
+			rootRaw, err := client.RPC("CreateConversation", map[string]any{"operation_id": "op_panekindroot0001", "cwd": dir})
 			if err != nil {
 				t.Fatal(err)
 			}

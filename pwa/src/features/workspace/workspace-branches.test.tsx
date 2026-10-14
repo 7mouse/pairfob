@@ -121,7 +121,7 @@ describe("React workspace branches", () => {
   test("shows branches read-only and routes changes through worktrees", async () => {
     await boot();
     await settle(() => buttonNamed("分支与 Worktree").click());
-    const dialog = document.querySelector("dialog.sheet");
+    const dialog = document.querySelector("dialog.sheet[open]");
     expect(dialog?.textContent).toContain("feature/mobile");
     expect(dialog?.textContent).toContain("新建 Worktree");
     expect(dialog?.textContent).not.toContain("删除分支");

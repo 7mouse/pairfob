@@ -1,14 +1,27 @@
 import { b64url, hexToBytes } from "./bytes.ts";
+import { recordConnectionDiagnostic } from "./connection-diagnostics.ts";
 import { DataFrameChannel } from "./data-channel.ts";
 import { ProtocolError } from "./errors.ts";
 import { isRecord } from "./session-message.ts";
 
 const DIRECT_NEGOTIATION_MS = 8_000;
+/**
+ * Gathering only completes when every interface has heard from STUN or given up
+ * on it, which on some phones is the whole negotiation budget. A reflexive
+ * address is already enough to offer; this long lets a second interface add its own.
+ */
+export const DIRECT_ICE_SETTLE_MS = 300;
+/** STUN has asked four times by now. Local addresses still connect when the computer can be reached. */
+export const DIRECT_ICE_LOCAL_MS = 3_000;
 export const MAX_SDP_BYTES = 64 * 1024;
 const DATA_CHANNEL_LABEL = "pairfob";
 const DATA_CHANNEL_PROTOCOL = "pairfob.v1";
 
-export type DirectICEGathering = "complete" | "partial";
+/**
+ * Why the offer left: every address gathered, a reflexive one in hand, local
+ * ones only after STUN stayed silent, or whatever the full budget produced.
+ */
+export type DirectICEGathering = "complete" | "reflexive" | "local" | "partial";
 export type DirectFailureDiagnostic =
   | "unsupported"
   | "unavailable"
@@ -70,18 +83,29 @@ function hasICECandidate(peer: RTCPeerConnection): boolean {
   return /(?:^|\r?\n)a=candidate:/.test(peer.localDescription?.sdp ?? "");
 }
 
+function hasReflexiveCandidate(peer: RTCPeerConnection): boolean {
+  return /(?:^|\r?\n)a=candidate:[^\r\n]* typ srflx(?: |\r?\n|$)/.test(peer.localDescription?.sdp ?? "");
+}
+
 export function waitForDirectICE(
   peer: RTCPeerConnection,
   signal?: AbortSignal,
   timeoutMs = DIRECT_NEGOTIATION_MS,
+  pace = { settleMs: DIRECT_ICE_SETTLE_MS, localMs: DIRECT_ICE_LOCAL_MS },
 ): Promise<DirectICEGathering> {
   if (signal?.aborted) return Promise.reject(new DirectError("cancelled", "P2P 协商已取消"));
+  const startedAt = performance.now();
+  const gathered = (reason: string) =>
+    recordConnectionDiagnostic({ event: "ice_gathered", transport: "p2p", reason, elapsed_ms: performance.now() - startedAt });
   return new Promise((resolve, reject) => {
     let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
+    let settleTimer: ReturnType<typeof setTimeout> | null = null;
+    let localTimer: ReturnType<typeof setTimeout> | null = null;
+    let localDue = false;
     let sawCandidate = hasICECandidate(peer);
     let settled = false;
     const cleanup = () => {
-      if (timeoutTimer !== null) clearTimeout(timeoutTimer);
+      for (const timer of [timeoutTimer, settleTimer, localTimer]) if (timer !== null) clearTimeout(timer);
       peer.removeEventListener("icegatheringstatechange", changed);
       peer.removeEventListener("icecandidate", candidate);
       signal?.removeEventListener("abort", aborted);
@@ -90,12 +114,14 @@ export function waitForDirectICE(
       if (settled) return;
       settled = true;
       cleanup();
+      gathered(result);
       resolve(result);
     };
     const fail = (error: DirectError) => {
       if (settled) return;
       settled = true;
       cleanup();
+      gathered(error.diagnostic);
       reject(error);
     };
     const finishComplete = () => {
@@ -103,12 +129,23 @@ export function waitForDirectICE(
       if (sawCandidate) finish("complete");
       else fail(new DirectError("ice_failed", "P2P 未找到可用 ICE 候选"));
     };
+    const early = () => {
+      if (settled) return;
+      sawCandidate = sawCandidate || hasICECandidate(peer);
+      const reflexive = hasReflexiveCandidate(peer);
+      if (localDue && sawCandidate) finish(reflexive ? "reflexive" : "local");
+      else if (reflexive && settleTimer === null) {
+        settleTimer = globalThis.setTimeout(() => finish("reflexive"), pace.settleMs);
+      }
+    };
     const changed = () => {
       if (peer.iceGatheringState === "complete") finishComplete();
     };
     const candidate = (event: RTCPeerConnectionIceEvent) => {
-      if (event.candidate) sawCandidate = true;
-      else if (peer.iceGatheringState === "complete") finishComplete();
+      if (event.candidate) {
+        sawCandidate = true;
+        early();
+      } else if (peer.iceGatheringState === "complete") finishComplete();
     };
     const aborted = () => {
       fail(new DirectError("cancelled", "P2P 协商已取消"));
@@ -122,7 +159,12 @@ export function waitForDirectICE(
       else if (sawCandidate) finish("partial");
       else fail(new DirectError("ice_timeout", "P2P ICE 候选收集超时"));
     }, timeoutMs);
+    localTimer = globalThis.setTimeout(() => {
+      localDue = true;
+      early();
+    }, pace.localMs);
     if (peer.iceGatheringState === "complete") finishComplete();
+    else early();
   });
 }
 

@@ -47,7 +47,7 @@ Match the English Pairfob string on screen:
 | Output | Action |
 | --- | --- |
 | Running no | Follow the suggested command: `pairfob service install` if not installed, `pairfob service start` if stopped, `pairfob service restart` if running but not answering, or `pairfob service status` if status is unavailable. For foreground use: `pairfob run` |
-| Herdr anything but `ready` | Follow the hint on that line: `pairfob setup` starts an installed Herdr, `pairfob setup --install-herdr` installs a missing one. Herdr 0.8+ is required |
+| Herdr anything but `ready` | Follow the hint on that line: `pairfob setup` installs the latest stable Herdr if missing and starts its server when needed. Herdr 0.8+ is required |
 | Origin … not set up | Rerun the installer |
 | Paired 0 | `pairfob pair` |
 | P2P off | This computer is relay-only (`PAIRFOB_P2P=0`) |

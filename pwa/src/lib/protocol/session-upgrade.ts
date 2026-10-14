@@ -90,10 +90,15 @@ export async function prepareDirectSession(
   }
 }
 
+/**
+ * `abandon` gives the candidate up while it is still proving itself: the relay
+ * dropped under the commit and its replacement was ready first.
+ */
 export async function commitDirectSession(
   relay: SessionTransport,
   candidate: PreparedDirectSession,
   emit: (event: SessionEvent) => void,
+  abandon?: AbortSignal,
 ): Promise<{ transport: SessionTransport; rttMs: number }> {
   let commitError: unknown = null;
   try {
@@ -117,11 +122,19 @@ export async function commitDirectSession(
     (event) => { if (active) emit(event); },
   );
   const startedAt = performance.now();
+  const abandoned = () => direct.close("standby_ready");
+  abandon?.addEventListener("abort", abandoned, { once: true });
   try {
+    if (abandon?.aborted) abandoned();
     await direct.rpc("Ping", { t_ms: Date.now() }, DIRECT_PROBE_TIMEOUT_MS);
+    // Given up in the same turn as its answer: the closed transport must not be handed on.
+    if (abandon?.aborted) throw new ProtocolError("closed", "会话已关闭");
   } catch (error) {
     direct.close();
+    if (abandon?.aborted) throw new DirectError("cancelled", "P2P 直连切换已取消");
     throw commitError ?? asDirectError(error, "probe", "P2P 连通性验证失败");
+  } finally {
+    abandon?.removeEventListener("abort", abandoned);
   }
   active = true;
   return { transport: direct, rttMs: Math.max(0, performance.now() - startedAt) };

@@ -117,21 +117,6 @@ func TestAntigravityQuotaRequiresActualRemainingFraction(t *testing.T) {
 	if yes, cli := antigravityExecutable("/Users/u/.local/bin/agy"); !yes || !cli {
 		t.Fatal("agy not detected")
 	}
-	// A CLI started by typing its name shows no path, only the name.
-	for line, want := range map[string]bool{
-		"501 73597 agy":                              true,
-		"501 73597 agy --continue":                   true,
-		"501 73597 /Users/u/.local/bin/agy":          true,
-		"501 73597 node /opt/antigravity/server.js":  true,
-		"501 73597 vim notes-about-agy.txt":          false,
-		"501 73597 magy":                             false,
-		"501 73597 python agy":                       false,
-		"501 73597 /usr/bin/ssh -N build.example.io": false,
-	} {
-		if got := antigravityMentioned(line, strings.Fields(line)[2]); got != want {
-			t.Fatalf("antigravityMentioned(%q) = %v", line, got)
-		}
-	}
 }
 func TestQuotaHTTPDoesNotForwardCredentialsOnRedirect(t *testing.T) {
 	called := false

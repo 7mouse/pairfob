@@ -1,3 +1,4 @@
+import { appRoot } from "../../../app/dom-root";
 import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { compileString } from "sass";
@@ -14,43 +15,43 @@ afterEach(() => unmountReact());
 
 test("a shut fold keeps its content mounted and takes it out of reach", () => {
   renderReact(<Fold open><button>inside</button></Fold>);
-  const fold = document.querySelector(".fold") as HTMLElement;
-  const button = document.querySelector("button");
+  const fold = appRoot().querySelector(".fold") as HTMLElement;
+  const button = appRoot().querySelector("button");
   expect(fold.classList.contains("is-shut")).toBeFalse();
   expect(fold.hasAttribute("inert")).toBeFalse();
   renderReact(<Fold open={false}><button>inside</button></Fold>);
-  expectSameNode(document.querySelector(".fold"), fold);
-  expectSameNode(document.querySelector("button"), button);
+  expectSameNode(appRoot().querySelector(".fold"), fold);
+  expectSameNode(appRoot().querySelector("button"), button);
   expect(fold.classList.contains("is-shut")).toBeTrue();
   expect(fold.hasAttribute("inert")).toBeTrue();
 });
 
 test("a lazy fold draws its content only while it is open or on its way shut", async () => {
   renderReact(<Fold open={false} lazy><button>inside</button></Fold>);
-  expect(document.querySelector("button")).toBeNull();
+  expect(appRoot().querySelector("button")).toBeNull();
   // Opened: the content is there in the commit that opens the block.
   renderReact(<Fold open lazy><button>inside</button></Fold>);
-  const button = document.querySelector("button");
+  const button = appRoot().querySelector("button");
   expect(button).not.toBeNull();
-  expect(document.querySelector(".fold")?.classList.contains("is-shut")).toBeFalse();
+  expect(appRoot().querySelector(".fold")?.classList.contains("is-shut")).toBeFalse();
   // Shutting: the same content, drawn for the way out and out of reach.
   renderReact(<Fold open={false} lazy><button>inside</button></Fold>);
-  expectSameNode(document.querySelector("button"), button);
-  expect(document.querySelector(".fold")?.hasAttribute("inert")).toBeTrue();
+  expectSameNode(appRoot().querySelector("button"), button);
+  expect(appRoot().querySelector(".fold")?.hasAttribute("inert")).toBeTrue();
   await foldShut();
-  expect(document.querySelector("button")).toBeNull();
-  expect(document.querySelector(".fold")?.classList.contains("is-shut")).toBeTrue();
+  expect(appRoot().querySelector("button")).toBeNull();
+  expect(appRoot().querySelector(".fold")?.classList.contains("is-shut")).toBeTrue();
 });
 
 test("a swap marks a changed value and never a first paint or a repeat", () => {
   renderReact(<Swap on="working" className="word">working</Swap>);
-  const first = document.querySelector(".word") as HTMLElement;
+  const first = appRoot().querySelector(".word") as HTMLElement;
   expect(first.classList.contains("swap-in")).toBeFalse();
   renderReact(<Swap on="working" className="word">working</Swap>);
-  expectSameNode(document.querySelector(".word"), first);
+  expectSameNode(appRoot().querySelector(".word"), first);
   expect(first.classList.contains("swap-in")).toBeFalse();
   renderReact(<Swap on="blocked" className="word">blocked</Swap>);
-  const second = document.querySelector(".word") as HTMLElement;
+  const second = appRoot().querySelector(".word") as HTMLElement;
   expectDifferentNode(second, first);
   expect(second.classList.contains("swap-in")).toBeTrue();
   expect(second.textContent).toBe("blocked");
@@ -58,10 +59,10 @@ test("a swap marks a changed value and never a first paint or a repeat", () => {
 
 test("a copy face shows one label to assistive technology at a time", () => {
   renderReact(<button><CopyAck state="idle" idle="Copy" copied="Copied" failed="Copy by hand" /></button>);
-  const hidden = () => [...document.querySelectorAll(".copy-ack-face")].map((face) => face.getAttribute("aria-hidden"));
+  const hidden = () => [...appRoot().querySelectorAll(".copy-ack-face")].map((face) => face.getAttribute("aria-hidden"));
   expect(hidden()).toEqual(["false", "true", "true"]);
   renderReact(<button><CopyAck state="copied" idle="Copy" copied="Copied" failed="Copy by hand" /></button>);
-  expect(document.querySelector(".copy-ack")?.getAttribute("data-state")).toBe("copied");
+  expect(appRoot().querySelector(".copy-ack")?.getAttribute("data-state")).toBe("copied");
   expect(hidden()).toEqual(["true", "false", "true"]);
 });
 

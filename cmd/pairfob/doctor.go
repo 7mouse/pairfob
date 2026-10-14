@@ -35,6 +35,7 @@ func doctorCommand(sock string) error {
 		return err
 	}
 	writeDoctor(os.Stdout, h)
+	writeHerdrMaintenance(os.Stdout)
 	if !h.Running || !h.HerdrOK {
 		return errDoctor
 	}
@@ -203,6 +204,8 @@ func writeLiveSnapshot(w io.Writer, sock string) error {
 	fmt.Fprintln(w, "  pairfob pair     pair a device")
 	fmt.Fprintln(w, "  pairfob list     what's paired")
 	fmt.Fprintln(w, "  pairfob doctor   full check")
+	fmt.Fprintf(w, "  %s    local terminal\n", herdrTerminalCommand())
+	fmt.Fprintln(w, "  Browser: https://pairfob.com/pair (this computer, a phone or a tablet)")
 	return nil
 }
 

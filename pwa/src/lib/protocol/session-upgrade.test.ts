@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { Direction, DIR_C, DIR_S } from "./aead.ts";
+import { connectionDiagnostics } from "./connection-diagnostics.ts";
 import { DataFrameChannel } from "./data-channel.ts";
 import { decodeUTF8, Typ, type Frame } from "./envelope.ts";
 import { ProtocolError } from "./errors.ts";
@@ -15,7 +16,7 @@ class DirectLoopback implements FrameChannel {
   private readonly fromClient: Direction;
   private readonly toClient: Direction;
 
-  constructor(private readonly routeId: Uint8Array, c2sKey: Uint8Array, s2cKey: Uint8Array) {
+  constructor(private readonly routeId: Uint8Array, c2sKey: Uint8Array, s2cKey: Uint8Array, private readonly mute = false) {
     this.fromClient = new Direction(c2sKey, DIR_C);
     this.toClient = new Direction(s2cKey, DIR_S);
   }
@@ -25,6 +26,7 @@ class DirectLoopback implements FrameChannel {
       queueMicrotask(() => this.handler?.({ ...frame, typ: Typ.PONG }));
       return;
     }
+    if (this.mute) return;
     const request = JSON.parse(decodeUTF8(this.fromClient.open(this.routeId, frame.payload))) as { id: string };
     const body = new TextEncoder().encode(JSON.stringify({ v: 1, id: request.id, ok: true, result: { pong: true } }));
     const payload = this.toClient.seal(this.routeId, body);
@@ -43,12 +45,12 @@ class DirectLoopback implements FrameChannel {
   }
 }
 
-function directCandidate(): PreparedDirectSession {
+function directCandidate(mute = false): PreparedDirectSession {
   const routeId = new Uint8Array(16);
   routeId[0] = 7;
   const c2sKey = new Uint8Array(32).fill(3);
   const s2cKey = new Uint8Array(32).fill(5);
-  const channel = new DirectLoopback(routeId, c2sKey.slice(), s2cKey.slice());
+  const channel = new DirectLoopback(routeId, c2sKey.slice(), s2cKey.slice(), mute);
   return {
     attemptId: "p2p_0123456789abcdef",
     iceGathering: "complete",
@@ -104,6 +106,45 @@ describe("atomic direct commit", () => {
     expect(error).toBeInstanceOf(ProtocolError);
     expect((error as ProtocolError).code).toBe("bad_message");
     expect(directFailureDiagnostic(error)).toBe("commit");
+  });
+});
+
+describe("a candidate whose relay dropped under the commit", () => {
+  const lostRelay = {
+    kind: "relay",
+    rpc: async () => { throw new ProtocolError("disconnected", "relay lost"); },
+  } as unknown as SessionTransport;
+
+  test("is given up the moment its replacement is ready, without waiting out the Ping", async () => {
+    const abandon = new AbortController();
+    const events: string[] = [];
+    const started = performance.now();
+    const pending = commitDirectSession(lostRelay, directCandidate(true), (event) => events.push(event.type), abandon.signal)
+      .catch((caught) => caught);
+    await Bun.sleep(10);
+    abandon.abort();
+    const error = await pending;
+    expect(directFailureDiagnostic(error)).toBe("cancelled");
+    expect(performance.now() - started).toBeLessThan(500);
+    expect(events).toEqual([]);
+    expect(connectionDiagnostics().at(-1)).toMatchObject({ event: "session_close", transport: "p2p", reason: "standby_ready" });
+  });
+
+  test("is given up at once when the replacement was ready before the commit failed", async () => {
+    const abandon = new AbortController();
+    abandon.abort();
+    const started = performance.now();
+    const error = await commitDirectSession(lostRelay, directCandidate(true), () => undefined, abandon.signal).catch((caught) => caught);
+    expect(directFailureDiagnostic(error)).toBe("cancelled");
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+
+  test("carries the session when it answers first, whatever happens to the replacement later", async () => {
+    const abandon = new AbortController();
+    const result = await commitDirectSession(lostRelay, directCandidate(), () => undefined, abandon.signal);
+    abandon.abort();
+    await expect(result.transport.rpc("Ping", { t_ms: 1 }, 200)).resolves.toBeDefined();
+    result.transport.close();
   });
 });
 

@@ -39,7 +39,7 @@ pairfob help
 
 ## setup
 
-`pairfob setup` checks and starts Herdr when needed, asking before installing a missing dependency. `pairfob setup --install-herdr --non-interactive` explicitly permits installation without prompting. Existing Herdr installations are not upgraded or replaced. `doctor` remains read-only.
+`pairfob setup` installs the latest stable Herdr when missing, starts it when needed and verifies its API. `--no-install-herdr` disables downloads; `--non-interactive` does not disable dependency installation. Existing installations are reused. `doctor` remains diagnostic. Use `pairfob setup --update-herdr` for a Pairfob-managed runtime update; see [Herdr updates](/install#herdr-runtime).
 
 ## doctor
 
@@ -94,7 +94,7 @@ Even when the file is already current, the command verifies the responding daemo
 
 Downloads report bytes received and retry once after a transient failure. Each attempt allows ten minutes total, with a 45-second limit without progress. SHA-256 verification still runs before replacement. If a proxy repeatedly stalls, inspect the terminal's proxy configuration; the updater does not change it.
 
-The phone checks for new computer versions and shows an update reminder. In Settings, supported service-managed installations offer **Update computer**. Confirming briefly disconnects the phone while the verified binary starts; completion is shown only after the running version is confirmed. Failed startup can restore the previous binary. Older daemons require one manual `pairfob update` to enable this flow. Updates are never installed automatically.
+The phone checks for new computer versions and shows an update reminder. In Settings, supported service-managed installations offer **Update Pairfob**. Confirming briefly disconnects the phone while the verified binary starts; completion is shown only after the running version is confirmed. Failed startup can restore the previous binary. Older daemons require one manual `pairfob update` to enable this flow. Updates are never installed automatically.
 
 
 ## Advanced (omitted from default help)

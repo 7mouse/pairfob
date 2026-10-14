@@ -1,0 +1,27 @@
+# Build the base Dockerfile as pairfob-herdr-test first.
+FROM pairfob-herdr-test
+RUN python3 - <<'PY'
+import hashlib, io, json, os, tarfile, urllib.request, zipfile
+arch = {'aarch64': 'aarch64', 'x86_64': 'x64'}[os.uname().machine]
+release = json.load(urllib.request.urlopen('https://api.github.com/repos/oven-sh/bun/releases/tags/bun-v1.3.14', timeout=60))
+name = 'bun-linux-' + arch + '.zip'
+asset = next(a for a in release['assets'] if a['name'] == name)
+body = urllib.request.urlopen(asset['browser_download_url'], timeout=180).read()
+assert asset['digest'] == 'sha256:' + hashlib.sha256(body).hexdigest()
+with zipfile.ZipFile(io.BytesIO(body)) as archive:
+    binary = archive.read('bun-linux-' + arch + '/bun')
+open('/usr/local/bin/bun', 'wb').write(binary)
+os.chmod('/usr/local/bin/bun', 0o755)
+os.symlink('/usr/local/bin/bun', '/usr/local/bin/bunx')
+node_arch = {'aarch64': 'arm64', 'x64': 'x64'}[arch]
+name = 'node-v22.22.1-linux-' + node_arch
+base = 'https://nodejs.org/dist/v22.22.1/'
+sums = urllib.request.urlopen(base + 'SHASUMS256.txt', timeout=60).read().decode()
+body = urllib.request.urlopen(base + name + '.tar.xz', timeout=180).read()
+assert any(line.split() == [hashlib.sha256(body).hexdigest(), name + '.tar.xz'] for line in sums.splitlines())
+with tarfile.open(fileobj=io.BytesIO(body), mode='r:xz') as archive:
+    binary = archive.extractfile(name + '/bin/node').read()
+open('/usr/local/bin/node', 'wb').write(binary)
+os.chmod('/usr/local/bin/node', 0o755)
+PY
+CMD ["bash", "/src/scripts/herdr-docker/verify-full.sh"]

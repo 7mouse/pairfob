@@ -18,7 +18,8 @@ continues to see only encrypted FWD bytes.
 ## Authenticated upgrade
 
 1. Over the established encrypted relay session, the phone sends one
-   `TransportOffer` RPC with a fresh `p2p_` attempt ID and complete offer SDP.
+   `TransportOffer` RPC with a fresh `p2p_` attempt ID and an offer SDP that
+   carries the candidates gathered so far (see below).
 2. The daemon creates a fresh 16-byte route, answers the SDP, and keeps the
    candidate separate from the active logical session.
 3. Over the DataChannel, the endpoints perform the unchanged
@@ -31,6 +32,23 @@ continues to see only encrypted FWD bytes.
 5. The phone proves the committed direct route with an encrypted `Ping`, swaps
    locally, then closes its relay socket. If the commit reply is lost, that
    direct probe resolves the outcome without replaying `TransportCommit`.
+
+The offer does not wait for ICE gathering to complete: that only happens once
+every interface has heard from STUN or given up on it, which on some phones is
+the whole 8-second budget. The phone sends the offer 300 ms after its first
+server-reflexive candidate, or with host candidates alone once 3 seconds have
+passed, and in any case after 8 seconds with whatever it has. Candidates are
+not trickled afterwards; the daemon learns any other working address from the
+connectivity checks themselves.
+
+If the relay drops while the candidate is still proving itself in step 5, the
+candidate keeps its 3-second Ping and a relay standby (the first flight of
+`envelope-v2.md`, as in foreground recovery below) starts beside it. A Ping
+answer carries the session on the direct route and closes the standby. A
+standby that verifies `DeviceHello2` first closes the candidate, then sends
+`DeviceHello3`. Without handshake budget a plain relay socket is prepared and
+the Ping decides alone. A relay loss that ends the session (`kicked`, a revoked
+or unpaired device) starts neither.
 
 Application mutations retain their existing `operation_id` rules and are never
 replayed during a transport switch. A failed P2P session reconnects through a

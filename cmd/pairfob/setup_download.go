@@ -2,44 +2,93 @@ package main
 
 import (
 	"crypto/sha256"
-	"errors"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
+	runtimeapi "pairfob/internal/runtime"
 	"path/filepath"
 	"runtime"
-	"time"
 )
 
-// Pinned from https://herdr.dev/latest.json, version 0.8.2. Update the version,
-// assets and checksums together after compatibility verification.
-const bundledHerdrVersion = "0.8.2"
-
-type herdrRelease struct{ asset, sha256 string }
-
-var herdrReleases = map[string]herdrRelease{
-	"darwin/arm64": {"herdr-macos-aarch64", "a5d4f4d504d8b309c91f811050559300faba31258425f53c50852fc96f6ae574"},
-	"darwin/amd64": {"herdr-macos-x86_64", "ab50262c8190cd7aa9056d249d255c08c328c3e8716de9cfa29db4f131b8e2c1"},
-	"linux/arm64":  {"herdr-linux-aarch64", "f55610658e1c2e0d2aaef730b4b2ab885f7f8ba00285ab372bfb14f2e3d5b40d"},
-	"linux/amd64":  {"herdr-linux-x86_64", "976150a14d490c94b243ea2e1a7eb2dfb67f12e36b182db90936f6728e6aecf4"},
-}
-
 func installHerdr() error {
-	release, ok := herdrReleases[runtime.GOOS+"/"+runtime.GOARCH]
-	if !ok {
-		return fmt.Errorf("Herdr automatic install is unsupported on %s/%s", runtime.GOOS, runtime.GOARCH)
-	}
-	home, err := os.UserHomeDir()
+	f, err := localHerdrFiles()
 	if err != nil {
 		return err
 	}
-	url := "https://github.com/herdrdev/herdr/releases/download/v" + bundledHerdrVersion + "/" + release.asset
-	payload, err := fetchHerdrArtifact(url)
+	lock, err := f.lock()
 	if err != nil {
-		return fmt.Errorf("download Herdr: %w", err)
+		return err
 	}
-	return activateHerdr(filepath.Join(home, ".local", "bin", "herdr"), payload, release.sha256)
+	defer lock.Close()
+	return installHerdrLocked(f)
+}
+
+func installHerdrLocked(f herdrFiles) error {
+	if err := f.recoverInstall(); err != nil {
+		return err
+	}
+	// Another installer may have completed while setup was checking readiness.
+	if _, err := runtimeapi.ResolveHerdrBinary(); err == nil {
+		return nil
+	}
+	release, err := latestHerdrRelease(runtime.GOOS, runtime.GOARCH)
+	if err != nil {
+		return err
+	}
+	payload, err := fetchHerdrArtifact(release.URL)
+	if err != nil {
+		return err
+	}
+	return installHerdrRelease(f, release, payload)
+}
+
+func validateHerdrCandidate(dir string, release herdrRelease, payload []byte) error {
+	if sha256Hex(payload) != release.SHA256 {
+		return fmt.Errorf("Herdr SHA-256 mismatch; nothing installed")
+	}
+	tmp, err := os.CreateTemp(dir, ".herdr-check-*")
+	if err != nil {
+		return err
+	}
+	defer os.Remove(tmp.Name())
+	defer tmp.Close()
+	if _, err = tmp.Write(payload); err != nil {
+		return err
+	}
+	if err = tmp.Chmod(0700); err != nil {
+		return err
+	}
+	if err = tmp.Close(); err != nil {
+		return err
+	}
+	version, err := herdrBinaryVersion(tmp.Name())
+	if err != nil {
+		return err
+	}
+	if version != release.Version {
+		return fmt.Errorf("Herdr executable version %s does not match manifest %s", version, release.Version)
+	}
+	return nil
+}
+
+func installHerdrRelease(f herdrFiles, release herdrRelease, payload []byte) error {
+	if err := validateHerdrCandidate(filepath.Dir(f.target), release, payload); err != nil {
+		return err
+	}
+	receipt, err := newHerdrReceipt(f.target, release)
+	if err != nil {
+		return err
+	}
+	if err = writeHerdrJSON(f.path("transaction.json"), herdrTransaction{Phase: "installing", Next: receipt}); err != nil {
+		return err
+	}
+	if err = activateHerdr(f.target, payload, release.SHA256); err != nil {
+		return err
+	}
+	if err = f.recoverInstall(); err != nil {
+		return err
+	}
+	fmt.Printf("Installed Herdr %s (SHA-256 verified) at %s\n", release.Version, f.target)
+	return nil
 }
 
 func activateHerdr(dest string, payload []byte, want string) error {
@@ -73,39 +122,4 @@ func activateHerdr(dest string, payload []byte, want string) error {
 		return fmt.Errorf("install Herdr without replacing an existing installation: %w", err)
 	}
 	return nil
-}
-
-// GitHub release downloads redirect to its asset host. This policy is local to
-// the pinned dependency; origin enrollment and Pairfob updates stay unchanged.
-var errHerdrDownloadRedirect = errors.New("Herdr download redirected outside the trusted release host; update Pairfob or install Herdr manually")
-
-func herdrDownloadRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) > 3 || req.URL.Scheme != "https" || req.URL.Host != "release-assets.githubusercontent.com" || req.URL.User != nil {
-		return errHerdrDownloadRedirect
-	}
-	return nil
-}
-
-func fetchHerdrArtifact(url string) ([]byte, error) {
-	client := originHTTPClient(2 * time.Minute)
-	client.CheckRedirect = herdrDownloadRedirect
-	resp, err := client.Get(url)
-	if err != nil {
-		if errors.Is(err, errHerdrDownloadRedirect) {
-			return nil, errHerdrDownloadRedirect
-		}
-		return nil, errors.New("could not download Herdr from GitHub; check network access and retry setup")
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return nil, downloadStatusError(resp.StatusCode)
-	}
-	payload, err := io.ReadAll(io.LimitReader(resp.Body, maxUpdateBytes+1))
-	if err != nil {
-		return nil, fmt.Errorf("read Herdr download: %w", err)
-	}
-	if len(payload) > maxUpdateBytes {
-		return nil, errDownloadTooLarge
-	}
-	return payload, nil
 }

@@ -105,6 +105,8 @@ export {
 } from "./session-transport.ts";
 
 const TERMINAL_CODES = new Set(["revoked", "unpaired", "too_many_devices", "bad_proof", "bad_signature"]);
+/** Losses no further handshake answers: the credential is gone, or another page took the session. */
+const endsSession = (code: string) => TERMINAL_CODES.has(code) || code === "kicked";
 const UNCERTAIN_MUTATION_TRANSPORT_CODES = new Set(["timeout", "disconnected", "heartbeat_timeout", "daemon_replaced"]);
 
 export type { FinishedP2PAttemptObservation, P2PAttemptObservation } from "./session-direct.ts";
@@ -687,6 +689,7 @@ class ReconnectingSession implements LiveSession {
     if (this.stopped || this.transport !== source) return;
     if (this.transportSwitch.wait()) {
       this.deferredDisconnect = error;
+      if (source.kind === "relay" && !endsSession(error.code)) this.direct.relayLostInSwitch();
       return;
     }
     if (source.kind === "relay") this.direct.dispose();
@@ -700,7 +703,7 @@ class ReconnectingSession implements LiveSession {
     this.traceModels = false;
     this.configRequest++;
     this.direct.dispose();
-    if (TERMINAL_CODES.has(error.code) || error.code === "kicked") {
+    if (endsSession(error.code)) {
       this.stopped = true;
       this.relayWarmup.cancel();
       this.unwatchVisibility();

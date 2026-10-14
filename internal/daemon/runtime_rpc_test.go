@@ -48,6 +48,16 @@ func runtimeRPCClient(t *testing.T, rt runtime.Runtime) (*Engine, *phone.Client)
 	// the single-receiver legacy recv() loop, which can only carry one
 	// outstanding RPC at a time.
 	client.StartRPCMux()
+	t.Cleanup(func() {
+		// Closing only the stop channels leaves receivers blocked in Pipe.Recv
+		// and session workers alive after their fixture has finished.
+		engine.CloseUploads()
+		engine.ResetTransport()
+		clientSide.Close()
+		hubClient.Close()
+		engineSide.Close()
+		hubDaemon.Close()
+	})
 	return engine, client
 }
 
@@ -78,6 +88,8 @@ func decodeResult(t *testing.T, raw json.RawMessage) map[string]any {
 }
 
 func TestRuntimeRPCNewOperationsAndDeduplication(t *testing.T) {
+	root := t.TempDir()
+	t.Setenv("PAIRFOB_ALLOWED_ROOTS", root)
 	fake := runtime.NewFake()
 	_, client := runtimeRPCClient(t, fake)
 
@@ -95,7 +107,7 @@ func TestRuntimeRPCNewOperationsAndDeduplication(t *testing.T) {
 	}
 
 	createParams := map[string]any{
-		"operation_id": "op_AAECAwQFBgcICQoL", "cwd": "/tmp/pairfob", "agent_kind": "codex", "label": "web",
+		"operation_id": "op_AAECAwQFBgcICQoL", "cwd": root, "agent_kind": "codex", "label": "web",
 	}
 	createdRaw, err := client.RPC("CreateConversation", createParams)
 	if err != nil {
@@ -112,14 +124,14 @@ func TestRuntimeRPCNewOperationsAndDeduplication(t *testing.T) {
 		t.Fatalf("deduplicated replay changed result: first=%s second=%s err=%v", createdRaw, replayedRaw, err)
 	}
 	conflictParams := map[string]any{
-		"operation_id": createParams["operation_id"], "cwd": "/tmp/pairfob", "agent_kind": "claude", "label": "different",
+		"operation_id": createParams["operation_id"], "cwd": root, "agent_kind": "claude", "label": "different",
 	}
 	if _, err := client.RPC("CreateConversation", conflictParams); err == nil || err.Error() != "conflict" {
 		t.Fatalf("operation id reuse was not rejected: %v", err)
 	}
 
 	terminalRaw, err := client.RPC("CreateConversation", map[string]any{
-		"operation_id": "op_terminalpane0001", "cwd": "/tmp/pairfob", "label": "shell",
+		"operation_id": "op_terminalpane0001", "cwd": root, "label": "shell",
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -137,7 +149,7 @@ func TestRuntimeRPCNewOperationsAndDeduplication(t *testing.T) {
 	workspaceID := created["workspace_id"].(string)
 	paneID := created["pane_id"].(string)
 	tabRaw, err := client.RPC("CreateTab", map[string]any{
-		"operation_id": "op_AQECAwQFBgcICQoL", "workspace_id": workspaceID, "cwd": "/tmp/pairfob", "label": "tests",
+		"operation_id": "op_AQECAwQFBgcICQoL", "workspace_id": workspaceID, "cwd": root, "label": "tests",
 	})
 	if err != nil || decodeResult(t, tabRaw)["pane_id"] == "" {
 		t.Fatalf("CreateTab result=%s err=%v", tabRaw, err)
@@ -146,7 +158,7 @@ func TestRuntimeRPCNewOperationsAndDeduplication(t *testing.T) {
 		t.Fatalf("terminal CreateTab leaked agent_kind: %s", tabRaw)
 	}
 	if _, err := client.RPC("CreateTab", map[string]any{
-		"operation_id": "op_tabagent00000001", "workspace_id": workspaceID, "cwd": "/tmp/pairfob", "agent_kind": "not a kind",
+		"operation_id": "op_tabagent00000001", "workspace_id": workspaceID, "cwd": root, "agent_kind": "not a kind",
 	}); err == nil || err.Error() != "invalid_argument" {
 		t.Fatalf("CreateTab accepted an invalid agent kind: %v", err)
 	}

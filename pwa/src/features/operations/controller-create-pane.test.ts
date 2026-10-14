@@ -22,6 +22,7 @@ import { createSelectedTab, splitSelectedPane, startNewConversation } from "./co
 
 beforeEach(async () => {
   await resetChatDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   setLang("zh");
   // Production binds the session feature's owner adoption on the frame seam
   // before the first mount; the real App prepares pane ownership through it.

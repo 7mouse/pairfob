@@ -14,7 +14,7 @@ import {
 import { updateInProgress } from "../../lib/daemon-update-status";
 import { legacyBuild } from "../../lib/daemon-version";
 import { askConfirm } from "../../shared/ui/overlay/basic-dialogs";
-import { t } from "../../lib/i18n";
+import { lang, t } from "../../lib/i18n";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
 import { useCopied } from "../../shared/react/use-copied";
 import { Button, CopyAck, SetNavItem, Spinner } from "../../shared/ui/primitives";
@@ -89,6 +89,10 @@ function UpdateCommand() {
   );
 }
 
+function RuntimeUpdateHelp() {
+  return <><p className="set-note">{t("update.runtimeSeparate")}</p><a className="set-action" href={`https://pairfob.com/doc/${lang() === "zh" ? "zh/" : ""}install#herdr-runtime`} target="_blank" rel="noreferrer">{t("update.runtimeHelp")}</a></>;
+}
+
 /** `inline` sits inside the computer page's card; the picker footer keeps its own card. */
 export function ManualUpdateHelp({ inline = false }: { inline?: boolean }) {
   return (
@@ -96,6 +100,7 @@ export function ManualUpdateHelp({ inline = false }: { inline?: boolean }) {
       <summary>{t("update.helpTitle")}<ChevronDown className="set-disclosure" size={14} aria-hidden="true" /></summary>
       <p className="set-note">{t("update.helpBody")}</p>
       <UpdateCommand />
+      <RuntimeUpdateHelp />
     </details>
   );
 }
@@ -209,6 +214,7 @@ function DetailedBody({ view }: { view: DaemonVersion }) {
           ) : null}
         </div>
       ) : null}
+      <div className="set-item-block"><RuntimeUpdateHelp /></div>
     </div>
   );
 }

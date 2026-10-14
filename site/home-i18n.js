@@ -52,10 +52,10 @@
 
     "how.ask": "怎么用？",
     "how.h2": "电脑上装一次，手机扫一次码。",
-    "how.p": "前两步在装有 Herdr 的电脑终端里做，第三步在手机上。之后就不用再配了。",
+    "how.p": "前两步在电脑终端里做，第三步在手机或电脑浏览器里做。之后就不用再配了。",
     "req.aria": "使用条件",
     "req1.b": "电脑",
-    req1: "macOS 或 Linux，装好 Herdr 0.8+",
+    req1: "macOS 或 Linux，自动补齐 Herdr",
     "req2.b": "手机 / 平板",
     req2: "浏览器打开即可，iOS 建议用 Safari 添加到主屏幕",
     "req3.b": "网络",
@@ -68,7 +68,7 @@
     "s1.term4": "缺什么，它会告诉你",
     "s1.h": "安装 pairfob",
     "s1.p":
-      '需要 <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> 0.8+ 来跑 coding agent。没装时，安装脚本会先询问再安装。支持 macOS 和 Linux。',
+      '需要 <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> 0.8+ 来跑 coding agent。没装时，安装脚本会自动安装最新稳定版。支持 macOS 和 Linux。',
     "s2.h": "运行 <code>pairfob pair</code>",
     "s2.p": "终端里出现二维码。先别关，留着给手机扫。",
     "s3.h": "打开 pairfob.com/pair 扫码",
@@ -178,7 +178,7 @@
     "faq.a6": "不收费。",
 
     "close.h2": "离开座位之前，<br />先把它装上。",
-    "close.p": "在装有 Herdr 的电脑终端里运行：",
+    "close.p": "在 macOS 或 Linux 电脑终端里运行：",
     "close.then": "然后运行 <b>pairfob pair</b>，用手机打开 <b>pairfob.com/pair</b> 扫码。",
     "close.phone": "已经在电脑上装好了？",
     "foot.blurb": "Pairfob · Herdr 的手机端。跑 Herdr 的那台电脑目前要是 macOS 或 Linux。",
@@ -237,10 +237,10 @@
     "how.ask": "How does it work?",
     "how.h2": "Install once on the computer, scan once with the phone.",
     "how.p":
-      "The first two steps run in a terminal on the computer with Herdr; the third is on your phone. After that, you're set.",
+      "Run the first two steps in a terminal on the computer; open the page on your phone or computer for the third. After that, you're set.",
     "req.aria": "Requirements",
     "req1.b": "Computer",
-    req1: "macOS or Linux with Herdr 0.8+",
+    req1: "macOS or Linux; Herdr is installed if needed",
     "req2.b": "Phone / tablet",
     req2: "Just a browser; on iOS, add it to the Home Screen from Safari",
     "req3.b": "Network",
@@ -253,7 +253,7 @@
     "s1.term4": "tells you what is still missing",
     "s1.h": "Install pairfob",
     "s1.p":
-      'Needs <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> 0.8+ to run your coding agents. If missing, the installer asks before installing it. macOS and Linux.',
+      'Needs <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> 0.8+ to run your coding agents. If missing, the installer automatically installs the latest stable release. macOS and Linux.',
     "s2.h": "Run <code>pairfob pair</code>",
     "s2.p": "A QR code appears in the terminal. Leave it there for the phone.",
     "s3.h": "Open pairfob.com/pair and scan",
@@ -368,7 +368,7 @@
     "faq.a6": "No.",
 
     "close.h2": "Before you leave your desk,<br />set it up.",
-    "close.p": "Run this in a terminal on the computer with Herdr:",
+    "close.p": "Run this in a terminal on your macOS or Linux computer:",
     "close.then": "Then run <b>pairfob pair</b> and scan with your phone at <b>pairfob.com/pair</b>.",
     "close.phone": "Already set up on your computer?",
     "foot.blurb": "Pairfob · the phone surface for Herdr. The computer that runs Herdr has to be macOS or Linux for now.",

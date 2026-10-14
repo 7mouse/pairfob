@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"os"
 	"sort"
 	"unicode/utf8"
 
@@ -148,7 +149,17 @@ func (e *Engine) rpcCreateConversation(s *sess, id string, params json.RawMessag
 		e.replyErr(s, id, "invalid_argument", "cwd is outside allowed local roots")
 		return
 	}
-	p.CWD, _ = resolvedPath(p.CWD)
+	canonical, err := resolvedPath(p.CWD)
+	if err != nil {
+		e.replyErr(s, id, "invalid_argument", "cwd cannot be resolved")
+		return
+	}
+	p.CWD = canonical
+	info, err := os.Stat(p.CWD)
+	if err != nil || !info.IsDir() {
+		e.replyErr(s, id, "invalid_argument", "cwd must be an existing accessible directory on this computer")
+		return
+	}
 	receipt, operationID, ok := e.executeRPC(s, id, p.Session, p.OperationID, true, runtime.CreateConversationCommand{CWD: p.CWD, Label: p.Label, AgentKind: p.AgentKind}, "workspace_not_found")
 	if !ok {
 		return

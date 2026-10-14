@@ -14,7 +14,7 @@ import { SheetSwap } from "./sheet-swap";
 import { AgentKindGrid, kindName } from "./agent-kind-grid";
 import { AgentKindPickerPanel } from "./agent-kind-picker";
 import type { CreateMemory } from "./create-memory";
-import { defaultAgentKind } from "./operation-form-model";
+import { defaultAgentKind, type SheetOutcome } from "./operation-form-model";
 
 export const NEW_WORKSPACE = "pairfob:new-workspace";
 
@@ -35,6 +35,7 @@ export type CreateSheetInput = {
   canCreateWorktree: boolean;
   /** With a new workspace: a directory to start on (e.g. a recent one picked from the empty list). */
   initialDir?: string;
+  onCreate?: (request: CreateRequest) => Promise<SheetOutcome>;
 };
 
 export type CreateRequest =
@@ -67,6 +68,8 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
   const [base, setBase] = useState("");
   const [label, setLabel] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submitting = useRef(false);
   // A refusal is about the directory: a mouse or keyboard reader is put in
   // its chooser, or in the path being typed (`form-focus`), instead of left on
   // the button. A finger left no keyboard position to move.
@@ -112,25 +115,41 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
     : isNew ? t("create.summaryWs", { dir: path || "…", kind: kindName(kind) })
       : t("create.summaryTab", { workspace: workspace?.label ?? "", kind: kindName(kind) });
 
+  const finish = (request: CreateRequest) => {
+    if (!input.onCreate) { modal.close(request); return; }
+    if (submitting.current) return;
+    submitting.current = true;
+    setBusy(true);
+    setError("");
+    void input.onCreate(request).then(outcome => {
+      if (outcome.ok) modal.close(request);
+      else setError(outcome.message || t("create.notRun"));
+    }).catch(() => setError(t("create.notRun"))).finally(() => {
+      submitting.current = false;
+      setBusy(false);
+    });
+  };
+
   const submit = () => {
+    if (submitting.current) return;
     const name = label.trim().slice(0, OPERATION_INPUT_LIMITS.label);
     if (!isNew) {
       if (!workspace) return;
-      modal.close({ kind: "tab", workspaceId: workspace.id, agentKind: kind, label: name });
+      finish({ kind: "tab", workspaceId: workspace.id, agentKind: kind, label: name });
       return;
     }
     if (!path) { refuse(t("create.needDir")); return; }
     if (path.length > OPERATION_INPUT_LIMITS.cwd) { refuse(t("form.needCwd")); return; }
     if (openHere) {
-      modal.close({ kind: "tab", workspaceId: openHere.id, agentKind: kind, label: name });
+      finish({ kind: "tab", workspaceId: openHere.id, agentKind: kind, label: name });
       return;
     }
     if (worktree) {
-      modal.close({ kind: "worktree", cwd: path, branch: branch.trim().slice(0, OPERATION_INPUT_LIMITS.branch),
+      finish({ kind: "worktree", cwd: path, branch: branch.trim().slice(0, OPERATION_INPUT_LIMITS.branch),
         base: base.trim().slice(0, OPERATION_INPUT_LIMITS.base), label: name });
       return;
     }
-    modal.close({ kind: "conversation", cwd: path, agentKind: kind, label: name });
+    finish({ kind: "conversation", cwd: path, agentKind: kind, label: name });
   };
 
   // The desk form submits on Enter from its fields and its choices (`useDeskEnter`).
@@ -194,6 +213,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
       <Fold open={!isNew && !!workspace?.path}><p className="create-path">{shownPath.current}</p></Fold>
 
       <FormFold open={isNew}>
+        <p className="create-hint">{t("create.pathHelp", { host: input.host })}</p>
         <div className="create-dirs" data-field="dir">
           {recentDirs.length ? <p className="create-dir-group">{t("create.dirRecent")}</p> : null}
           {recentDirs.map((value) => dirRow(value, false))}
@@ -244,6 +264,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
       {/* A worktree opens with a terminal: the note takes the grid's place, each folding the other way. */}
       <Fold open={worktree}><p className="create-hint">{t("create.worktreeTerminal")}</p></Fold>
       <FormFold open={!worktree}>
+        <p className="create-hint">{t("create.agentHelp")}</p>
         <AgentKindGrid kinds={input.kinds} memory={memory} selected={kind} lastKind={input.lastKind}
           onSelect={setKind} onShowAll={() => { setPicking(true); setBack(false); }} />
       </FormFold>
@@ -261,7 +282,7 @@ function CreateSheetBody({ modal, input }: { modal: ModalController<CreateReques
           <p className="create-summary">{summary}</p>
           {error ? <p className="notice notice-error" role="alert">{error}</p> : null}
           <DeskCancel />
-          <Button className="btn btn-primary create-submit" onClick={submit}>{t("create.submit")}</Button>
+          <Button className="btn btn-primary create-submit" disabled={busy} aria-busy={busy} onClick={submit}>{t("create.submit")}</Button>
         </div>
       </SheetFooter>
     </div>

@@ -35,6 +35,24 @@ const settle = async () => {
 
 const sheet = () => document.querySelector<HTMLDialogElement>("dialog.create-sheet")!;
 
+test("failed creation keeps the project and agent; pending creation cannot be sent twice", async () => {
+  let calls = 0;
+  let finish!: (value: { ok: false; message: string }) => void;
+  const { result } = await open({ workspaces: [], initial: NEW_WORKSPACE, initialDir: "/home/me/project",
+    onCreate: async () => { calls++; return new Promise(resolve => { finish = resolve; }); } });
+  await submit();
+  expect(button(".create-submit").disabled).toBe(true);
+  await submit();
+  expect(calls).toBe(1);
+  await act(async () => { finish({ ok: false, message: "Agent executable was not found" }); await settle(); });
+  expect(sheet().textContent).toContain("Agent executable was not found");
+  expect(sheet().textContent).toContain("/home/me/project");
+  expect(button(".create-submit").disabled).toBe(false);
+  expect(calls).toBe(1);
+  await act(async () => { await closeTestDialogs(); });
+  expect(await result).toBeNull();
+});
+
 function button(selector: string, text?: string): HTMLButtonElement {
   const found = [...sheet().querySelectorAll<HTMLButtonElement>(selector)]
     .find((node) => text === undefined || node.textContent?.includes(text));
@@ -234,7 +252,7 @@ describe("create sheet", () => {
   test("choosing an open workspace's directory offers, and creates, a tab there instead", async () => {
     const { result } = await open({ initial: NEW_WORKSPACE });
     act(() => button(".create-dir", "~/projects/pairfob").click());
-    expect(sheet().querySelector(".create-hint")?.textContent).toContain(t("create.alreadyOpen", { name: "pairfob" }));
+    expect(sheet().textContent).toContain(t("create.alreadyOpen", { name: "pairfob" }));
     // The summary names what the button will do, not a new workspace.
     expect(sheet().querySelector(".create-summary")?.textContent).toBe(t("create.summaryTab", { workspace: "pairfob", kind: "codex" }));
     await submit();

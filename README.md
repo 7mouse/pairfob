@@ -17,7 +17,7 @@ end-to-end encrypted.
 ## Quick start
 
 Use a macOS or Linux computer with Herdr 0.8 or newer. If Herdr is missing,
-the installer asks before installing it. Keep this computer awake and online
+the installer automatically installs the latest stable release. Keep this computer awake and online
 while using Pairfob from your phone.
 
 ```sh
@@ -80,7 +80,7 @@ vulnerabilities privately via [SECURITY.md](SECURITY.md).
 | Item | Requirement |
 | --- | --- |
 | Computer | macOS or Linux (Windows is not supported) |
-| Herdr | 0.8 or newer; the installer can install pinned 0.8.2 |
+| Herdr | 0.8 or newer; the installer installs the latest stable release if missing |
 | Herdr plugin | Herdr 0.8.2 or newer |
 | Close a workspace from the phone | Herdr 0.9.0 or newer |
 | Phone / tablet | A current mobile browser; installable as a PWA |
@@ -94,7 +94,7 @@ pairfob pair                # pair a phone, tablet, or another computer
 pairfob list                # paired devices
 pairfob forget 1            # unpair by index or name
 pairfob doctor              # diagnose this computer (never changes anything)
-pairfob setup               # check, optionally install, and start Herdr
+pairfob setup               # check, install if missing, and start Herdr
 pairfob update              # latest release, then restart the service
 pairfob quota list          # subscription quota this computer can read, and why not
 pairfob quota-setup-claude  # enable Claude subscription quota collection

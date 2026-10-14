@@ -20,7 +20,7 @@ description: 电脑装好 pairfob（缺少 Herdr 时一并安装），配对一�
 
 ## 1. 确认电脑的使用条件
 
-用手机接着操作时，macOS 或 Linux 电脑必须保持唤醒并联网。需要 Herdr 0.8 或更高版本，但不必单独安装：第 2 步的安装脚本发现缺少 Herdr 时，会先询问，再安装固定版本 0.8.2。已有 Herdr 不会自动升级。没有可交互的终端时（无 TTY，或用了 `--non-interactive`），脚本不会安装 Herdr，请改用 `curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr`。
+用手机接着操作时，macOS 或 Linux 电脑必须保持唤醒并联网。安装器会自动补齐缺少的最新稳定版 Herdr，无交互终端时也一样。已有兼容安装会复用，不自动升级。需要禁止安装依赖时使用 `--no-install-herdr`。
 
 Pairfob 不代替 Herdr。agent 仍在这台电脑上跑，但安装 Pairfob 前不需要先打开 Herdr。`pairfob` 启动时发现 Herdr 不在线，就会自己拉起它。你之后照常运行 `herdr`，会接到同一个地方，手机上已经打开的会话不会变成副本。
 
@@ -62,7 +62,7 @@ pairfob pair
 
 ## 4. 点进去
 
-还没有会话时，先在电脑上打开 Herdr，在项目里启动 Codex、Claude 等 agent。
+还没有会话时，点 **创建**，输入所连接电脑上项目的绝对路径（在项目目录运行 `pwd` 后复制），再选择 Agent 类型或终端。类型列表表示支持哪些 Agent；所选 Agent 仍需先在那台电脑安装并登录。
 
 Herdr 里的会话会出现在 Pairfob 列表里。点一张卡片，打开的是电脑上那个会话，不是副本。
 
@@ -97,3 +97,7 @@ iOS 建议走主屏幕；只停在 Safari 标签里也能用，但通知和全�
 | 电脑 Herdr 窗口还在 | 打的字出现在电脑那个会话里 |
 
 下一步可以看 [多台设备](/zh/devices)、[通知](/zh/push)，或先把 [常见问题](/zh/faq) 扫一遍。
+
+## 在电脑上使用
+
+电脑浏览器同样打开 [配对页](/pair)，可以与本机配对，无需先配手机。本地终端运行 `herdr` 可进入同一批默认会话；命名会话使用 `herdr --session 名称`。直接运行 `pairfob` 查看状态。关闭网页不停止任务；停止 Pairfob 不会停止 Herdr。电脑睡眠或注销时远程连接不可用。

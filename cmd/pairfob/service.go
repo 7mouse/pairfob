@@ -280,6 +280,7 @@ func uninstallUserService() error {
 		return err
 	}
 	fmt.Printf("removed user service %s\nstate kept in %s\n", layout.UnitPath, layout.StateDir)
+	fmt.Println("Herdr, its sessions and your projects were kept. Stopping Pairfob does not stop their processes.")
 	return nil
 }
 

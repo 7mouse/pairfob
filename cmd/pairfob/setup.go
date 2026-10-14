@@ -1,40 +1,93 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"os"
-	"strings"
 	"time"
 
 	"pairfob/internal/runtime"
 )
 
-func setupCommand(args []string) error {
-	install, nonInteractive := false, false
+const setupUsage = "usage: pairfob setup [--install-herdr | --no-install-herdr] [--non-interactive] [--update-herdr [--restart-herdr]]"
+
+type setupOptions struct{ install, nonInteractive, update, restart bool }
+
+func parseSetupOptions(args []string) (setupOptions, error) {
+	o := setupOptions{install: true}
+	yes, no := false, false
 	for _, arg := range args {
 		switch arg {
 		case "--install-herdr":
-			install = true
+			yes = true
+		case "--no-install-herdr":
+			no = true
+			o.install = false
 		case "--non-interactive":
-			nonInteractive = true
+			o.nonInteractive = true
+		case "--update-herdr":
+			o.update = true
+		case "--restart-herdr":
+			o.restart = true
 		default:
-			return errors.New("usage: pairfob setup [--install-herdr] [--non-interactive]")
+			return o, errors.New(setupUsage)
 		}
+	}
+	if yes && no || o.restart && (!o.update || o.nonInteractive) || o.update && (yes || no) {
+		return o, errors.New(setupUsage)
+	}
+	return o, nil
+}
+
+func setupCommand(args []string) error {
+	if len(args) == 1 && (args[0] == "--help" || args[0] == "-h") {
+		fmt.Println(setupUsage)
+		return nil
+	}
+	o, err := parseSetupOptions(args)
+	if err != nil {
+		return err
+	}
+	if o.update {
+		return updateHerdrCommand(o.restart)
+	}
+	layout, err := currentServiceLayout()
+	if err != nil {
+		return err
+	}
+	return withServiceLock(layout, func() error { return setupLocked(o) })
+}
+
+func setupLocked(o setupOptions) error {
+	f, err := localHerdrFiles()
+	if err != nil {
+		return err
+	}
+	lock, err := f.lock()
+	if err != nil {
+		return err
+	}
+	defer lock.Close()
+	if err = f.recoverInstall(); err != nil {
+		return err
+	}
+	if err = f.recoverHerdrUpdate(); err != nil {
+		return err
 	}
 	rt, _, err := runtime.Open(false, herdrMultiSessionEnabled())
 	if err != nil {
 		return err
 	}
 	h := rt.(*runtime.Herdr)
-	return setupHerdr(h, install, herdrSetupActions{
+	if err = setupHerdr(h, o.install, herdrSetupActions{
 		autostart: herdrAutostartEnabled(false),
-		confirm:   func() bool { return !nonInteractive && confirmHerdrInstall() },
-		install:   installHerdr,
-	}, os.Stdout)
+		install:   func() error { return installHerdrLocked(f) },
+	}, os.Stdout); err != nil {
+		return err
+	}
+	return f.finishVerifiedUpdate(checkHerdrInstallation(h).Descriptor.Version)
 }
 
 type herdrSetupRuntime interface {
@@ -44,20 +97,16 @@ type herdrSetupRuntime interface {
 
 type herdrSetupActions struct {
 	autostart bool
-	confirm   func() bool
 	install   func() error
 }
 
 func setupHerdr(h herdrSetupRuntime, install bool, actions herdrSetupActions, out io.Writer) error {
 	check := checkHerdrInstallation(h)
 	if check.State == "missing" {
-		if !install && actions.confirm != nil {
-			install = actions.confirm()
-		}
 		if !install {
-			return errors.New("setup incomplete: Herdr is not installed. Run pairfob setup --install-herdr, or install it from https://herdr.dev")
+			return errors.New("setup incomplete: Herdr is missing and automatic installation was disabled; run pairfob setup to install it")
 		}
-		fmt.Fprintf(out, "Installing Herdr %s into ~/.local/bin (SHA-256 verified)…\n", bundledHerdrVersion)
+		fmt.Fprintln(out, "Installing the latest stable Herdr session runtime into ~/.local/bin (SHA-256 verified)…")
 		if err := actions.install(); err != nil {
 			return fmt.Errorf("setup incomplete: %w", err)
 		}
@@ -94,7 +143,7 @@ func herdrInstallationNote(check runtime.HerdrInstallation) string {
 	case "ready":
 		return fmt.Sprintf("ready (%s, protocol %d)", check.Descriptor.Version, check.Descriptor.Protocol)
 	case "missing":
-		return "not installed — run pairfob setup --install-herdr"
+		return "not installed — run pairfob setup"
 	case "stopped":
 		return "installed but not running — run pairfob setup"
 	case "incompatible":
@@ -102,16 +151,4 @@ func herdrInstallationNote(check runtime.HerdrInstallation) string {
 	default:
 		return "unavailable — check HERDR_BIN, executable permissions and the configured Herdr socket; run herdr status for details"
 	}
-}
-
-// The install script may occupy stdin (curl | sh), so consent uses the terminal.
-func confirmHerdrInstall() bool {
-	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
-	if err != nil {
-		return false
-	}
-	defer tty.Close()
-	fmt.Fprintf(tty, "Herdr is required to run sessions. Install Herdr %s into ~/.local/bin? [y/N] ", bundledHerdrVersion)
-	answer, err := bufio.NewReader(tty).ReadString('\n')
-	return err == nil && (strings.EqualFold(strings.TrimSpace(answer), "y") || strings.EqualFold(strings.TrimSpace(answer), "yes"))
 }

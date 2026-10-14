@@ -4,14 +4,16 @@ set -eu
 
 usage() {
   cat <<'EOF'
-usage: install.sh [--origin URL] [--prefix DIR] [--no-service] [--no-enroll] [--install-herdr] [--non-interactive] [--skip-herdr-check]
+usage: install.sh [--origin URL] [--prefix DIR] [--no-service] [--no-enroll] [--no-install-herdr] [--non-interactive] [--skip-herdr-check]
 
 Downloads the pairfob binary for this machine, verifies SHA-256, enrolls
 against pairfob.com (or --origin), and installs a user-level service that
 starts at login.
 
-  --install-herdr     Install pinned Herdr if missing (no prompt)
-  --non-interactive   Never prompt; missing Herdr fails unless --install-herdr
+  Missing Herdr is installed automatically from the latest stable release.
+  --install-herdr     Compatibility alias for the default installation behavior
+  --no-install-herdr  Fail if Herdr is missing; do not download it
+  --non-interactive   Never prompt; missing Herdr is still installed by default
   --skip-herdr-check  Install Pairfob only; does not claim session readiness
 
   curl -fsSL https://pairfob.com/install.sh | sh
@@ -23,6 +25,7 @@ PREFIX="${PAIRFOB_INSTALL_PREFIX:-}"
 NO_SERVICE=0
 NO_ENROLL=0
 INSTALL_HERDR=0
+NO_INSTALL_HERDR=0
 NON_INTERACTIVE=0
 SKIP_HERDR_CHECK=0
 BASE="${PAIRFOB_DOWNLOAD_BASE:-https://pairfob.com/dl}"
@@ -53,6 +56,7 @@ while [ "$#" -gt 0 ]; do
       shift
       ;;
     --install-herdr) INSTALL_HERDR=1; shift ;;
+    --no-install-herdr) NO_INSTALL_HERDR=1; shift ;;
     --non-interactive) NON_INTERACTIVE=1; shift ;;
     --skip-herdr-check) SKIP_HERDR_CHECK=1; shift ;;
     --no-service)
@@ -74,6 +78,11 @@ while [ "$#" -gt 0 ]; do
       ;;
   esac
 done
+
+if [ "$INSTALL_HERDR" -eq 1 ] && [ "$NO_INSTALL_HERDR" -eq 1 ]; then
+  echo "install.sh: --install-herdr conflicts with --no-install-herdr" >&2
+  exit 1
+fi
 
 os="$(uname -s)"
 arch="$(uname -m)"
@@ -155,6 +164,7 @@ chmod 0755 "${workdir}/${name}"
 if [ "$SKIP_HERDR_CHECK" -eq 0 ]; then
   set --
   if [ "$INSTALL_HERDR" -eq 1 ]; then set -- "$@" --install-herdr; fi
+  if [ "$NO_INSTALL_HERDR" -eq 1 ]; then set -- "$@" --no-install-herdr; fi
   if [ "$NON_INTERACTIVE" -eq 1 ]; then set -- "$@" --non-interactive; fi
   "${workdir}/${name}" setup "$@" || {
     echo "Setup incomplete: Herdr is not ready. Existing Pairfob installation was preserved." >&2
@@ -207,18 +217,35 @@ else
 fi
 INSTALL_TRANSACTION
 
+shell_quote() {
+  printf "'%s'" "$(printf '%s' "$1" | sed "s/'/'\\\\''/g")"
+}
+pairfob_command=pairfob
 case ":${PATH}:" in
   *":${PREFIX}:"*) ;;
   *)
-    echo "Add ${PREFIX} to PATH, then:"
+    pairfob_command="$(shell_quote "$dest")"
+    echo "For future terminals, add this directory to PATH: ${PREFIX}"
     ;;
 esac
 
 if [ "$SKIP_HERDR_CHECK" -eq 1 ] || [ "$NO_SERVICE" -eq 1 ]; then
-  echo "Installation complete; session setup is not verified. Run pairfob setup, start Pairfob, then run pairfob doctor before pairing."
+  echo "Installation complete; session setup is not verified. Run ${pairfob_command} setup, start Pairfob, then run ${pairfob_command} doctor before pairing."
   exit 0
 fi
 
-echo "On this computer:     pairfob pair"
-echo "On the other device:  https://pairfob.com/pair"
+echo "Next: ${pairfob_command} pair"
+echo "On this computer, a phone or a tablet: https://pairfob.com/pair"
 echo "Scan or type the code, then press Enter here."
+if [ -n "${HERDR_BIN:-}" ]; then
+  herdr_command="$(shell_quote "$HERDR_BIN")"
+elif command -v herdr >/dev/null 2>&1; then
+  herdr_command=herdr
+else
+  herdr_command="$(shell_quote "$HOME/.local/bin/herdr")"
+fi
+if [ -n "${HERDR_SOCKET_PATH:-}" ]; then
+  herdr_command="HERDR_SOCKET_PATH=$(shell_quote "$HERDR_SOCKET_PATH") ${herdr_command}"
+fi
+echo "Local terminal: ${herdr_command}"
+echo "Runtime updates: ${pairfob_command} setup --update-herdr"

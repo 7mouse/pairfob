@@ -45,7 +45,7 @@ pairfob service status
 | 输出 | 处理 |
 | --- | --- |
 | Running no | 按提示执行：未安装用 `pairfob service install`，已停止用 `pairfob service start`，服务运行但无响应用 `pairfob service restart`，状态查询失败用 `pairfob service status`。前台运行用 `pairfob run` |
-| Herdr 不是 `ready` | 照那一行的提示做：`pairfob setup` 启动已安装的 Herdr，`pairfob setup --install-herdr` 安装缺少的 Herdr。需要 Herdr 0.8+ |
+| Herdr 不是 `ready` | 照那一行的提示做：`pairfob setup` 会在缺少 Herdr 时安装最新稳定版，并按需启动服务。需要 Herdr 0.8+ |
 | Origin … not set up | 再跑一遍安装脚本 |
 | Paired 0 | `pairfob pair` |
 | P2P off | 这台电脑只用中继（`PAIRFOB_P2P=0`） |

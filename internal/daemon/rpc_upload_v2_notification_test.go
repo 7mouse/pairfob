@@ -30,7 +30,6 @@ import (
 
 func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 	_, _, engine, client := uploadFixture(t)
-	_ = engine
 
 	// 4 chunks: offsets 0,1,2,3. Begin with the full declared size.
 	data := make([]byte, 4*uploadChunkBytesV2)
@@ -40,10 +39,9 @@ func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 	uuid := testUUID(708)
 	beginV2(t, client, uuid, "op_v2notif0000000001", "notif.bin", data, "application/octet-stream", "w0:p1")
 
-	// Bounded wait-limit so the test is short and the difference between a
-	// prompt wake and a full-limit sleep is unmistakable.
-	restoreLimit := setV2WaitLimit(2 * time.Second)
-	t.Cleanup(restoreLimit)
+	// Keep the production predecessor deadline. The assertion below bounds
+	// notification latency after settlement; encryption of the four full-size
+	// chunks under -race must not consume an artificial two-second deadline.
 
 	// Deterministic proof-of-waiting seam: waitTicketWave's empty-chans
 	// branch calls timeAfter(deadline). With only offset 3 admitted and no
@@ -68,6 +66,13 @@ func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 		return prevTF(d)
 	}
 	t.Cleanup(func() { timeAfter = prevTF })
+	var writes sync.WaitGroup
+	t.Cleanup(func() {
+		// A failed predecessor assertion must still drain all handlers before
+		// the earlier cleanup restores the global timer observation seam.
+		engine.CloseUploads()
+		writes.Wait()
+	})
 
 	// Admit offset 3 FIRST and run it in a goroutine.
 	type o3result struct {
@@ -75,7 +80,9 @@ func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 		err error
 	}
 	o3 := make(chan o3result, 1)
+	writes.Add(1)
 	go func() {
+		defer writes.Done()
 		res, err := writeV2(t, client, uuid, "op_v2notif0000000002", 3*uploadChunkBytesV2, data[3*uploadChunkBytesV2:4*uploadChunkBytesV2], "w0:p1")
 		o3 <- o3result{res, err}
 	}()
@@ -95,7 +102,9 @@ func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 	lowerDone := make(chan int, 3)
 	for ci := 0; ci < 3; ci++ {
 		ci := ci
+		writes.Add(1)
 		go func() {
+			defer writes.Done()
 			_, err := writeV2(t, client, uuid, fmt.Sprintf("op_v2notif%02d0000000000", ci), ci*uploadChunkBytesV2, data[ci*uploadChunkBytesV2:(ci+1)*uploadChunkBytesV2], "w0:p1")
 			lower[ci] = err
 			lowerDone <- ci
@@ -112,7 +121,7 @@ func TestUploadV2OutOfOrderOffset3WakesPromptly(t *testing.T) {
 	// can exceed the wake budget under the race detector without a stuck wait.
 	predecessorsSettled := time.Now()
 
-	// Offset 3 must wake promptly (well under the 2s wait-limit) and
+	// Offset 3 must wake promptly (well under the production wait-limit) and
 	// SUCCEED. Under the frozen bug it sleeps the full wait-limit and then
 	// fails closed as a timeout conflict — the exact stale phase recorded in
 	// NOTIFICATION-REPORT.md.

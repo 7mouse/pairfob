@@ -15,7 +15,6 @@ import (
 type antigravityQuotaProcess struct {
 	pid  int
 	csrf string
-	cli  bool
 }
 
 func quotaFlag(command, name string) string {
@@ -39,16 +38,6 @@ func antigravityExecutable(exe string) (valid, cli bool) {
 	return
 }
 
-// antigravityMentioned reports whether a process line could be Antigravity at
-// all. A CLI started by typing its name has that name alone as its command,
-// with no path in front of it.
-func antigravityMentioned(line, command string) bool {
-	if strings.Contains(line, "antigravity") || strings.Contains(line, "Antigravity") || strings.Contains(line, "/agy") {
-		return true
-	}
-	_, cli := antigravityExecutable(command)
-	return cli
-}
 func antigravityQuotaProcesses(ctx context.Context) []antigravityQuotaProcess {
 	raw, err := quotaCommand(ctx, 2*1024*1024, "ps", "-axo", "uid=,pid=,command=")
 	if err != nil {
@@ -66,7 +55,7 @@ func antigravityQuotaProcesses(ctx context.Context) []antigravityQuotaProcess {
 		}
 		// First filter bounds follow-up process queries; classify the actual executable
 		// separately so an unrelated command containing 'agy' is never probed.
-		if !antigravityMentioned(line, fields[2]) {
+		if !strings.Contains(line, "antigravity") && !strings.Contains(line, "Antigravity") && !strings.Contains(line, "/agy") {
 			continue
 		}
 		pid, err := strconv.Atoi(fields[1])
@@ -78,12 +67,14 @@ func antigravityQuotaProcesses(ctx context.Context) []antigravityQuotaProcess {
 		if err != nil {
 			continue
 		}
-		valid, cli := antigravityExecutable(strings.TrimSpace(string(exe)))
-		if !valid {
+		if valid, _ := antigravityExecutable(strings.TrimSpace(string(exe))); !valid {
 			continue
 		}
-		p := antigravityQuotaProcess{pid: pid, cli: cli, csrf: quotaFlag(line, "--csrf_token")}
-		if !cli && p.csrf == "" {
+		// Only a process started with its token on its command line, the app's
+		// language server, answers a request from outside it. The CLI hands its
+		// token to the commands it starts and to nothing else.
+		p := antigravityQuotaProcess{pid: pid, csrf: quotaFlag(line, "--csrf_token")}
+		if p.csrf == "" {
 			continue
 		}
 		out = append(out, p)
@@ -120,12 +111,28 @@ func antigravityQuotaPorts(ctx context.Context, pid int) []int {
 	}
 	return ports
 }
+
+// The running app is asked first: it holds a login that is always current. The
+// CLI's stored login is the other way in, and the only one when no app is open.
 func locateAntigravityQuota(ctx context.Context) (quotaRead, AgentQuota) {
 	processes := antigravityQuotaProcesses(ctx)
-	if len(processes) == 0 {
-		return nil, emptyQuota("antigravity", "local_api", "not_running")
+	token, status := antigravityStoredLogin(ctx, time.Now())
+	if len(processes) == 0 && token == "" {
+		if status == "" {
+			return nil, emptyQuota("antigravity", "local_api", "not_running")
+		}
+		return nil, emptyQuota("antigravity", "oauth", status)
 	}
-	return func(ctx context.Context) AgentQuota { return readAntigravityProcesses(ctx, processes) }, AgentQuota{}
+	return func(ctx context.Context) AgentQuota {
+		q := emptyQuota("antigravity", "local_api", "unavailable")
+		if len(processes) > 0 {
+			q = readAntigravityProcesses(ctx, processes)
+		}
+		if token != "" && q.Status != "ok" && q.Status != "stale" {
+			return fetchAntigravityCloudQuota(ctx, quotaHTTPClient(), antigravityCodeAssist, token, time.Now())
+		}
+		return q
+	}, AgentQuota{}
 }
 
 func readAntigravityProcesses(ctx context.Context, processes []antigravityQuotaProcess) AgentQuota {

@@ -4,8 +4,6 @@
  * its operations through here, so they share one owner check and one lock.
  */
 import { commitView } from "../../app/host";
-import { type NoticeScope } from "../../lib/notice-scope";
-import { type ListWorktreesInput } from "../../lib/operations";
 import { type LiveSession } from "../../lib/protocol/client";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
 import { refreshFromSession } from "../connection/controller";
@@ -20,6 +18,7 @@ import {
   ownsOperationView as ownerOwnsView,
   reportOwnedError as reportError,
   runHerdOperation as runOwnedOperation,
+  type HerdOperationOptions,
   type MutationRunnerPorts,
   type OperationOwner,
 } from "./run";
@@ -56,15 +55,7 @@ export async function reportOwnedError(owner: OperationOwner, error: unknown): P
   await reportError(owner, error, mutationPorts);
 }
 
-export type HerdOperationOptions<T> = {
-  owner?: OperationOwner;
-  capability?: Parameters<typeof capabilityEnabled>[0];
-  conflictMessage?: string;
-  unsupportedMessage?: string;
-  after?: (result: T, owner: OperationOwner) => Promise<void>;
-  reconcileWorktrees?: ListWorktreesInput;
-  noticeScope?: NoticeScope;
-};
+export type { HerdOperationOptions } from "./run";
 
 export async function runHerdOperation<T>(
   pending: string,

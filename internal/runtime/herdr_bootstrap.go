@@ -58,7 +58,11 @@ func (h *Herdr) EnsureServer(ctx context.Context) (HerdrServerAvailability, erro
 	if err != nil {
 		return HerdrServerAvailability{}, fmt.Errorf("start Herdr server: %w", err)
 	}
-	return h.waitForBootstrappedServer(ctx, exited)
+	availability, err := h.waitForBootstrappedServer(ctx, exited)
+	if err == nil && h.lookupBinary == nil {
+		h.rememberLaunchedServer()
+	}
+	return availability, err
 }
 
 func (h *Herdr) bootstrapDescribe(parent context.Context) (Descriptor, error) {

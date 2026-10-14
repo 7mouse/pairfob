@@ -55,6 +55,7 @@ func TestRealServiceRecovery(t *testing.T) {
 	for _, key := range []string{"PAIRFOB_ORIGIN", "PAIRFOB_RELAY_WS", "PAIRFOB_JOIN_TOKEN", "PAIRFOB_JOIN_GRANT", "PAIRFOB_PROTOCOL", "PAIRFOB_DEV_FAKE_RUNTIME", "PAIRFOB_PAIR_CODE", inheritedServiceLock} {
 		t.Setenv(key, "")
 	}
+	herdr := prepareRealServiceHerdr(t, dir, binary)
 	layout, err := currentServiceLayout()
 	if err != nil {
 		t.Fatal(err)
@@ -136,6 +137,8 @@ func TestRealServiceRecovery(t *testing.T) {
 	}
 	installed := process()
 	t.Logf("install ready: PID=%d instance=%s", installed.PID, installed.Instance)
+	herdr.check("installed")
+	herdr.checkUnavailableDownload(binary)
 	var snapshot bytes.Buffer
 	if err := runBareCommand(&snapshot, sock, true); err != nil || !strings.Contains(snapshot.String(), "Pairfob is running.") {
 		t.Fatalf("TTY live status: %s %v", snapshot.String(), err)
@@ -161,6 +164,9 @@ func TestRealServiceRecovery(t *testing.T) {
 		}
 		assertHint("service running but not answering", "pairfob service restart")
 	}()
+	verifyRealServiceCrashRecovery(t, layout, sock, installed)
+	installed = process()
+	herdr.check("crash-recovered")
 	if err := applyService(layout, "stop"); err != nil {
 		t.Fatal(err)
 	}
@@ -168,6 +174,7 @@ func TestRealServiceRecovery(t *testing.T) {
 		t.Fatal(err)
 	}
 	assertHint("service stopped", "pairfob service start")
+	herdr.stop()
 	if err := ensureInstalledService(layout, false); err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -176,6 +183,7 @@ func TestRealServiceRecovery(t *testing.T) {
 		t.Fatal("start reused the stopped instance")
 	}
 	t.Logf("start ready: PID=%d instance=%s", started.PID, started.Instance)
+	herdr.check("cold-started")
 	if err := ensureInstalledService(layout, true); err != nil {
 		t.Fatalf("restart: %v", err)
 	}
@@ -184,6 +192,13 @@ func TestRealServiceRecovery(t *testing.T) {
 		t.Fatal("restart did not replace the daemon")
 	}
 	t.Logf("restart ready: PID=%d instance=%s", restarted.PID, restarted.Instance)
+	herdr.check("restarted")
+	if herdr != nil {
+		if err := uninstallServiceLayout(layout); err != nil {
+			t.Fatal(err)
+		}
+		herdr.check("pairfob-uninstalled")
+	}
 }
 
 // Only the relay handshake is a loopback fixture. The candidate daemon, admin

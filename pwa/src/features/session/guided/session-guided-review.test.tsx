@@ -77,6 +77,7 @@ const AGENT_WIRE = ({ label, status }: { label: string; status: string }) => ({
 
 beforeEach(async () => {
   await resetTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   previousSelection = window.getSelection;
   window.getSelection = () => happy.document.getSelection() as unknown as Selection;
   const globals = globalThis as unknown as Record<string, unknown>;

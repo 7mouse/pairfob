@@ -76,6 +76,8 @@ export class DirectSessionDriver {
   private awayMs = 0;
   private activityVersion = 0;
   private probeAttempt: { transport: SessionTransport; cancel(): void } | null = null;
+  /** Held while a direct candidate owns the switch; `standby` once a relay was prepared beside it. */
+  private commitAttempt: { abandon: AbortController; standby: boolean } | null = null;
   private unwatchIce: (() => void) | null = null;
 
   constructor(private readonly host: DirectSessionHost) {}
@@ -129,6 +131,19 @@ export class DirectSessionDriver {
       if (this.host.getTransport() !== transport) return;
       void this.recoverDirectPath(transport);
     });
+  }
+
+  /**
+   * The relay dropped while a direct candidate holds the switch. The candidate
+   * keeps its chance to answer, and a relay handshake runs beside it: whichever
+   * is ready first carries the session, so a candidate that died with the relay
+   * costs one handshake instead of its whole Ping deadline.
+   */
+  relayLostInSwitch(): void {
+    const attempt = this.commitAttempt;
+    if (!attempt || attempt.standby || this.hidden || pageHidden() || this.host.stopped || !this.host.networkAvailable) return;
+    attempt.standby = true;
+    if (!this.host.standbyRelay(() => attempt.abandon.abort())) this.host.prepareRelay();
   }
 
   async switchTransport(target: NetworkMode): Promise<void> {
@@ -333,6 +348,7 @@ export class DirectSessionDriver {
   private async runDirectUpgrade(relay: SessionTransport, controller: AbortController): Promise<void> {
     let candidate: Awaited<ReturnType<typeof prepareDirectSession>> | null = null;
     let switchLease: TransportSwitchLease | null = null;
+    const commit = { abandon: new AbortController(), standby: false };
     try {
       candidate = await prepareDirectSession(relay, this.host.pair, muxProtocolFromRelayURL(this.host.relayWS), controller.signal,
         () => this.host.spendHello());
@@ -341,9 +357,12 @@ export class DirectSessionDriver {
         throw new DirectError("cancelled", "P2P 直连尝试已取消");
       }
       switchLease = this.host.beginSwitch();
+      this.commitAttempt = commit;
       await relay.waitIdle();
-      const direct = await commitDirectSession(relay, candidate, (event) => this.host.emit(event));
+      const direct = await commitDirectSession(relay, candidate, (event) => this.host.emit(event), commit.abandon.signal);
       candidate = null;
+      // The candidate answered first: the relay prepared beside it is not needed.
+      if (commit.standby) this.host.cancelPreparedRelay();
       if (this.host.stopped || this.host.getTransport() !== relay || !this.host.networkAvailable) {
         direct.transport.close();
         throw new DirectError("cancelled", "P2P 直连切换已取消");
@@ -365,6 +384,7 @@ export class DirectSessionDriver {
       });
       throw error;
     } finally {
+      if (this.commitAttempt === commit) this.commitAttempt = null;
       candidate?.close();
       if (switchLease && this.host.ownsSwitch(switchLease)) {
         const deferred = this.host.peekDeferredDisconnect();

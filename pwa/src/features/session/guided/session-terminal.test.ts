@@ -26,8 +26,12 @@ import { paneModel } from "./pane-model";
 import { SessionRowBar } from "./session-rowbar";
 import { SessionTerminal } from "./session-terminal";
 
+let previousSelection: typeof window.getSelection;
+
 beforeEach(async () => {
   await resetBoardTestDOM();
+  previousSelection = window.getSelection;
+  window.getSelection = () => ({ isCollapsed: true }) as Selection;
   scalarPrefState.capture();
 });
 
@@ -35,8 +39,6 @@ const g = globalThis as unknown as Record<string, unknown>;
 g.HTMLTextAreaElement = happy.HTMLTextAreaElement;
 g.TouchEvent = happy.TouchEvent;
 g.KeyboardEvent = happy.KeyboardEvent;
-window.getSelection = () => ({ isCollapsed: true }) as Selection;
-
 // boot()/afterEach call the persisting preference setters (setTermWrap), so
 // capture canonical+raw pre-images before any of them runs and restore after
 // own teardown to avoid leaking a reset's raw write.
@@ -136,6 +138,7 @@ afterEach(() => act(() => {
   unmountReact();
   appRoot().replaceChildren();
   scalarPrefState.restore();
+  window.getSelection = previousSelection;
 }));
 
 describe("react guided terminal", () => {

@@ -97,16 +97,17 @@ export async function revokeDevice(device: DeviceSummary): Promise<void> {
 export type { SheetOutcome };
 
 /** `prepared` is input the create sheet already collected. */
-export async function startNewConversation(prepared?: CreateConversationInput): Promise<void> {
+export async function startNewConversation(prepared?: CreateConversationInput): Promise<SheetOutcome> {
   const session = liveSession();
-  if (!session || !capabilityEnabled("create_conversation")) return;
+  if (!session || !capabilityEnabled("create_conversation")) return NOT_RUN;
   const defaults = selectedAgent()?.cwd || dashboardStore.get().agents.find((agent) => agent.cwd)?.cwd || "";
   const owner = operationOwner(session);
   const input = prepared ?? await askCreateConversation([...advertisedAgentKinds()], defaults);
-  if (!input || !ownsOperationView(owner) || !capabilityEnabled("create_conversation")) return;
-  await runHerdOperation(t("op.creatingConversation"), t("op.createdConversation"), () => session.createConversation(input), {
-    owner, capability: "create_conversation", conflictMessage: t("err.createPaneConflict"), after: selectCreatedPane,
-  });
+  if (!input || !ownsOperationView(owner) || !capabilityEnabled("create_conversation")) return NOT_RUN;
+  return sheetOutcome(done => runHerdOperation(t("op.creatingConversation"), t("op.createdConversation"), () => session.createConversation(input), {
+    owner, capability: "create_conversation", conflictMessage: t("err.createPaneConflict"), invalidArgumentMessage: t("create.checkDirectory"),
+    after: async (result, scope) => { await selectCreatedPane(result, scope); done(); },
+  }));
 }
 
 /** `prepared` is input a caller already collected in its own form (the pane sheet). */

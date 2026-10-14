@@ -39,7 +39,7 @@ pairfob help
 
 ## setup
 
-`pairfob setup` 检查并按需启动 Herdr；未安装时询问是否安装固定版本。`pairfob setup --install-herdr --non-interactive` 明确允许补齐依赖且不询问。已安装的 Herdr 不会被自动升级或替换。`doctor` 保持只读。
+`pairfob setup` 自动安装缺少的最新稳定版 Herdr，按需启动并验证接口。`--no-install-herdr` 禁止下载；`--non-interactive` 不会禁止补齐依赖。已有安装直接复用。`doctor` 只诊断。Pairfob 管理的运行组件使用 `pairfob setup --update-herdr` 更新，见 [Herdr 更新](/zh/install#herdr-runtime)。
 
 ## doctor
 
@@ -94,7 +94,7 @@ pairfob update
 
 下载会显示已接收字节数，临时失败后重试一次。每次最多十分钟，连续 45 秒没有进展则中止；替换文件前仍校验 SHA-256。如果代理反复卡住下载，需要检查当前终端的代理配置，更新命令不会自行修改代理设置。
 
-手机会检查电脑端新版本并显示更新提醒。设置页中，支持的用户服务安装会提供“更新电脑端”按钮。确认后连接会短暂中断，校验过的新二进制启动后自动重连；只有确认运行版本后才显示完成。新版本启动失败时可恢复旧二进制。旧 daemon 需要先手动执行一次 `pairfob update` 才能启用此流程。应用不会自动安装更新。
+手机会检查电脑端新版本并显示更新提醒。设置页中，支持的用户服务安装会提供“更新 Pairfob”按钮。确认后连接会短暂中断，校验过的新二进制启动后自动重连；只有确认运行版本后才显示完成。新版本启动失败时可恢复旧二进制。旧 daemon 需要先手动执行一次 `pairfob update` 才能启用此流程。应用不会自动安装更新。
 
 
 ## 进阶（日常帮助里不列）

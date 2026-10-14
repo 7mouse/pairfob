@@ -26,6 +26,10 @@ func main() {
 			log.Fatal("admin socket: ", err)
 		}
 		if err := runCommand(os.Args[1:], sock); err != nil {
+			if errors.Is(err, errHerdrPending) {
+				fmt.Fprintln(os.Stderr, err)
+				os.Exit(2)
+			}
 			if errors.Is(err, errDoctor) {
 				os.Exit(1)
 			}

@@ -16,15 +16,15 @@ curl -fsSL https://pairfob.com/install.sh | sh
 
 ## Herdr 检查与安装
 
-安装器会先检查 Herdr，再替换已有 Pairfob、登记和安装服务。已有可用的 Herdr 会直接复用；已安装但未运行时会自动启动，并等待接口就绪。缺少 Herdr 时会在终端询问是否安装固定版本 0.8.2，核对 SHA-256 后安装到 `~/.local/bin/herdr`，不覆盖已有 Herdr。
+安装器会先检查 Herdr，再替换已有 Pairfob、登记和安装服务。已有可用的 Herdr 会直接复用；已安装但未运行时会自动启动，并等待接口就绪。缺少 Herdr 时自动下载最新稳定版，核对 SHA-256 后安装到 `~/.local/bin/herdr`，记录安装来源，不覆盖已有 Herdr。
 
 无交互安装可明确允许补齐依赖：
 
 ```sh
-curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-interactive
+curl -fsSL https://pairfob.com/install.sh | sh -s -- --non-interactive
 ```
 
-`--non-interactive` 禁止询问；缺少 Herdr 且没有 `--install-herdr` 时失败退出。`--skip-herdr-check` 可用于仅安装或离线准备，但不会显示会话已就绪。`--no-service` 不代表跳过 Herdr 检查；离线拷贝使用 `--no-service --no-enroll --skip-herdr-check`。
+`--non-interactive` 禁止询问，仍默认补齐缺少的 Herdr。使用 `--no-install-herdr` 可在缺失时直接失败。`--skip-herdr-check` 可用于仅安装或离线准备，但不会显示会话已就绪。`--no-service` 不代表跳过 Herdr 检查；离线拷贝使用 `--no-service --no-enroll --skip-herdr-check`。
 
 安装后可运行 `pairfob setup` 再检查并启动 Herdr，或 `pairfob setup --install-herdr` 补齐缺少的依赖。`pairfob doctor` 只诊断，不安装、不启动。旧协议、启动失败、无效的 `HERDR_BIN` 或 socket 配置都需要修复后再继续；不会自动升级或重启已有 Herdr 会话。Pairfob 只自动启动默认服务；设置 `PAIRFOB_HERDR_AUTOSTART=0` 时，需要自行启动配置的 Herdr 服务。自动启动的限制见 [命名 Herdr 会话](/zh/app#命名-herdr-会话)。
 
@@ -32,7 +32,7 @@ curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-inter
 
 1. 按当前系统下载对应的 `pairfob`
 2. 核对校验和，对不上就失败，不会覆盖已有文件
-3. 检查 Herdr，必要时经同意安装并启动，验证接口就绪
+3. 检查 Herdr，缺失时自动安装并启动，验证接口就绪
 4. 完成登记
 5. 除非 `--no-service`，否则装上登录即启动的**用户级**服务
 
@@ -43,8 +43,9 @@ curl -fsSL https://pairfob.com/install.sh | sh -s -- --install-herdr --non-inter
 | `--prefix DIR` | 安装目录。可写的 `/usr/local/bin` 时用那里，否则 `~/.local/bin` |
 | `--no-service` | 只装二进制和登记，不装登录服务 |
 | `--no-enroll` | 跳过登记；不会自动跳过服务或 Herdr 检查 |
-| `--install-herdr` | 缺少 Herdr 时安装固定版本，不询问 |
-| `--non-interactive` | 禁止交互询问；未允许安装时缺少依赖则失败 |
+| `--no-install-herdr` | 缺失时失败，不下载依赖 |
+| `--install-herdr` | 兼容参数：缺少 Herdr 时自动安装（默认行为） |
+| `--non-interactive` | 禁止交互询问；默认补齐 Herdr，除非明确禁止安装 |
 | `--skip-herdr-check` | 跳过 Herdr 检查，不声明会话就绪 |
 
 也可以：
@@ -106,10 +107,31 @@ rm -f "$prefix/pairfob" "$prefix/pairfobd"
 
 ## 从源码跑
 
-适合本机对照。仓库在 [arronKler/pairfob](https://github.com/arronKler/pairfob)。仍然需要安装 Herdr。日常使用还是上面的安装命令。
+适合本机对照。仓库在 [arronKler/pairfob](https://github.com/arronKler/pairfob)。先运行一次 setup 自动准备 Herdr。日常使用还是上面的安装命令。
 
 ```sh
+go run ./cmd/pairfob setup
 go run ./cmd/pairfob
 ```
 
 本地配对和校验见仓库 README。
+
+<span id="herdr-runtime"></span>
+
+## Herdr 运行组件更新
+
+`pairfob update` 和网页里的“更新 Pairfob”只更新 Pairfob。Pairfob 安装并能确认来源的 Herdr 使用：
+
+```sh
+pairfob setup --update-herdr
+```
+
+正在运行时只下载并校验，退出码 2 表示已准备但未生效，任务保持运行。选择可以中断任务的时间，在电脑上执行：
+
+```sh
+pairfob setup --update-herdr --restart-herdr
+```
+
+命令会列出目标和影响，在终端确认后停止默认服务、更新并验证。停止会终止终端进程，Agent 可能需要恢复；回退二进制不能恢复这些进程。命名会话、自定义 socket、外部管理的服务需先按原方式维护。无交互终端不能授权重启。
+
+Homebrew、mise、Nix 或来源不明的 Herdr 使用原安装方式更新；旧版 Pairfob 未记录来源的安装也不会自动接管。`pairfob doctor` 显示文件版本、运行版本和暂存状态。卸载 Pairfob 默认保留 Herdr、会话和项目。

@@ -118,20 +118,9 @@ func (c *Client) dispatchMux(f envelope.Frame) {
 		c.failMux(err)
 		return
 	}
-	var peek struct {
-		ID string `json:"id"`
-		Op string `json:"op"`
-	}
-	if err := json.Unmarshal(pt, &peek); err != nil {
-		c.failMux(errors.New("invalid RPC response"))
-		return
-	}
-	if peek.ID == "" && (peek.Op == "TerminalFrame" || peek.Op == "TerminalClosed") {
-		c.Events = append(c.Events, append(json.RawMessage(nil), pt...))
-		return
-	}
 	var resp struct {
 		ID     string          `json:"id"`
+		Op     string          `json:"op"`
 		OK     bool            `json:"ok"`
 		Result json.RawMessage `json:"result"`
 		Error  *struct {
@@ -139,7 +128,17 @@ func (c *Client) dispatchMux(f envelope.Frame) {
 			Message string `json:"message"`
 		} `json:"error"`
 	}
-	if err := json.Unmarshal(pt, &resp); err != nil || resp.ID == "" {
+	// Decode routing and result together: a separate routing peek scans the
+	// entire base64 media payload again, even though it only needs ID and Op.
+	if err := json.Unmarshal(pt, &resp); err != nil {
+		c.failMux(errors.New("invalid RPC response"))
+		return
+	}
+	if resp.ID == "" && (resp.Op == "TerminalFrame" || resp.Op == "TerminalClosed") {
+		c.Events = append(c.Events, append(json.RawMessage(nil), pt...))
+		return
+	}
+	if resp.ID == "" {
 		c.failMux(errors.New("invalid RPC response"))
 		return
 	}
