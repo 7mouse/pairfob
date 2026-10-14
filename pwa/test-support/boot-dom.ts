@@ -1,7 +1,9 @@
 import { Window } from "happy-dom";
 import "./node-inspect";
+import { isolateMediaQueryListeners } from "./media-query-listeners";
 
 const happy = new Window({ url: "https://pairfob.com/pair", width: 390, height: 844 });
+isolateMediaQueryListeners(happy);
 export function installTestDOM(): void {
   const globals = globalThis as unknown as Record<string, unknown>;
   for (const key of [

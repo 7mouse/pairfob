@@ -211,6 +211,7 @@ async function setAsideInColumn(text: string): Promise<void> {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   clearWorkspacePendingReveal();
   clearAllDiffNotes();
   seedRestorer.capture();

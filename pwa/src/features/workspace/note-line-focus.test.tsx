@@ -159,6 +159,7 @@ async function leaveHalfWritten(input: Input = "mouse"): Promise<void> {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   clearWorkspacePendingReveal();
   clearAllDiffNotes();
   seedRestorer.capture();
