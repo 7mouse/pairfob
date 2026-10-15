@@ -241,8 +241,9 @@
 /* --- Anchored under the header button -----------------------------------------
    Opened with a mouse on a desk layout the same panel hangs under the "more"
    button, beside the pane it changes (overlay/popover). A mouse does not need
-   finger-sized rows, and the tighter rhythm keeps "close session" on screen in
-   a short window. Touch, and every phone, keeps the sizes above. */
+   finger-sized rows (popover.scss sets every panel's), and the tighter rhythm
+   keeps "close session" on screen in a short window. Touch, and every phone,
+   keeps the sizes above. */
 
 @media (min-width: 720px) and (hover: hover) and (pointer: fine) {
   .popover-panel.pane-menu-sheet .sheet-body {
@@ -252,34 +253,6 @@
 
   /* A page's footer stands under the body (`.sheet-foot`, desk-dialog.scss) on the same inset. */
   .popover-panel.pane-menu-sheet .sheet-foot { --desk-pad: 14px; }
-
-
-  .popover-panel.pane-menu-sheet .seg-item { min-height: 32px; }
-
-  .popover-panel.pane-menu-sheet .menu-tile {
-    gap: 4px;
-    min-height: 56px;
-    padding: 8px 4px 6px;
-  }
-
-  .popover-panel.pane-menu-sheet .menu-tile-icon svg {
-    width: 19px;
-    height: 19px;
-  }
-
-  .popover-panel.pane-menu-sheet .menu-setting {
-    min-height: 42px;
-    padding: 4px 0;
-  }
-
-  .popover-panel.pane-menu-sheet .menu-stepper-btn {
-    min-width: 32px;
-    min-height: 32px;
-  }
-
-  .popover-panel.pane-menu-sheet .menu-switch { min-height: 32px; }
-
-  .popover-panel.pane-menu-sheet .menu-row { min-height: 38px; }
 
   .popover-panel.pane-menu-sheet .pane-group-title,
   .popover-panel.pane-menu-sheet .menu-danger-zone { margin-top: 12px; }

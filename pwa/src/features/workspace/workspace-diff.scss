@@ -8,7 +8,7 @@
 /* An icon of the info bar: a whole target under a finger, the bar's own 32px under a mouse. */
 .workspace-tool,
 .workspace-step { color: var(--muted); flex: none; }
-.workspace-tool[aria-pressed="true"] { background: var(--surface-2); color: var(--accent); }
+.workspace-tool:is([aria-pressed="true"], .is-set) { background: var(--surface-2); color: var(--accent); }
 .workspace-tool:disabled,
 .workspace-step:disabled { opacity: 0.3; }
 
@@ -67,7 +67,24 @@
 
 /* A line the keyboard goes to, or a note's form brought into view, stops below the head that
    is stuck to the top, not under it. */
-.workspace-diff { --diff-gutter: 2.7rem; --hunk-head: 30px; scroll-padding-top: var(--hunk-head); }
+.workspace-diff { --hunk-head: 30px; scroll-padding-top: var(--hunk-head); }
+
+/* The gutter holds the patch's longest line number (`--diff-digits`, from the patch; the
+   skeleton guesses three, as most files are shorter than 1000 lines) at the size the lines are
+   drawn, with a little room before it and the number's own padding after. Registered as a
+   length, it is worked out on the box of lines, so `ch` is their own digit wherever the gutter
+   is used again. (An initial value must not depend on the page's own sizes, so not 2.7rem;
+   every box sets it.) */
+@property --diff-gutter { syntax: "<length>"; inherits: true; initial-value: 0px; }
+.workspace-diff { --diff-digits: 4; }
+.workspace-diff-pending { --diff-digits: 3; }
+.workspace-diff,
+.workspace-diff-pending { --diff-gutter: max(2.7rem, calc(var(--diff-digits) * 1ch + 10px)); }
+/* On a narrow phone the line numbers give the rest of their column back to the code. */
+@media (max-width: 430px) {
+  .workspace-diff,
+  .workspace-diff-pending { --diff-gutter: calc(max(var(--diff-digits), 2) * 1ch + 10px); }
+}
 
 /* The head stays at the top of the diff while its hunk is read, over the lines that pass under it. */
 .workspace-diff-hunk {
@@ -106,7 +123,7 @@
 .workspace-hunk-context + .workspace-hunk-count { margin-left: 0; }
 .workspace-hunk-notes { display: inline-flex; align-items: center; gap: 3px; margin-left: 0; color: var(--accent); }
 .workspace-hunk-toggle:active { background: rgba(110, 168, 254, 0.12); }
-.workspace-diff-group.is-folded .workspace-diff-hunk { position: static; }
+.workspace-diff-group.is-folded .workspace-diff-hunk { top: auto; }
 /* A hunk's lines fold under its head. One taller than the diff's window (`is-tall`, diff.tsx)
    does not travel its whole height: the lines fade and the height follows in one step. */
 .workspace-diff-group > .fold.is-tall { transition: opacity var(--dur-2) var(--ease); }
@@ -151,7 +168,7 @@ button.workspace-gap-open:active { background: var(--surface); }
 button.workspace-gap-open:focus-visible { outline-offset: -2px; }
 
 /* An on-screen keyboard leaves the diff a few lines: the head scrolls with them. */
-html[data-kb="open"] .workspace-diff-hunk { position: static; }
+html[data-kb="open"] .workspace-diff-hunk { top: auto; }
 html[data-kb="open"] .workspace-diff { scroll-padding-top: 0; }
 
 /* --- The words that changed inside a replaced line ------------------------------------ */
@@ -175,7 +192,7 @@ html[data-kb="open"] .workspace-diff { scroll-padding-top: 0; }
    unchanged line's old number is drawn from `data-old`, so nothing a note is pinned by or
    a copy takes ever doubles. */
 @mixin two-numbers {
-  .workspace-diff:not(.is-split) { --diff-gutter: 5.2rem; }
+  :is(.workspace-diff, .workspace-diff-pending):not(.is-split) { --diff-gutter: max(5.2rem, calc(var(--diff-digits) * 2ch + 22px)); }
   .workspace-diff:not(.is-split) .diff-line-number {
     display: grid;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
@@ -199,3 +216,44 @@ html[data-kb="open"] .workspace-diff { scroll-padding-top: 0; }
 .diff-split-cell + .diff-split-cell { border-left: 1px solid var(--line); }
 /* The side with nothing to show: neither added nor removed, and not a line to press. */
 .diff-split-cell.is-blank { background: rgba(233, 237, 243, 0.025); }
+
+/* --- Reading size and wrap ------------------------------------------------------------ */
+
+/* Two fingers step the size (`useDiffPinch`) and the page is not zoomed from here, unless the
+   reader has zoomed it already: then the pinch is the browser's, to zoom it back out. */
+.workspace-diff { touch-action: pan-x pan-y; }
+html.page-zoomed .workspace-diff { touch-action: pan-x pan-y pinch-zoom; }
+
+/* A size the reader picked (the text size control or a pinch) wins over the sheet's own, under a finger or not. */
+:is(.workspace-diff, .workspace-diff-pending).has-diff-fs { font-size: var(--diff-fs); }
+
+/* Wrapping turned off: lines stay whole and the diff pans sideways. Its one column is as wide
+   as the longest line, so every line's colour runs the whole way across. What is not a line
+   (hunk heads, the stretches between them, notes, "show more") stays on screen as the lines
+   pan under it: a fold clips without being a scroller of its own, so they can hold still. */
+.workspace-diff.is-nowrap {
+  display: grid;
+  grid-template-columns: minmax(max-content, auto);
+  align-content: start;
+  overflow-x: auto;
+  container-type: inline-size;
+  .fold > .fold-body { overflow: clip; }
+  .diff-line-text { white-space: pre; overflow-wrap: normal; }
+  :is(.workspace-diff-hunk, .workspace-diff-gap, .workspace-diff-more) { position: sticky; left: 0; width: 100cqi; }
+  :is(.workspace-diff-note, .diff-note-inline) {
+    position: sticky;
+    left: calc(var(--diff-gutter) + 0.95rem);
+    max-width: calc(100cqi - var(--diff-gutter) - 0.95rem - 10px);
+  }
+}
+/* Under a mouse the pencil is at the end of a long line: it stays at the window's edge instead,
+   on the line it is over, so a note is offered without panning to the end. */
+@media (hover: hover) and (pointer: fine) {
+  .workspace-diff.is-nowrap .diff-line-hint {
+    position: sticky;
+    right: 0;
+    margin-right: 0;
+    border-radius: var(--r-sm);
+    background: var(--term-bg);
+  }
+}

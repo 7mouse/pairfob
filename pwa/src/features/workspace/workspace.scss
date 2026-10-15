@@ -6,6 +6,10 @@
 @use "./workspace-overview";
 @use "./workspace-thumb";
 
+/* The files screen is fixed inside #app and leaves it no height of its own. A sheet scales #app
+   and clips the screens to it (overlay.scss), so while one is open #app keeps the visible height. */
+body.sheet-open #app.workspace { min-height: var(--vv-height, 100dvh); }
+
 .workspace-shell {
   position: fixed;
   top: var(--vv-top, 0);

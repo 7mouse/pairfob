@@ -39,9 +39,12 @@ export function MenuStepper({ label, value, decrease, increase, onDecrease, onIn
   </MenuSetting>;
 }
 
-export function MenuSwitch({ label, checked, onChange }: { label: string; checked: boolean; onChange: (next: boolean) => void }) {
+/** An on/off setting; `keys` is the key that flips it too (`aria-keyshortcuts`), and `title` says so under a mouse. */
+export function MenuSwitch({ label, checked, onChange, title, keys }: {
+  label: string; checked: boolean; onChange: (next: boolean) => void; title?: string; keys?: string;
+}) {
   return <MenuSetting label={label}>
-    <Button className="menu-switch" role="switch" aria-checked={checked} aria-label={label} onClick={() => onChange(!checked)} />
+    <Button className="menu-switch" role="switch" aria-checked={checked} aria-label={label} title={title} aria-keyshortcuts={keys} onClick={() => onChange(!checked)} />
   </MenuSetting>;
 }
 

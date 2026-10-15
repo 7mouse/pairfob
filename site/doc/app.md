@@ -158,6 +158,7 @@ The folder control in the session chrome is not the Worktree menu. It opens this
 - **Files** — directory listing and a text preview
 - **Changes** — uncommitted git status in **Staged Changes** and **Changes**; tap a file for the diff
 - A diff switches between **Staged** and **Working tree**, **Open file** shows the whole file, and **Previous** / **Next** at the bottom step through changed files
+- **Text size and wrap** on a diff sets its size (or pinch the lines with two fingers) and whether long lines wrap; with wrap off the lines pan sideways. Both are kept on the device, and stepping back to the starting size follows the terminal's again
 - Tap a diff line to comment, then **Send to agent**
 - The branch list is read-only. Switch work with worktree actions
 

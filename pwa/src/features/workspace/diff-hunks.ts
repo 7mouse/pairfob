@@ -94,6 +94,13 @@ function replacements(lines: readonly DiffLine[]): Array<[DiffLine, DiffLine]> {
   return pairs;
 }
 
+/** How many digits the longest line number in the hunks has, on either side: what the gutter must hold. */
+export function lineDigits(hunks: readonly DiffHunk[]): number {
+  let most = 0;
+  for (const hunk of hunks) for (const line of hunk.lines) most = Math.max(most, line.oldLine ?? 0, line.newLine ?? 0);
+  return String(most).length;
+}
+
 /** For each replaced or replacing line, the stretch of it that changed (`diff-words`). */
 export function changedWords(lines: readonly DiffLine[]): Map<DiffLine, WordRange> {
   const ranges = new Map<DiffLine, WordRange>();

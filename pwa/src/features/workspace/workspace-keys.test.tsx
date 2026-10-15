@@ -6,7 +6,7 @@ import { resetBoardTestDOM } from "../../../test-support/dom";
 import { all, bootWorkspaceScreen, key, one, press, settle, teardownWorkspaceScreen, type } from "../../../test-support/workspace-harness";
 import { workspaceLive, type FixtureChange } from "../../../test-support/workspace-live-fixture";
 import { loadGitDiff, loadWorkspaceFile, showWorkspaceTab, workspaceModel } from "./index";
-import { workspaceWrap } from "./prefs";
+import { diffWrap, resetDiffWrap, workspaceWrap } from "./prefs";
 
 /** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
 const UNDER = ".diff-note-fold:not(.is-shut)";
@@ -131,6 +131,20 @@ describe("an open diff or file by keyboard", () => {
     await act(async () => { showWorkspaceTab("files"); });
     await settle();
     expect((await key("Ω", { altKey: true, code: "KeyZ" })).defaultPrevented).toBeFalse();
+  });
+
+  test("Alt+Z wraps an open diff with its own switch, and leaves the file's alone", async () => {
+    await bootWorkspaceScreen(live());
+    await openDiff("src/app.ts");
+    const file = workspaceWrap();
+    expect(diffWrap()).toBeTrue();
+    expect((await key("z", { altKey: true, code: "KeyZ" })).defaultPrevented).toBeTrue();
+    expect(diffWrap()).toBeFalse();
+    expect(one(".workspace-diff").classList.contains("is-nowrap")).toBeTrue();
+    expect(workspaceWrap()).toBe(file);
+    await key("z", { altKey: true, code: "KeyZ" });
+    expect(diffWrap()).toBeTrue();
+    resetDiffWrap();
   });
 });
 

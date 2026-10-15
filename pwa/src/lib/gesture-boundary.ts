@@ -1,8 +1,16 @@
-const APPLICATION_GESTURE_SURFACE = ".full-terminal-host, .board-canvas, .workspace-media-viewer";
+/** The board and the media viewer always own a pinch; the terminal and a diff's lines only while the page is not zoomed. */
+const APPLICATION_GESTURE_SURFACE = ".full-terminal-host, .workspace-diff, .board-canvas, .workspace-media-viewer";
 const LEGACY_GESTURE_EVENTS = ["gesturestart", "gesturechange"] as const;
 
 export function isPageZoomed(document: Document): boolean {
   return (document.defaultView?.visualViewport?.scale ?? 1) > 1;
+}
+
+/** How far apart the first two fingers are, for the pinches the application owns. */
+export function touchSpread(touches: ArrayLike<{ clientX: number; clientY: number }>): number {
+  const a = touches[0];
+  const b = touches[1];
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
 }
 
 function applicationOwnsGesture(document: Document, target: EventTarget | null): boolean {

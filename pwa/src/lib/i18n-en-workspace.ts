@@ -190,6 +190,8 @@ export const enWorkspace = {
   "workspace.openBranches": "{name}, branch {branch}. Open branches and worktrees",
   "workspace.lines": "{count} lines",
   "workspace.wrap": "Wrap",
+  "workspace.diffReading": "Text size and wrap",
+  "workspace.diffReadingSet": "{label}, changed",
   "workspace.viewChanges": "View changes",
   "workspace.openFile": "Open file",
   "workspace.copyPath": "Copy path",

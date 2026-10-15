@@ -190,6 +190,8 @@ export const zhWorkspace = {
   "workspace.openBranches": "{name}，分支 {branch}。打开分支与 Worktree",
   "workspace.lines": "{count} 行",
   "workspace.wrap": "换行",
+  "workspace.diffReading": "字号与换行",
+  "workspace.diffReadingSet": "{label}，已调整",
   "workspace.viewChanges": "查看更改",
   "workspace.openFile": "打开文件",
   "workspace.copyPath": "复制路径",

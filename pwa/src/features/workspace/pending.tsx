@@ -1,4 +1,5 @@
 import { t } from "../../lib/i18n";
+import { useDiffSizeBox } from "./diff-reading";
 
 const FILE_SKELETON_LINES = 48;
 const LIST_SKELETON_ROWS = 10;
@@ -51,13 +52,14 @@ export function ChangePending() {
   </section>;
 }
 
-export function DiffPending() {
-  return <div className="workspace-diff-pending" {...markPending(t("workspace.readingDiff"))}>
+/** Shaped as the lines on their way: the reader's size, and one gutter or two as the lines will have (`split`). */
+export function DiffPending({ split = false }: { split?: boolean }) {
+  const reading = useDiffSizeBox();
+  return <div className={`workspace-diff-pending${split ? " is-split" : ""}${reading.className}`} style={reading.style} {...markPending(t("workspace.readingDiff"))}>
     <div className="workspace-diff-skeleton" aria-hidden="true">
       {Array.from({ length: DIFF_SKELETON_LINES }, (_, i) => {
         const kind = DIFF_SKELETON_KINDS[i % DIFF_SKELETON_KINDS.length];
         return <div key={i} className={`workspace-diff-skeleton-line diff-${kind}`}>
-          <span className="workspace-diff-skeleton-gutter" />
           <span className="workspace-diff-skeleton-gutter" />
           <span className="workspace-diff-skeleton-text" />
         </div>;

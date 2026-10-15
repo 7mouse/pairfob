@@ -10,13 +10,15 @@ import { Button, Fold } from "../../shared/ui/primitives";
 import { useCapabilities } from "../operations/hooks";
 import { loadGitDiff, loadWorkspaceFile, refreshWorkspace } from "./actions";
 import { GapRow, HunkHead, HunkNav, hunkTitle, topIn, type DiffPort } from "./diff-hunk";
-import { changedWords, diffHunks, splitRows, type DiffHunk } from "./diff-hunks";
+import { changedWords, diffHunks, lineDigits, splitRows, type DiffHunk } from "./diff-hunks";
 import { setSplitChosen, useSplitChosen, useSplitOffered } from "./diff-layout";
 import { useDiffHold, type DiffHold } from "./diff-hold";
 import { DiffLineRow, type LineNotes } from "./diff-line";
 import { diffStops, useLineStops } from "./diff-line-stops";
 import { SplitLineRow } from "./diff-split";
 import { DiffStepper } from "./diff-stepper";
+import { useDiffPinch, useDiffReading } from "./diff-reading";
+import { DiffReadingButton } from "./diff-reading-tools";
 import { DetailIdentity, DetailMoreButton } from "./file-detail";
 import { changeKindLabel } from "./format";
 import { GitMark } from "./git-mark";
@@ -26,6 +28,7 @@ import { setOpenNoteAside, useInlineNote, useScreenNote, type InlineNote } from 
 import type { ParkedNote } from "./note-parked";
 import { DiffNotesBar, diffNotePinKey } from "./notes";
 import { DiffPending, ReservedStat } from "./pending";
+import { beforeReadingChange, useDiffSize, useDiffWrap } from "./prefs";
 import { markReviewed } from "./review-progress";
 import { useListBeside } from "./list-beside";
 import { Still } from "./still";
@@ -70,9 +73,11 @@ const NEAR_END_PX = 1200;
  * little earlier, in time to draw more. Both are asked again whenever what is
  * drawn changes (`content`), since folding a hunk can bring the end into view.
  */
-export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split = false, content = "", memory = diffKey, reveal = false }: {
+export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split = false, content = "", memory = diffKey, reveal = false, digits }: {
   diffKey: string; children: ReactNode; onEnd?: () => void; onNear?: () => void; scroller?: RefObject<HTMLDivElement | null>;
   split?: boolean; content?: string;
+  /** How many digits the patch's longest line number has: the gutter is drawn that wide. */
+  digits?: number;
   /** What the scroll position is remembered by: the diff, and whose it is. */
   memory?: string;
   /** These lines took the place of what the body was showing: they fade in (`diff-hold`). */
@@ -81,6 +86,8 @@ export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split
   const own = useRef<HTMLDivElement>(null);
   const ref = scroller ?? own;
   const stops = useLineStops(ref);
+  const reading = useDiffReading(split, digits);
+  useDiffPinch(ref);
   const ended = useRef(onEnd);
   ended.current = onEnd;
   const near = useRef(onNear);
@@ -118,7 +125,7 @@ export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split
     return () => window.clearTimeout(timer);
   }, [memory, content, check]);
 
-  return <div ref={ref} className={`workspace-diff${split ? " is-split" : ""}${reveal ? " workspace-reveal" : ""}`} data-diff-key={diffKey}
+  return <div ref={ref} className={`workspace-diff${split ? " is-split" : ""}${reveal ? " workspace-reveal" : ""}${reading.className}`} style={reading.style} data-diff-key={diffKey}
     onFocus={stops.onFocus} onKeyDown={stops.onKeyDown}>
     {children}
   </div>;
@@ -315,7 +322,11 @@ function DiffLines({ snapshot, view, notes, split, reveal, onSeen }: {
     resume.current = document.activeElement === button ? stops[stops.indexOf(button) - 1] ?? button : null;
     more();
   };
-  const content = `${limit}:${[...folded].join(",")}:${split}`;
+  // A new size or wrap redraws every line: the one being read is held in place like a fold's.
+  useEffect(() => beforeReadingChange(() => port.current.keepPlace?.()), [port]);
+  const size = useDiffSize();
+  const wraps = useDiffWrap();
+  const content = `${limit}:${[...folded].join(",")}:${split}:${size}:${wraps}`;
   useLayoutEffect(() => {
     const box = view.scroller.current;
     if (!box) return;
@@ -346,8 +357,10 @@ function DiffLines({ snapshot, view, notes, split, reveal, onSeen }: {
   const kind = view.kind;
   const opens = kind !== "deleted" && (layer === "worktree" || !layers.includes("worktree"));
   const rows = useMemo(() => split ? hunks.map((hunk) => splitRows(hunk.lines)) : null, [split, hunks]);
+  const digits = useMemo(() => lineDigits(hunks), [hunks]);
 
   return <DiffScroller diffKey={diffKey} memory={memory} scroller={view.scroller} split={split} content={content} reveal={reveal}
+    digits={digits}
     onNear={() => { if (limit < lineCount) more(); }} onEnd={() => { if (limit >= lineCount) onSeen(); }}>
     {hunks.map((hunk) => {
       if (hunk.offset >= limit && hunk.offset > 0) return null;
@@ -432,7 +445,7 @@ export function DiffBody({ snapshot, view, onEditNote, hint = true, inline, park
           <Button className="btn btn-small" onClick={retry}>{t("ft.retry")}</Button>
         </div>
       ) : !diff ? (
-        snapshot.loading && snapshot.pendingReveal ? <DiffPending /> : <div className="workspace-diff-spacer" />
+        snapshot.loading && snapshot.pendingReveal ? <DiffPending split={split} /> : <div className="workspace-diff-spacer" />
       ) : diff.binary ? (
         <p className={`workspace-empty${arrived}`}>{t("workspace.binary")}</p>
       ) : !view.lineCount || !diff.patch ? (
@@ -451,7 +464,7 @@ export function DiffBody({ snapshot, view, onEditNote, hint = true, inline, park
 /**
  * What the info bar offers on an open diff, the same on the page and in the
  * column: from hunk to hunk, the two sides next to each other where the window
- * has the room, and the file itself. They belong to the lines on screen: while
+ * has the room, how the lines read (size and wrap), and the file itself. They belong to the lines on screen: while
  * the diff that was open is kept for the next one, so are they, out of reach,
  * and nothing beside the stepper comes and goes with each step.
  */
@@ -463,6 +476,7 @@ export function DiffTools({ snapshot, view, split }: { snapshot: WorkspaceSnapsh
       {lines && <HunkNav scroller={view.scroller} port={view.port} total={view.hunks.length} version={`${view.diffKey}\n${diff?.revision ?? ""}\n${snapshot.error}`} />}
       {lines && split && <Button className="icon-btn workspace-tool" aria-pressed={split.on} aria-label={t("workspace.splitView")} title={t("workspace.splitView")}
         onClick={() => { view.port.current.keepPlace?.(); setSplitChosen(!split.on); }}><Columns2 size={16} aria-hidden="true" /></Button>}
+      {lines && <DiffReadingButton split={Boolean(split?.on)} lines={view.scroller} />}
       {kind !== "deleted" && <Button className="icon-btn workspace-tool workspace-open-file" aria-label={t("workspace.openFile")} title={t("workspace.openFile")}
         onClick={() => loadWorkspaceFile(path)}><FileText size={16} aria-hidden="true" /></Button>}
     </Still>

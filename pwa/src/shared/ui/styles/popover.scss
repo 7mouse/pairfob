@@ -155,6 +155,34 @@
 
   .popover-menu .menu-item:hover:not(:disabled),
   .popover-menu .menu-row:hover:not(:disabled) { background: var(--surface-2); }
+
+  /* A panel's settings (menu-controls) at a mouse's rhythm. */
+  dialog.modal.popover-panel .seg-item { min-height: 32px; }
+
+  dialog.modal.popover-panel .menu-tile {
+    gap: 4px;
+    min-height: 56px;
+    padding: 8px 4px 6px;
+  }
+
+  dialog.modal.popover-panel .menu-tile-icon svg {
+    width: 19px;
+    height: 19px;
+  }
+
+  dialog.modal.popover-panel .menu-setting {
+    min-height: 42px;
+    padding: 4px 0;
+  }
+
+  dialog.modal.popover-panel .menu-stepper-btn {
+    min-width: 32px;
+    min-height: 32px;
+  }
+
+  dialog.modal.popover-panel .menu-switch { min-height: 32px; }
+
+  dialog.modal.popover-panel .menu-row { min-height: 38px; }
 }
 
 @keyframes popover-in {

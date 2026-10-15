@@ -321,7 +321,30 @@ export function turnWrites(): string[] {
   return [`${ROOT}/src/app.ts`, "src/styles.scss"];
 }
 
+/**
+ * A patch deep in a long file (`workspace-diff-long`): five-digit line numbers, lines wider
+ * than a phone, and enough of them to scroll, for the gutter, wrapping and the reading size.
+ */
+export const LONG_DIFF_PATH = "src/server.ts";
+
+function longPatch(): string {
+  const head = ["diff --git a/src/server.ts b/src/server.ts", "--- a/src/server.ts", "+++ b/src/server.ts"];
+  const hunk = (start: number, label: string) => {
+    const lines = [`@@ -${start},40 +${start},42 @@ ${label}`];
+    for (let index = 0; index < 40; index++) {
+      const at = start + index;
+      const wide = `  const route${at} = router.register("/api/v2/workspaces/:workspace/sessions/:session/files/${at}", { method: "GET", cache: "no-store", timeoutMs: ${at} });`;
+      if (index % 9 === 4) lines.push(`-${wide}`, `+${wide.replace("GET", "POST")}`);
+      else if (index % 13 === 7) lines.push(`+  // ${at}: keep the handler beside its route so a reader finds both on one screen.`, ` ${wide}`);
+      else lines.push(` ${index % 3 ? wide : `  handle(${at});`}`);
+    }
+    return lines;
+  };
+  return [...head, ...hunk(9978, "function routes(router: Router) {"), ...hunk(10_140, "function more(router: Router) {"), ""].join("\n");
+}
+
 export function diff(path = "src/app.ts", layer: "staged" | "worktree" = "worktree"): GitDiff {
+  if (path === LONG_DIFF_PATH) return { path, layer, patch: longPatch(), additions: 12, deletions: 10, binary: false, truncated: false, revision: REVISION };
   return { path, layer, patch: 'diff --git a/src/app.ts b/src/app.ts\n--- a/src/app.ts\n+++ b/src/app.ts\n@@ -1,4 +1,6 @@\n import { createRoot } from "react-dom/client";\n \n-export const ready = false;\n+export function App() {\n+  return <main className="workspace">Ready</main>;\n+}\n \n@@ -24,3 +26,3 @@ function mount(root: HTMLElement) {\n   const app = createRoot(root);\n-  app.render(<App />);\n+  app.render(<App ready />);\n }\n', additions: 4, deletions: 2,
     binary: false, truncated: false, revision: REVISION };
 }

@@ -134,6 +134,7 @@ export const scenes: FixtureScene[] = [
   { name: "workspace-image", description: "A 1600 by 900 picture in the viewer: fitted under its own size, so 100% and a double press have somewhere to go" },
   { name: "workspace-diff", description: "Working-tree source diff" },
   { name: "workspace-diff-loading", description: "Pending diff skeleton" },
+  { name: "workspace-diff-long", description: "A diff deep in a long file: five-digit numbers and lines wider than a phone" },
   { name: "workspace-error", description: "Workspace read failure" },
   { name: "guided", description: "Guided ANSI terminal and collapsed keys" },
   { name: "guided-draft", description: "Unsent compose draft" },
@@ -563,7 +564,7 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     if (name.startsWith("workspace-changes") || name.startsWith("workspace-diff")) showWorkspaceTab("changes");
     if (name === "workspace-diff-loading") session.hold("gitDiff");
     if (name.startsWith("workspace-diff")) {
-      const pending = loadGitDiff("src/app.ts", "worktree");
+      const pending = loadGitDiff(name === "workspace-diff-long" ? data.LONG_DIFF_PATH : "src/app.ts", "worktree");
       if (name.endsWith("loading")) { void pending; await pendingReveal(); } else await pending;
     }
     if (name === "workspace-error") setWorkspaceError(t("err.daemon_offline"));

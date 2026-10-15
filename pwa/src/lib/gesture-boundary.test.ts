@@ -7,13 +7,13 @@ function gesture(window: Window, type: "gesturestart" | "gesturechange"): Event 
 }
 
 describe("legacy iOS gesture boundary", () => {
-  test("a zoomed terminal leaves the whole return-to-1 gesture to the browser", () => {
+  test.each(["full-terminal-host", "workspace-diff"])("a zoomed page leaves the whole return-to-1 gesture over .%s to the browser", (className) => {
     const window = new Window();
     const document = window.document as unknown as Document;
     const viewport = { scale: 2 };
     Object.defineProperty(window, "visualViewport", { value: viewport });
     const host = document.createElement("section");
-    host.className = "full-terminal-host";
+    host.className = className;
     document.body.append(host);
     const dispose = bindLegacyGestureBoundary(document);
     expect(host.dispatchEvent(gesture(window, "gesturestart"))).toBeTrue();

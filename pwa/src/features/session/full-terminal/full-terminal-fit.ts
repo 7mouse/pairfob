@@ -3,7 +3,7 @@
  * usable column count on a phone, and report the on-screen cell size.
  */
 
-import { isPageZoomed } from "../../../lib/gesture-boundary";
+import { isPageZoomed, touchSpread } from "../../../lib/gesture-boundary";
 
 export const FULL_TERM_TARGET_COLS = 80;
 
@@ -376,18 +376,13 @@ export function bindFontPinch(
 ): () => void {
   let base = 0;
   let basePx = 0;
-  const spread = (touches: TouchList): number => {
-    const a = touches[0];
-    const b = touches[1];
-    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-  };
   const onStart = (event: TouchEvent) => {
     if (isPageZoomed(host.ownerDocument)) {
       base = 0;
       return;
     }
     if (event.touches.length !== 2) return;
-    base = spread(event.touches);
+    base = touchSpread(event.touches);
     basePx = getFont();
   };
   const onMove = (event: TouchEvent) => {
@@ -397,7 +392,7 @@ export function bindFontPinch(
     }
     if (event.touches.length !== 2 || base <= 0) return;
     event.preventDefault();
-    const next = clamp(snapFont(basePx * (spread(event.touches) / base)), FULL_TERM_FONT_MIN, FULL_TERM_FONT_MAX);
+    const next = clamp(snapFont(basePx * (touchSpread(event.touches) / base)), FULL_TERM_FONT_MIN, FULL_TERM_FONT_MAX);
     if (next === getFont()) return;
     setFont(next);
   };
