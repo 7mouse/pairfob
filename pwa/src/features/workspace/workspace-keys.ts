@@ -4,8 +4,7 @@ import { macPlatform, useHardwareKeyboard } from "../../app/input-mode";
 import { currentScreen } from "../../app/navigation-store";
 import { workspaceBreadcrumbs } from "../../lib/workspace";
 import { loadDirectory, stepWorkspaceDiff, workspaceDiffStep } from "./actions";
-import { diffWrap, setDiffWrap } from "./diff-reading";
-import { setWorkspaceWrap, workspaceWrap } from "./prefs";
+import { diffWrap, setDiffWrap, setWorkspaceWrap, workspaceWrap } from "./prefs";
 import { getWorkspaceSnapshot } from "./store";
 
 /**
@@ -65,7 +64,7 @@ void board?.getLayoutMap?.().then((map) => {
 }).catch(() => { /* the US position stands */ });
 
 /** Alt+Z: by the letter where Alt leaves it alone, by the key that types it otherwise. */
-function wrapKey(event: KeyboardEvent): boolean {
+export function isWrapKey(event: KeyboardEvent): boolean {
   if (!event.altKey || event.shiftKey || event.ctrlKey || event.metaKey) return false;
   return /^[a-z]$/i.test(event.key) ? event.key.toLowerCase() === "z" : event.code === zCode;
 }
@@ -84,12 +83,12 @@ const KEY_HINTS = {
  * the key after it for the tooltip. Nothing until the reader has shown a
  * keyboard: a finger is not told about keys it has not got.
  */
-export function useKeyHint(name: keyof typeof KEY_HINTS): { keys: string | undefined; shown: string | undefined; title(label: string): string } {
+export function useKeyHint(name: keyof typeof KEY_HINTS): { keys: string | undefined; title(label: string): string } {
   const keyboard = useHardwareKeyboard();
   const hint = KEY_HINTS[name];
-  if (!keyboard) return { keys: undefined, shown: undefined, title: (label) => label };
+  if (!keyboard) return { keys: undefined, title: (label) => label };
   const shown = macPlatform() ? hint.mac : hint.other;
-  return { keys: hint.keys, shown, title: (label) => `${label} (${shown})` };
+  return { keys: hint.keys, title: (label) => `${label} (${shown})` };
 }
 
 /** Answer `event` for the files drawn in `root`. True when the key was one of theirs. */
@@ -137,7 +136,7 @@ export function workspaceKey(event: KeyboardEvent, root: ParentNode): boolean {
   if (typing(target)) return false;
 
   if (event.altKey) {
-    if (!wrapKey(event)) return false;
+    if (!isWrapKey(event)) return false;
     // A diff's wrap is its own; two sides next to each other never wrap.
     if (snapshot.view === "diff") {
       if (!root.querySelector(".workspace-diff:not(.is-split) .workspace-diff-line")) return false;

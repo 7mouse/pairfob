@@ -52,6 +52,113 @@ export function resetWorkspaceWrap(): void {
 }
 
 /**
+ * How a diff reads at arm's length: the size of its lines, and whether they
+ * wrap. Until the reader picks a size the style sheet's own applies (it
+ * follows the terminal's size, a size up under a finger), so a desktop diff
+ * reads exactly as it did. A diff wraps until they turn it off, under a mouse
+ * too, as it always has: unlike a file's, its lines are read beside their
+ * neighbours, and a removal and its replacement are compared whole. The two
+ * wraps are kept apart so that turning one off never turns off the other.
+ */
+export const DIFF_SIZES = [12, 13.5, 15] as const;
+const DIFF_SIZE_KEY = "pairfob.workspace.diffSize";
+const DIFF_WRAP_KEY = "pairfob.workspace.diffWrap";
+const diffListeners = new Set<() => void>();
+const beforeDiffListeners = new Set<() => void>();
+
+function readDiffSize(): number | null {
+  try {
+    const stored = Number(globalThis.localStorage?.getItem(DIFF_SIZE_KEY));
+    return DIFF_SIZES.find((size) => size === stored) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+function readDiffWrap(): boolean {
+  try {
+    return globalThis.localStorage?.getItem(DIFF_WRAP_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+let diffSizeChosen = readDiffSize();
+let diffWraps = readDiffWrap();
+
+function diffChanged(): void {
+  for (const listener of diffListeners) listener();
+}
+
+/**
+ * Hear just before the size or the wrap changes, while the lines are still
+ * drawn the old way: an open diff keeps the line being read where it is, from
+ * whichever control, key or pinch the change came.
+ */
+export function beforeReadingChange(listener: () => void): () => void {
+  beforeDiffListeners.add(listener);
+  return () => { beforeDiffListeners.delete(listener); };
+}
+
+function aboutToChange(): void {
+  for (const listener of beforeDiffListeners) listener();
+}
+
+function subscribeDiff(listener: () => void): () => void {
+  diffListeners.add(listener);
+  return () => { diffListeners.delete(listener); };
+}
+
+/** The reader's size in px; null while the style sheet's applies. */
+export function diffSize(): number | null {
+  return diffSizeChosen;
+}
+
+export function setDiffSize(next: number | null): void {
+  const size = next === null ? null : DIFF_SIZES.find((step) => step === next) ?? null;
+  if (size === diffSizeChosen) return;
+  aboutToChange();
+  diffSizeChosen = size;
+  try {
+    if (size === null) globalThis.localStorage?.removeItem(DIFF_SIZE_KEY);
+    else globalThis.localStorage?.setItem(DIFF_SIZE_KEY, String(size));
+  } catch { /* keep the in-memory value */ }
+  diffChanged();
+}
+
+export function useDiffSize(): number | null {
+  return useSyncExternalStore(subscribeDiff, diffSize, diffSize);
+}
+
+/** Tests: back to the style sheet's size. */
+export function resetDiffSize(): void {
+  setDiffSize(null);
+}
+
+export function diffWrap(): boolean {
+  return diffWraps;
+}
+
+export function setDiffWrap(next: boolean): void {
+  if (next === diffWraps) return;
+  aboutToChange();
+  diffWraps = next;
+  try { globalThis.localStorage?.setItem(DIFF_WRAP_KEY, next ? "1" : "0"); } catch { /* keep the in-memory value */ }
+  diffChanged();
+}
+
+export function useDiffWrap(): boolean {
+  return useSyncExternalStore(subscribeDiff, diffWrap, diffWrap);
+}
+
+/** Tests: back to wrapping, with nothing kept. */
+export function resetDiffWrap(): void {
+  diffWraps = true;
+  try { globalThis.localStorage?.removeItem(DIFF_WRAP_KEY); } catch { /* ignore */ }
+  diffChanged();
+}
+
+/**
  * The width an HTML preview is drawn at: a phone's, a tablet's, or the room
  * the page has. Whether the choice is offered, and so whether it applies, is
  * the preview's own question (`preview-controls`).

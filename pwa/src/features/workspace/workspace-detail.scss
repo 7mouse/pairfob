@@ -224,13 +224,17 @@
 
 /* --- Diff ------------------------------------------------------------------------ */
 
-/* The lines' type, shared with the skeleton that stands in for them so nothing moves when they come. */
+/* The lines' type, shared with the skeleton that stands in for them so nothing moves when they come.
+   The style sheet's size is `--diff-fs-auto`, registered as a length so the text size control
+   reads it in px and can step back to it (`autoDiffSize`). */
+@property --diff-fs-auto { syntax: "<length>"; inherits: true; initial-value: 12px; }
 .workspace-diff,
 .workspace-diff-pending {
   --diff-lh: 1.6;
-  font: 0.72rem/1.6 var(--mono);
   /* A diff line carries a number and a sign beside its text: half a pixel under the terminal's size. */
-  font-size: max(0.72rem, calc(var(--term-fs, 12px) - 0.5px));
+  --diff-fs-auto: max(0.72rem, calc(var(--term-fs, 12px) - 0.5px));
+  font: 0.72rem/1.6 var(--mono);
+  font-size: var(--diff-fs-auto);
   line-height: var(--diff-lh);
 }
 .workspace-diff {
@@ -246,7 +250,7 @@
 @media not all and (hover: hover) and (pointer: fine) {
   .workspace-code { font-size: max(0.8125rem, calc(var(--term-fs, 12px) + 1px)); }
   .workspace-diff,
-  .workspace-diff-pending { --diff-lh: 1.7; font-size: max(13px, calc(var(--term-fs, 12px) + 0.5px)); }
+  .workspace-diff-pending { --diff-lh: 1.7; --diff-fs-auto: max(13px, calc(var(--term-fs, 12px) + 0.5px)); }
 }
 
 .workspace-diff-spacer { flex: 1; }
@@ -283,7 +287,7 @@
 /* number · sign · text; the text wraps so nothing scrolls sideways on a phone. */
 .workspace-diff-line {
   display: grid;
-  grid-template-columns: var(--diff-gutter, 2.7rem) 0.95rem minmax(0, 1fr) auto;
+  grid-template-columns: var(--diff-gutter) 0.95rem minmax(0, 1fr) auto;
   width: 100%;
   min-height: calc(var(--diff-lh) * 1em);
 }
@@ -348,7 +352,7 @@ button.diff-line-number {
   flex-direction: column;
   align-items: stretch;
   gap: 4px;
-  margin: 4px 10px 8px calc(var(--diff-gutter, 2.7rem) + 0.95rem);
+  margin: 4px 10px 8px calc(var(--diff-gutter) + 0.95rem);
   padding: 9px 10px 4px 12px;
   border: 1px solid rgba(110, 168, 254, 0.28);
   border-radius: var(--r-md);
@@ -507,7 +511,7 @@ button.diff-line-number {
   flex-direction: column;
   gap: 6px;
   /* The note card's own place, so saving swaps one for the other without a jump. */
-  margin: 4px 10px 8px calc(var(--diff-gutter, 2.7rem) + 0.95rem);
+  margin: 4px 10px 8px calc(var(--diff-gutter) + 0.95rem);
   padding: 8px;
   border: 1px solid rgba(110, 168, 254, 0.45);
   border-radius: var(--r-md);

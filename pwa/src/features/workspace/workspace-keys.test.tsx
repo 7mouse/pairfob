@@ -6,8 +6,7 @@ import { resetBoardTestDOM } from "../../../test-support/dom";
 import { all, bootWorkspaceScreen, key, one, press, settle, teardownWorkspaceScreen, type } from "../../../test-support/workspace-harness";
 import { workspaceLive, type FixtureChange } from "../../../test-support/workspace-live-fixture";
 import { loadGitDiff, loadWorkspaceFile, showWorkspaceTab, workspaceModel } from "./index";
-import { diffWrap, resetDiffWrap } from "./diff-reading";
-import { workspaceWrap } from "./prefs";
+import { diffWrap, resetDiffWrap, workspaceWrap } from "./prefs";
 
 /** What stands under a line to be read and pressed. A piece folding shut on its way out is still on the page, and is not that. */
 const UNDER = ".diff-note-fold:not(.is-shut)";

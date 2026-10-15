@@ -265,9 +265,10 @@ dialog.modal.sheet > form {
   .sheet-page.is-pop { animation: none; }
 }
 
-/* The pane sheet leaves the pane readable behind it: text size, wrap and
-   width changes apply in place, so the reader should see them land. */
-dialog.modal.pane-menu-sheet::backdrop {
+/* The pane sheet and a diff's reading sheet leave what they change readable
+   behind them: text size, wrap and width changes apply in place, so the
+   reader should see them land. */
+dialog.modal:is(.pane-menu-sheet, .diff-reading-sheet)::backdrop {
   background: rgba(4, 6, 10, 0.34);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -396,11 +397,10 @@ dialog.modal.pane-menu-sheet::backdrop {
 
   /* The page behind steps back for as long as a sheet is up, and comes forward
      again in step with the finger that is putting the sheet away. Scaled, the
-     page also holds the screens fixed inside it and clips them to its own box,
-     so it is never less than the viewport: a fixed screen (the files) leaves it
-     no height of its own and would vanish behind the sheet. */
+     page also holds the screens fixed inside it and clips them to its own box
+     (a screen with nothing but a fixed screen in it keeps its height up while
+     a sheet is open: `#app.workspace`). */
   body.sheet-open #app {
-    min-height: 100dvh;
     transform: scale(calc(1 - 0.015 * var(--sheet-lift, 1)));
     border-radius: calc(14px * var(--sheet-lift, 1));
     overflow: hidden;

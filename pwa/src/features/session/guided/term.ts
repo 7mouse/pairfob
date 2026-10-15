@@ -2,7 +2,7 @@ import { liveSession } from "../../computers/catalog-store";
 import { openPaneId, paneFollow, paneRow, setPaneFollow, setPaneRow, setTermSelect, termSelect } from "../session-store";
 import { prefersReducedMotion } from "../../../lib/dom";
 import { MOTION_MS } from "../../../shared/ui/dom/motion";
-import { isPageZoomed } from "../../../lib/gesture-boundary";
+import { isPageZoomed, touchSpread } from "../../../lib/gesture-boundary";
 import { TERMINAL_MAX_COLS, TERMINAL_MAX_ROWS, TERMINAL_MIN_COLS, TERMINAL_MIN_ROWS } from "../../../lib/protocol/terminal";
 import { reportMutationError } from "../../connection/mutations";
 import { commitView } from "../../../app/host";
@@ -480,10 +480,6 @@ export function bindPinch(term: HTMLElement): () => void {
   let base = 0;
   let basePx = 0;
   let retired = false;
-  const spread = (touches: TouchList): number => {
-    const [a, b] = [touches[0], touches[1]];
-    return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-  };
   const onStart = (event: TouchEvent) => {
     if (retired) return;
     if (isPageZoomed(term.ownerDocument)) {
@@ -491,7 +487,7 @@ export function bindPinch(term: HTMLElement): () => void {
       return;
     }
     if (event.touches.length !== 2) return;
-    base = spread(event.touches);
+    base = touchSpread(event.touches);
     basePx = termFontPx();
   };
   const onMove = (event: TouchEvent) => {
@@ -502,7 +498,7 @@ export function bindPinch(term: HTMLElement): () => void {
     }
     if (event.touches.length !== 2 || base <= 0) return;
     event.preventDefault();
-    const next = clampTermFont(basePx * (spread(event.touches) / base));
+    const next = clampTermFont(basePx * (touchSpread(event.touches) / base));
     if (next === termFontPx()) return;
     setTermFontPx(next);
     root.style.setProperty("--term-fs", `${next}px`);

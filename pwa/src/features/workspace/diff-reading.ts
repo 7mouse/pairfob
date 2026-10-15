@@ -1,83 +1,66 @@
-import { useEffect, useSyncExternalStore, type CSSProperties, type RefObject } from "react";
+import { useEffect, type CSSProperties, type RefObject } from "react";
 import { pointerFine } from "../../app/input-mode";
-import { isPageZoomed } from "../../lib/gesture-boundary";
+import { isPageZoomed, touchSpread } from "../../lib/gesture-boundary";
+import { DIFF_SIZES, diffSize, setDiffSize, useDiffSize, useDiffWrap } from "./prefs";
 
 /**
- * How a diff reads at arm's length: the size of its lines, and whether they
- * wrap. Both are the reader's, per device. Until they pick a size the style
- * sheet's own applies (it follows the terminal's size, a size up under a
- * finger), so a desktop diff reads exactly as it did; a diff wraps until they
- * turn it off, whatever the file view does. Storage can be missing or throw:
- * the in-memory choice still holds for the page.
+ * The reading size and wrap of a diff (kept in `prefs`) on its lines: the size
+ * they are drawn at, its steps, and the two-finger pinch that takes them.
  */
-export const DIFF_SIZES = [12, 13.5, 15] as const;
-const SIZE_KEY = "pairfob.workspace.diffSize";
-const WRAP_KEY = "pairfob.workspace.diffWrap";
-const listeners = new Set<() => void>();
-const beforeListeners = new Set<() => void>();
 
-function readSize(): number | null {
-  try {
-    const stored = Number(globalThis.localStorage?.getItem(SIZE_KEY));
-    return DIFF_SIZES.find((size) => size === stored) ?? null;
-  } catch {
-    return null;
-  }
+/**
+ * The size the style sheet gives the lines when the reader has picked none
+ * (`--diff-fs-auto`, registered as a length so it is read here in px): it
+ * follows the terminal's size, a size up under a finger.
+ */
+export function autoDiffSize(lines: Element | null): number {
+  const style = lines?.ownerDocument.defaultView?.getComputedStyle(lines);
+  const auto = style ? Number.parseFloat(style.getPropertyValue("--diff-fs-auto")) : Number.NaN;
+  if (auto > 0) return auto;
+  const drawn = style && diffSize() === null ? Number.parseFloat(style.fontSize) : Number.NaN;
+  return drawn > 0 ? drawn : pointerFine() ? 12.5 : 13.5;
 }
 
-function readWrap(): boolean {
-  try {
-    return globalThis.localStorage?.getItem(WRAP_KEY) !== "0";
-  } catch {
-    return true;
-  }
+/** The size the lines are drawn at: the reader's, or else the style sheet's. */
+export function drawnDiffSize(lines: Element | null): number {
+  return diffSize() ?? autoDiffSize(lines);
 }
 
-let chosen = readSize();
-let wraps = readWrap();
+/** A size this close to another is the same size. */
+const SAME_SIZE = 0.05;
 
-function changed(): void {
-  for (const listener of listeners) listener();
+/**
+ * The steps from small to large: the three sizes, and the style sheet's own
+ * where it is not one of them, so a step can always come back to it.
+ */
+function steps(auto: number): number[] {
+  const sizes: number[] = [...DIFF_SIZES];
+  if (!sizes.some((size) => Math.abs(size - auto) <= SAME_SIZE)) sizes.push(auto);
+  return sizes.sort((a, b) => a - b);
+}
+
+function nextSize(direction: 1 | -1, auto: number): number | undefined {
+  const from = diffSize() ?? auto;
+  const sizes = steps(auto);
+  return direction > 0
+    ? sizes.find((size) => size > from + SAME_SIZE)
+    : sizes.reverse().find((size) => size < from - SAME_SIZE);
+}
+
+export function canStepDiffSize(direction: 1 | -1, auto: number): boolean {
+  return nextSize(direction, auto) !== undefined;
 }
 
 /**
- * Hear just before the size or the wrap changes, while the lines are still
- * drawn the old way: an open diff keeps the line being read where it is, from
- * whichever control, key or pinch the change came.
+ * The step bigger (1) or smaller (-1) than the size drawn, where `auto` is the
+ * style sheet's. Landing on the style sheet's size gives the choice back to it,
+ * so the lines follow the terminal again. False past either end.
  */
-export function beforeReadingChange(listener: () => void): () => void {
-  beforeListeners.add(listener);
-  return () => { beforeListeners.delete(listener); };
-}
-
-function aboutToChange(): void {
-  for (const listener of beforeListeners) listener();
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  return () => { listeners.delete(listener); };
-}
-
-/** The reader's size in px; null until they pick one. */
-export function diffSize(): number | null {
-  return chosen;
-}
-
-export function setDiffSize(next: number | null): void {
-  const size = next === null ? null : DIFF_SIZES.find((step) => step === next) ?? null;
-  if (size === chosen) return;
-  aboutToChange();
-  chosen = size;
-  try {
-    if (chosen === null) globalThis.localStorage?.removeItem(SIZE_KEY);
-    else globalThis.localStorage?.setItem(SIZE_KEY, String(chosen));
-  } catch { /* keep the in-memory value */ }
-  changed();
-}
-
-export function useDiffSize(): number | null {
-  return useSyncExternalStore(subscribe, diffSize, diffSize);
+export function stepDiffSize(direction: 1 | -1, auto: number): boolean {
+  const next = nextSize(direction, auto);
+  if (next === undefined) return false;
+  setDiffSize(Math.abs(next - auto) <= SAME_SIZE ? null : next);
+  return true;
 }
 
 export type DiffReading = { className: string; style?: CSSProperties };
@@ -88,66 +71,17 @@ export function useDiffSizeBox(): DiffReading {
   return size === null ? { className: "" } : { className: " has-diff-fs", style: { "--diff-fs": `${size}px` } as CSSProperties };
 }
 
-/** Tests: back to the style sheet's size. */
-export function resetDiffSize(): void {
-  setDiffSize(null);
-}
-
 /**
- * The size the lines are drawn at: the reader's, or else the one the style
- * sheet gave them, read off the lines themselves, so a step always starts from
- * what is on screen whatever the terminal's size.
+ * The scroller's classes and style for how the reader wants the lines: their
+ * size, kept whole where wrapping is off (never side by side), and the gutter
+ * as wide as the patch's longest line number (`digits`).
  */
-export function drawnDiffSize(lines: Element | null): number {
-  if (chosen !== null) return chosen;
-  const style = lines?.ownerDocument.defaultView?.getComputedStyle(lines);
-  const drawn = style ? Number.parseFloat(style.fontSize) : Number.NaN;
-  return drawn > 0 ? drawn : pointerFine() ? 12 : 13;
-}
-
-/** A drawn size this close to a step is that step. */
-const SAME_SIZE = 0.05;
-
-function nextSize(direction: 1 | -1, from: number): number | undefined {
-  return direction > 0
-    ? DIFF_SIZES.find((size) => size > from + SAME_SIZE)
-    : [...DIFF_SIZES].reverse().find((size) => size < from - SAME_SIZE);
-}
-
-export function canStepDiffSize(direction: 1 | -1, from: number): boolean {
-  return nextSize(direction, from) !== undefined;
-}
-
-/** The step bigger (1) or smaller (-1) than `from`. False past either end, where nothing changes. */
-export function stepDiffSize(direction: 1 | -1, from = drawnDiffSize(null)): boolean {
-  const next = nextSize(direction, from);
-  if (next === undefined) return false;
-  setDiffSize(next);
-  return true;
-}
-
-/** Whether a diff's lines wrap: until the reader turns it off, they do. */
-export function diffWrap(): boolean {
-  return wraps;
-}
-
-export function setDiffWrap(next: boolean): void {
-  if (next === wraps) return;
-  aboutToChange();
-  wraps = next;
-  try { globalThis.localStorage?.setItem(WRAP_KEY, next ? "1" : "0"); } catch { /* keep the in-memory value */ }
-  changed();
-}
-
-export function useDiffWrap(): boolean {
-  return useSyncExternalStore(subscribe, diffWrap, diffWrap);
-}
-
-/** Tests: back to wrapping, with nothing kept. */
-export function resetDiffWrap(): void {
-  wraps = true;
-  try { globalThis.localStorage?.removeItem(WRAP_KEY); } catch { /* ignore */ }
-  changed();
+export function useDiffReading(split: boolean, digits?: number): DiffReading {
+  const box = useDiffSizeBox();
+  const wraps = useDiffWrap();
+  const className = `${box.className}${!split && !wraps ? " is-nowrap" : ""}`;
+  if (digits === undefined) return { className, style: box.style };
+  return { className, style: { ...box.style, "--diff-digits": String(digits) } as CSSProperties };
 }
 
 /** Fingers have to spread or close this much before the size takes a step. */
@@ -184,13 +118,6 @@ export class PinchSteps {
   }
 }
 
-type TouchPoint = { clientX: number; clientY: number };
-function spread(touches: ArrayLike<TouchPoint>): number {
-  const a = touches[0];
-  const b = touches[1];
-  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
-}
-
 /**
  * Two fingers on the diff step its size instead of zooming the page. One
  * finger is left alone: the listener for a one-finger move never cancels it,
@@ -206,7 +133,7 @@ export function useDiffPinch(ref: RefObject<HTMLElement | null>): void {
     const pinch = new PinchSteps();
     const zoomed = () => isPageZoomed(el.ownerDocument);
     const onStart = (event: TouchEvent) => {
-      if (event.touches.length === 2 && !zoomed()) pinch.start(spread(event.touches));
+      if (event.touches.length === 2 && !zoomed()) pinch.start(touchSpread(event.touches));
       else pinch.end();
     };
     const onMove = (event: TouchEvent) => {
@@ -216,9 +143,9 @@ export function useDiffPinch(ref: RefObject<HTMLElement | null>): void {
         return;
       }
       if (event.cancelable) event.preventDefault();
-      const step = pinch.move(spread(event.touches));
+      const step = pinch.move(touchSpread(event.touches));
       if (!step) return;
-      stepDiffSize(step, drawnDiffSize(el));
+      stepDiffSize(step, autoDiffSize(el));
     };
     const onEnd = (event: TouchEvent) => {
       if (event.touches.length < 2) pinch.end();

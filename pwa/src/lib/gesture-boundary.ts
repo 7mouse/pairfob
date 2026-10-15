@@ -6,6 +6,13 @@ export function isPageZoomed(document: Document): boolean {
   return (document.defaultView?.visualViewport?.scale ?? 1) > 1;
 }
 
+/** How far apart the first two fingers are, for the pinches the application owns. */
+export function touchSpread(touches: ArrayLike<{ clientX: number; clientY: number }>): number {
+  const a = touches[0];
+  const b = touches[1];
+  return Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+}
+
 function applicationOwnsGesture(document: Document, target: EventTarget | null): boolean {
   const ElementType = document.defaultView?.Element;
   if (!ElementType || !(target instanceof ElementType)) return false;

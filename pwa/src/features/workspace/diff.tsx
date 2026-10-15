@@ -17,8 +17,8 @@ import { DiffLineRow, type LineNotes } from "./diff-line";
 import { diffStops, useLineStops } from "./diff-line-stops";
 import { SplitLineRow } from "./diff-split";
 import { DiffStepper } from "./diff-stepper";
-import { beforeReadingChange, useDiffPinch, useDiffSize, useDiffWrap } from "./diff-reading";
-import { DiffReadingButton, useDiffReading } from "./diff-reading-tools";
+import { useDiffPinch, useDiffReading } from "./diff-reading";
+import { DiffReadingButton } from "./diff-reading-tools";
 import { DetailIdentity, DetailMoreButton } from "./file-detail";
 import { changeKindLabel } from "./format";
 import { GitMark } from "./git-mark";
@@ -28,6 +28,7 @@ import { setOpenNoteAside, useInlineNote, useScreenNote, type InlineNote } from 
 import type { ParkedNote } from "./note-parked";
 import { DiffNotesBar, diffNotePinKey } from "./notes";
 import { DiffPending, ReservedStat } from "./pending";
+import { beforeReadingChange, useDiffSize, useDiffWrap } from "./prefs";
 import { markReviewed } from "./review-progress";
 import { useListBeside } from "./list-beside";
 import { Still } from "./still";
@@ -463,7 +464,7 @@ export function DiffBody({ snapshot, view, onEditNote, hint = true, inline, park
 /**
  * What the info bar offers on an open diff, the same on the page and in the
  * column: from hunk to hunk, the two sides next to each other where the window
- * has the room, and the file itself. They belong to the lines on screen: while
+ * has the room, how the lines read (size and wrap), and the file itself. They belong to the lines on screen: while
  * the diff that was open is kept for the next one, so are they, out of reach,
  * and nothing beside the stepper comes and goes with each step.
  */

@@ -7,11 +7,17 @@ await resetTestDOM();
 const { DiffScroller } = await import("./diff");
 const { DiffReadingButton } = await import("./diff-reading-tools");
 const { closeTestDialogs } = await import("../../../test-support/close-dialogs");
-const { DIFF_SIZES, PinchSteps, beforeReadingChange, diffSize, diffWrap, resetDiffSize, resetDiffWrap, setDiffSize, setDiffWrap, stepDiffSize } = await import("./diff-reading");
-const { resetWorkspaceWrap, setWorkspaceWrap, workspaceWrap } = await import("./prefs");
+const { PinchSteps, canStepDiffSize, stepDiffSize } = await import("./diff-reading");
+const { DIFF_SIZES, beforeReadingChange, diffSize, diffWrap, resetDiffSize, resetDiffWrap, resetWorkspaceWrap, setDiffSize, setDiffWrap, setWorkspaceWrap, workspaceWrap } = await import("./prefs");
+const { t } = await import("../../lib/i18n");
 
 const SIZE_KEY = "pairfob.workspace.diffSize";
 const WRAP_KEY = "pairfob.workspace.diffWrap";
+
+function altZ(el: HTMLElement): void {
+  const KeyboardEventType = (el.ownerDocument.defaultView as unknown as typeof globalThis).KeyboardEvent;
+  act(() => { el.dispatchEvent(new KeyboardEventType("keydown", { key: "z", code: "KeyZ", altKey: true, bubbles: true, cancelable: true })); });
+}
 
 function touch(el: HTMLElement, type: string, points: Array<[number, number]>): Event {
   const event = new (el.ownerDocument.defaultView as unknown as typeof globalThis).Event(type, { bubbles: true, cancelable: true });
@@ -40,27 +46,35 @@ describe("diff reading size", () => {
     expect(DIFF_SIZES).toEqual([12, 13.5, 15]);
   });
 
-  test("steps walk the sizes and stop at either end", () => {
-    setDiffSize(12);
-    expect(stepDiffSize(1)).toBe(true);
+  test("steps walk the sizes with the style sheet's own among them, and stepping back onto it gives the choice back", () => {
+    // The style sheet's 12.5 sits between the steps.
+    expect(stepDiffSize(1, 12.5)).toBe(true);
     expect(diffSize()).toBe(13.5);
-    expect(stepDiffSize(1)).toBe(true);
-    expect(stepDiffSize(1)).toBe(false);
+    expect(stepDiffSize(1, 12.5)).toBe(true);
+    expect(canStepDiffSize(1, 12.5)).toBe(false);
+    expect(stepDiffSize(1, 12.5)).toBe(false);
     expect(diffSize()).toBe(15);
     expect(localStorage.getItem(SIZE_KEY)).toBe("15");
-  });
-
-  test("with no size chosen, a step starts from the size drawn, between the steps or past them", () => {
-    expect(stepDiffSize(1, 13.5)).toBe(true);
-    expect(diffSize()).toBe(15);
-    resetDiffSize();
+    stepDiffSize(-1, 12.5);
+    expect(stepDiffSize(-1, 12.5)).toBe(true);
+    expect(diffSize()).toBeNull();
+    expect(localStorage.getItem(SIZE_KEY)).toBeNull();
     expect(stepDiffSize(-1, 12.5)).toBe(true);
     expect(diffSize()).toBe(12);
-    resetDiffSize();
-    expect(stepDiffSize(1, 16.5)).toBe(false);
+    expect(canStepDiffSize(-1, 12.5)).toBe(false);
+  });
+
+  test("the style sheet's size on a step is that step; past the steps it is the last one", () => {
+    expect(stepDiffSize(1, 13.5)).toBe(true);
+    expect(diffSize()).toBe(15);
+    expect(stepDiffSize(-1, 13.5)).toBe(true);
     expect(diffSize()).toBeNull();
+    // A large terminal draws 16.5: + has nowhere to go, − comes down, + goes back up to it.
+    expect(stepDiffSize(1, 16.5)).toBe(false);
     expect(stepDiffSize(-1, 16.5)).toBe(true);
     expect(diffSize()).toBe(15);
+    expect(stepDiffSize(1, 16.5)).toBe(true);
+    expect(diffSize()).toBeNull();
   });
 });
 
@@ -129,9 +143,12 @@ describe("DiffScroller reading", () => {
     </>;
   }
 
-  function render(split = false) {
+  /** The lines as the style sheet would size them when the reader has picked nothing. */
+  function render(split = false, auto = "12.5px") {
     act(() => { root.render(<Reading split={split} />); });
-    return host.querySelector<HTMLElement>(".workspace-diff")!;
+    const el = host.querySelector<HTMLElement>(".workspace-diff")!;
+    el.style.setProperty("--diff-fs-auto", auto);
+    return el;
   }
 
   async function openSettings() {
@@ -153,55 +170,84 @@ describe("DiffScroller reading", () => {
     setDiffSize(12);
     const el = render();
     kept = 0;
+    const button = host.querySelector(".workspace-diff-reading")!;
+    expect(button.classList.contains("is-set")).toBe(true);
     expect(el.style.getPropertyValue("--diff-fs")).toBe("12px");
     const sheet = await openSettings();
     const [smaller, bigger] = stepper(sheet);
     expect(shown(sheet)).toBe("12px");
     expect(smaller.disabled).toBe(true);
+    // Up to the style sheet's own 12.5: the choice is given back, and the control is no longer lit.
+    await act(async () => { bigger.click(); });
+    expect(el.classList.contains("has-diff-fs")).toBe(false);
+    expect(shown(sheet)).toBe("12.5px");
+    expect(button.classList.contains("is-set")).toBe(false);
     await act(async () => { bigger.click(); });
     expect(el.classList.contains("has-diff-fs")).toBe(true);
     expect(el.style.getPropertyValue("--diff-fs")).toBe("13.5px");
     expect(shown(sheet)).toBe("13.5px");
-    expect(kept).toBe(1);
+    expect(kept).toBe(2);
+    await act(async () => { smaller.click(); });
     await act(async () => { smaller.click(); });
     expect(el.style.getPropertyValue("--diff-fs")).toBe("12px");
     expect(smaller.disabled).toBe(true);
-    expect(kept).toBe(2);
+    expect(kept).toBe(4);
   });
 
-  test("with no size chosen, the steps start from the size the lines are drawn at", async () => {
-    const el = render();
-    el.style.fontSize = "16.5px";
-    render();
+  test("with no size chosen, the steps start from the style sheet's size, and come back to it", async () => {
+    render(false, "16.5px");
     const sheet = await openSettings();
     const [smaller, bigger] = stepper(sheet);
     expect(shown(sheet)).toBe("16.5px");
     expect(bigger.disabled).toBe(true);
     await act(async () => { smaller.click(); });
     expect(diffSize()).toBe(15);
+    expect(bigger.disabled).toBe(false);
+    await act(async () => { bigger.click(); });
+    expect(diffSize()).toBeNull();
   });
 
   test("the wrap switch keeps lines whole, and a diff wraps until it is turned off", async () => {
     const el = render();
+    const button = host.querySelector(".workspace-diff-reading")!;
     const sheet = await openSettings();
     const wrap = sheet.querySelector<HTMLButtonElement>(".menu-switch")!;
+    expect(wrap.getAttribute("aria-label")).toBe(t("workspace.wrap"));
     expect(wrap.getAttribute("aria-checked")).toBe("true");
     expect(el.classList.contains("is-nowrap")).toBe(false);
     await act(async () => { wrap.click(); });
     expect(el.classList.contains("is-nowrap")).toBe(true);
     expect(wrap.getAttribute("aria-checked")).toBe("false");
+    expect(button.classList.contains("is-set")).toBe(true);
     expect(kept).toBe(1);
     await act(async () => { wrap.click(); });
     expect(el.classList.contains("is-nowrap")).toBe(false);
+    expect(button.classList.contains("is-set")).toBe(false);
   });
 
-  test("side by side never takes the nowrap class or the switch", async () => {
+  test("Alt+Z still turns the wrap while the panel is open, and the panel follows", async () => {
+    const el = render();
+    const sheet = await openSettings();
+    const wrap = sheet.querySelector<HTMLButtonElement>(".menu-switch")!;
+    altZ(wrap);
+    expect(el.classList.contains("is-nowrap")).toBe(true);
+    expect(wrap.getAttribute("aria-checked")).toBe("false");
+    altZ(wrap);
+    expect(diffWrap()).toBe(true);
+  });
+
+  test("side by side never takes the nowrap class, the switch or its key, and the control is only the size", async () => {
     act(() => setDiffWrap(false));
     const el = render(true);
     expect(el.classList.contains("is-nowrap")).toBe(false);
+    const button = host.querySelector(".workspace-diff-reading")!;
+    expect(button.getAttribute("aria-label")).toBe(t("pane.fontSize"));
+    expect(button.classList.contains("is-set")).toBe(false);
     const sheet = await openSettings();
     expect(sheet.querySelector(".menu-switch")).toBeNull();
     expect(stepper(sheet)).toHaveLength(2);
+    altZ(sheet);
+    expect(diffWrap()).toBe(false);
   });
 
   test("a change that changes nothing holds no place for a redraw that will not come", () => {
@@ -219,16 +265,20 @@ describe("DiffScroller reading", () => {
     const small = touch(el, "touchmove", [[0, 0], [110, 0]]);
     expect(small.defaultPrevented).toBe(true);
     expect(diffSize()).toBe(12);
+    // One step up is the style sheet's 12.5: the size is its own again.
     touch(el, "touchmove", [[0, 0], [130, 0]]);
+    expect(diffSize()).toBeNull();
+    expect(kept).toBe(1);
+    touch(el, "touchmove", [[0, 0], [170, 0]]);
     expect(diffSize()).toBe(13.5);
     expect(el.style.getPropertyValue("--diff-fs")).toBe("13.5px");
-    expect(kept).toBe(1);
+    touch(el, "touchmove", [[0, 0], [130, 0]]);
     touch(el, "touchmove", [[0, 0], [100, 0]]);
     expect(diffSize()).toBe(12);
     // Past the smallest step nothing changes, and no place is held.
     touch(el, "touchmove", [[0, 0], [60, 0]]);
     expect(diffSize()).toBe(12);
-    expect(kept).toBe(2);
+    expect(kept).toBe(4);
     touch(el, "touchend", []);
 
     touch(el, "touchstart", [[0, 0]]);
