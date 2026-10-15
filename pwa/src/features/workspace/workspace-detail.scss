@@ -239,7 +239,7 @@
 /* Under a finger the page is read at arm's length and the lines wrap: a size up. */
 @media not all and (hover: hover) and (pointer: fine) {
   .workspace-code { font-size: max(0.8125rem, calc(var(--term-fs, 12px) + 1px)); }
-  .workspace-diff { font-size: max(0.78rem, calc(var(--term-fs, 12px) + 0.5px)); }
+  .workspace-diff { font-size: max(13px, calc(var(--term-fs, 12px) + 0.5px)); line-height: 1.7; }
 }
 
 .workspace-diff-spacer { flex: 1; }

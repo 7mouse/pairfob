@@ -17,6 +17,8 @@ import { DiffLineRow, type LineNotes } from "./diff-line";
 import { diffStops, useLineStops } from "./diff-line-stops";
 import { SplitLineRow } from "./diff-split";
 import { DiffStepper } from "./diff-stepper";
+import { useDiffPinch } from "./diff-reading";
+import { DiffReadingTools, useDiffReading } from "./diff-reading-tools";
 import { DetailIdentity, DetailMoreButton } from "./file-detail";
 import { changeKindLabel } from "./format";
 import { GitMark } from "./git-mark";
@@ -81,6 +83,8 @@ export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split
   const own = useRef<HTMLDivElement>(null);
   const ref = scroller ?? own;
   const stops = useLineStops(ref);
+  const reading = useDiffReading(split);
+  useDiffPinch(ref);
   const ended = useRef(onEnd);
   ended.current = onEnd;
   const near = useRef(onNear);
@@ -118,7 +122,7 @@ export function DiffScroller({ diffKey, children, onEnd, onNear, scroller, split
     return () => window.clearTimeout(timer);
   }, [memory, content, check]);
 
-  return <div ref={ref} className={`workspace-diff${split ? " is-split" : ""}${reveal ? " workspace-reveal" : ""}`} data-diff-key={diffKey}
+  return <div ref={ref} className={`workspace-diff${split ? " is-split" : ""}${reveal ? " workspace-reveal" : ""}${reading.className}`} style={reading.style} data-diff-key={diffKey}
     onFocus={stops.onFocus} onKeyDown={stops.onKeyDown}>
     {children}
   </div>;
@@ -463,6 +467,7 @@ export function DiffTools({ snapshot, view, split }: { snapshot: WorkspaceSnapsh
       {lines && <HunkNav scroller={view.scroller} port={view.port} total={view.hunks.length} version={`${view.diffKey}\n${diff?.revision ?? ""}\n${snapshot.error}`} />}
       {lines && split && <Button className="icon-btn workspace-tool" aria-pressed={split.on} aria-label={t("workspace.splitView")} title={t("workspace.splitView")}
         onClick={() => { view.port.current.keepPlace?.(); setSplitChosen(!split.on); }}><Columns2 size={16} aria-hidden="true" /></Button>}
+      {lines && <DiffReadingTools split={Boolean(split?.on)} />}
       {kind !== "deleted" && <Button className="icon-btn workspace-tool workspace-open-file" aria-label={t("workspace.openFile")} title={t("workspace.openFile")}
         onClick={() => loadWorkspaceFile(path)}><FileText size={16} aria-hidden="true" /></Button>}
     </Still>

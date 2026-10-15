@@ -199,3 +199,23 @@ html[data-kb="open"] .workspace-diff { scroll-padding-top: 0; }
 .diff-split-cell + .diff-split-cell { border-left: 1px solid var(--line); }
 /* The side with nothing to show: neither added nor removed, and not a line to press. */
 .diff-split-cell.is-blank { background: rgba(233, 237, 243, 0.025); }
+
+/* --- Reading size and wrap ------------------------------------------------------------ */
+
+/* Two fingers step the size (`useDiffPinch`); the page itself is not zoomed from here. */
+.workspace-diff { touch-action: pan-x pan-y; }
+
+/* A size the reader picked (A−/A+ or a pinch) wins over the sheet's own, under a finger or not. */
+.workspace-diff.has-diff-fs { font-size: var(--diff-fs); }
+
+/* Wrapping turned off: lines stay whole and the diff pans sideways. */
+.workspace-diff.is-nowrap {
+  overflow-x: auto;
+  .workspace-diff-line { grid-template-columns: var(--diff-gutter, 2.7rem) 0.95rem max-content auto; min-width: 100%; width: max-content; }
+  .diff-line-text { white-space: pre; overflow-wrap: normal; }
+}
+
+/* On a narrow phone the line numbers give some of their column back to the code. */
+@media (max-width: 420px) {
+  .workspace-diff { --diff-gutter: 2.1rem; }
+}

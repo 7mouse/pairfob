@@ -44,6 +44,15 @@ export function useWorkspaceWrap(): boolean {
   return useSyncExternalStore(subscribe, workspaceWrap, workspaceWrap);
 }
 
+/** The reader's own choice, or null when the default for the input applies. */
+export function workspaceWrapChosen(): boolean | null {
+  return chosen;
+}
+
+export function useWorkspaceWrapChosen(): boolean | null {
+  return useSyncExternalStore(subscribe, workspaceWrapChosen, workspaceWrapChosen);
+}
+
 /** Tests: back to no choice, so the default for the input applies. */
 export function resetWorkspaceWrap(): void {
   chosen = null;
