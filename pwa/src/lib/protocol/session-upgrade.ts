@@ -114,15 +114,23 @@ export async function commitDirectSession(
   }
 
   let active = false;
+  // Every relay answer sent before the commit reply has arrived; the computer
+  // sends the rest on the direct route. Unconfirmed, they stay with the relay.
+  const carried = commitError ? undefined : relay.carryOut();
   const direct = new SessionTransport(
     candidate.channel,
     candidate.epoch.routeId,
     candidate.epoch.c2s,
     candidate.epoch.s2c,
     (event) => { if (active) emit(event); },
+    [],
+    carried,
   );
   const startedAt = performance.now();
-  const abandoned = () => direct.close("standby_ready");
+  // Carried requests reached the computer, which now answers on this route:
+  // closing it leaves their outcome unknown, not refused.
+  const unanswered = new ProtocolError("disconnected", "P2P 直连切换未完成，请求结果未知");
+  const abandoned = () => direct.close("standby_ready", unanswered);
   abandon?.addEventListener("abort", abandoned, { once: true });
   try {
     if (abandon?.aborted) abandoned();
@@ -130,7 +138,7 @@ export async function commitDirectSession(
     // Given up in the same turn as its answer: the closed transport must not be handed on.
     if (abandon?.aborted) throw new ProtocolError("closed", "会话已关闭");
   } catch (error) {
-    direct.close();
+    direct.close(undefined, unanswered);
     if (abandon?.aborted) throw new DirectError("cancelled", "P2P 直连切换已取消");
     throw commitError ?? asDirectError(error, "probe", "P2P 连通性验证失败");
   } finally {

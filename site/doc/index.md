@@ -73,7 +73,7 @@ A bit more: [The same screen](/model).
 
 ## Who it is for
 
-You already run coding agents in Herdr 0.8 or newer on a computer, and you want to:
+You want to run coding agents in Herdr on a macOS or Linux computer and:
 
 - Keep typing, confirm in the terminal, read diffs, and open worktrees from the phone after you leave the desk
 - Sit back down with nothing to merge
@@ -89,5 +89,7 @@ You already run coding agents in Herdr 0.8 or newer on a computer, and you want 
 <li><p>Run <code>pairfob pair</code> on the computer; open <a href="/pair">pairfob.com/pair</a> on the other device</p></li>
 <li><p>After the other device scans, press Enter once on the computer</p></li>
 </ol>
+
+After pairing, you can create a Terminal session. To use an AI agent, install and sign in to it separately on the computer; Pairfob does not install agents or configure their accounts. No Pairfob account is required, and you can also pair a browser on the host itself.
 
 Then read [Get started](/start), [Pairing](/pair), and [Leave and return](/continue). If something sticks, see [FAQ](/faq) and [Troubleshooting](/troubleshoot).

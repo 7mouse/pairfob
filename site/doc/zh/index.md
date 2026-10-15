@@ -73,7 +73,7 @@ pageClass: pf-intro
 
 ## 适合谁
 
-电脑上已经在用 Herdr 0.8 或更高版本跑 coding agent，又希望：
+希望在 macOS 或 Linux 电脑上用 Herdr 运行 coding agent，并且：
 
 - 离开工位时用手机接着写、在终端里确认、看 diff、开 worktree
 - 坐回来什么都不用同步
@@ -89,5 +89,7 @@ pageClass: pf-intro
 <li><p>电脑执行 <code>pairfob pair</code>，另一台设备打开 <a href="/pair">pairfob.com/pair</a></p></li>
 <li><p>手机扫码后，在电脑终端按一次 Enter 确认</p></li>
 </ol>
+
+配对后可以创建终端会话。使用 AI Agent 前，请先在电脑上另行安装并登录对应 Agent；Pairfob 不会代为安装或配置其账号。无需注册 Pairfob 账号，也可以在本机浏览器配对使用。
 
 然后看 [开始使用](/zh/start)、[配对](/zh/pair)、[出门和回来](/zh/continue)。卡住了先看 [常见问题](/zh/faq) 和 [排查](/zh/troubleshoot)。

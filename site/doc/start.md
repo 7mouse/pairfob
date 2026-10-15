@@ -14,9 +14,10 @@ Four steps: check prerequisites → install Pairfob (and Herdr if missing) → p
 | Need | Notes |
 | --- | --- |
 | A macOS or Linux computer | `pairfob` and the agents run here |
-| [Herdr](https://herdr.dev) 0.8 or newer | Pairfob does not ship an agent and does not replace Herdr |
+| [Herdr](https://herdr.dev) 0.8 or newer | The installer adds the latest stable release if missing |
+| AI agent (optional) | Install and sign in separately on the computer; Terminal works without an agent |
 | `curl` | The install script downloads the binary |
-| A browser on another device | Phone, tablet, or another computer |
+| A browser | Phone, tablet, another computer, or the host itself; no Pairfob account required |
 
 ## 1. Check the computer
 

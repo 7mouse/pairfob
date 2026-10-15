@@ -97,9 +97,9 @@ describe("homepage i18n", () => {
     expect(html).toContain('class="btn btn-dark bar-cta cta-phone" href="/pair"');
     expect(html).not.toMatch(/class="[^"]*bar-cta(?![^"]*cta-phone)[^"]*"[^>]*href="\/pair"/);
     expect(html).toContain('class="copy cta-desk" data-copy="https://pairfob.com/pair"');
-    expect(html).toContain("Don't open it on this computer.");
+    expect(html).toContain("enter the pairing code in a browser on this computer.");
     expect(html).not.toMatch(/<a[^>]*href="\/pair"[^>]*>https:\/\/pairfob.com\/pair/);
-    expect(zh["s3.hint"]).toContain("不要在这台电脑");
+    expect(zh["s3.hint"]).toContain("本机浏览器输入配对码");
     expect(en["cta.start"]).toBe("Get started");
     expect(zh["cta.start"]).toBe("开始使用");
   });

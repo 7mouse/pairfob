@@ -74,9 +74,10 @@ describe("atomic direct commit", () => {
         const request = params as { attempt_id: string; route_id: string };
         return { attempt_id: request.attempt_id, route_id: request.route_id, transport: "webrtc" };
       },
+      carryOut: () => { calls.push("carryOut"); return { pending: new Map(), late: new Map() }; },
     } as unknown as SessionTransport;
     const result = await commitDirectSession(relay, directCandidate(), () => undefined);
-    expect(calls).toEqual(["TransportCommit"]);
+    expect(calls).toEqual(["TransportCommit", "carryOut"]);
     expect(result.transport.kind).toBe("p2p");
     expect(result.rttMs).toBeGreaterThanOrEqual(0);
     result.transport.close();

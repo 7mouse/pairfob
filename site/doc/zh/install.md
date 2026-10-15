@@ -13,12 +13,13 @@ curl -fsSL https://pairfob.com/install.sh | sh
 
 第二台电脑也是这条命令。装好后在手机上：**设置 → 切换电脑 → 添加电脑**。不要设 `PAIRFOB_JOIN_TOKEN`。
 
+Pairfob 不会安装或登录 AI Agent。使用前请先在电脑上安装并登录所选 Agent；也可以在配对后选择终端，无需 Agent。
 
 ## Herdr 检查与安装
 
 安装器会先检查 Herdr，再替换已有 Pairfob、登记和安装服务。已有可用的 Herdr 会直接复用；已安装但未运行时会自动启动，并等待接口就绪。缺少 Herdr 时自动下载最新稳定版，核对 SHA-256 后安装到 `~/.local/bin/herdr`，记录安装来源，不覆盖已有 Herdr。
 
-无交互安装可明确允许补齐依赖：
+无交互安装使用以下命令，缺少 Herdr 时同样会自动补装：
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh -s -- --non-interactive
