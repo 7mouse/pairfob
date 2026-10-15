@@ -69,7 +69,9 @@ export function DiffReadingButton({ split, lines }: { split: boolean; lines: Ref
   const chosen = useDiffSize();
   const wraps = useDiffWrap();
   const set = chosen !== null || (!split && !wraps);
-  return <Button className={`icon-btn workspace-tool workspace-diff-reading${set ? " is-set" : ""}`} aria-label={label} title={label} aria-haspopup="dialog"
+  // The light is said too, for a reader who cannot see it.
+  return <Button className={`icon-btn workspace-tool workspace-diff-reading${set ? " is-set" : ""}`}
+    aria-label={set ? t("workspace.diffReadingSet", { label }) : label} title={label} aria-haspopup="dialog"
     onClick={() => showActionSheet(label, () => <DiffReadingSettings split={split} lines={lines} />,
       { className: "diff-reading-sheet", popover: "panel" })}>
     <ALargeSmall size={16} aria-hidden="true" />

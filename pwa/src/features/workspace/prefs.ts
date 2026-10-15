@@ -60,7 +60,8 @@ export function resetWorkspaceWrap(): void {
  * neighbours, and a removal and its replacement are compared whole. The two
  * wraps are kept apart so that turning one off never turns off the other.
  */
-export const DIFF_SIZES = [12, 13.5, 15] as const;
+/** As large as a reader with poor sight needs: two fingers on the lines take these steps, not the page's zoom. */
+export const DIFF_SIZES = [12, 13.5, 15, 17, 19] as const;
 const DIFF_SIZE_KEY = "pairfob.workspace.diffSize";
 const DIFF_WRAP_KEY = "pairfob.workspace.diffWrap";
 const diffListeners = new Set<() => void>();

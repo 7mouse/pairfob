@@ -11,14 +11,27 @@ import { DIFF_SIZES, diffSize, setDiffSize, useDiffSize, useDiffWrap } from "./p
 /**
  * The size the style sheet gives the lines when the reader has picked none
  * (`--diff-fs-auto`, registered as a length so it is read here in px): it
- * follows the terminal's size, a size up under a finger.
+ * follows the terminal's size, a size up under a finger. A browser without
+ * registered properties (Safari before 16.4) leaves it unworked, so the size
+ * is read off the lines themselves, or, while the reader's own is on them,
+ * off a box beside them that only the style sheet sizes.
  */
 export function autoDiffSize(lines: Element | null): number {
-  const style = lines?.ownerDocument.defaultView?.getComputedStyle(lines);
-  const auto = style ? Number.parseFloat(style.getPropertyValue("--diff-fs-auto")) : Number.NaN;
+  const view = lines?.ownerDocument.defaultView;
+  if (!lines || !view) return pointerFine() ? 12.5 : 13;
+  const style = view.getComputedStyle(lines);
+  const auto = Number.parseFloat(style.getPropertyValue("--diff-fs-auto"));
   if (auto > 0) return auto;
-  const drawn = style && diffSize() === null ? Number.parseFloat(style.fontSize) : Number.NaN;
-  return drawn > 0 ? drawn : pointerFine() ? 12.5 : 13.5;
+  let drawn = Number.parseFloat(style.fontSize);
+  if (diffSize() !== null) {
+    const probe = lines.ownerDocument.createElement("div");
+    probe.className = "workspace-diff-pending";
+    probe.hidden = true;
+    lines.after(probe);
+    drawn = Number.parseFloat(view.getComputedStyle(probe).fontSize);
+    probe.remove();
+  }
+  return drawn > 0 ? drawn : pointerFine() ? 12.5 : 13;
 }
 
 /** The size the lines are drawn at: the reader's, or else the style sheet's. */
@@ -30,7 +43,7 @@ export function drawnDiffSize(lines: Element | null): number {
 const SAME_SIZE = 0.05;
 
 /**
- * The steps from small to large: the three sizes, and the style sheet's own
+ * The steps from small to large: the reader's sizes, and the style sheet's own
  * where it is not one of them, so a step can always come back to it.
  */
 function steps(auto: number): number[] {
