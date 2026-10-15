@@ -162,11 +162,12 @@
 .workspace-file-skeleton-line:nth-child(12n + 11) { width: 47%; margin-left: 1.25em; }
 .workspace-file-skeleton-line:nth-child(12n + 12) { width: 33%; margin-left: 1.25em; }
 
+/* Shaped as the lines it stands for: their gutter, sign column and height (`.workspace-diff`). */
 .workspace-diff-skeleton-line {
   display: grid;
-  grid-template-columns: 3.2rem 3.2rem minmax(0, 1fr);
+  grid-template-columns: var(--diff-gutter) minmax(0, 1fr);
   align-items: center;
-  min-height: 1.55em;
+  min-height: calc(var(--diff-lh) * 1em);
   width: 100%;
   flex: none;
 }
@@ -178,8 +179,8 @@
   background: rgba(233, 237, 243, 0.1);
 }
 
-.workspace-diff-skeleton-gutter { margin: 0 8px; }
-.workspace-diff-skeleton-text { margin: 0 10px; width: 68%; }
+.workspace-diff-skeleton-gutter { justify-self: end; width: 2.5ch; margin-right: 6px; }
+.workspace-diff-skeleton-text { margin: 0 12px 0 calc(0.95rem + 2px); width: 68%; }
 .workspace-diff-skeleton-line:nth-child(7n + 1) .workspace-diff-skeleton-text { width: 74%; }
 .workspace-diff-skeleton-line:nth-child(7n + 2) .workspace-diff-skeleton-text { width: 41%; }
 .workspace-diff-skeleton-line:nth-child(7n + 3) .workspace-diff-skeleton-text { width: 62%; }
@@ -189,9 +190,4 @@
 
 @media (min-width: 900px) {
   .workspace-list-skeleton-row { min-height: 44px; }
-}
-
-@media (max-width: 430px) {
-  .workspace-diff-skeleton-line { grid-template-columns: 2.55rem 2.55rem minmax(0, 1fr); }
-  .workspace-diff-skeleton-gutter { margin: 0 5px; }
 }

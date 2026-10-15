@@ -1,15 +1,17 @@
-import { act } from "react";
+import { act, useRef } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { resetTestDOM } from "../../../test-support/boot-dom";
 
 await resetTestDOM();
 const { DiffScroller } = await import("./diff");
-const { DiffReadingTools } = await import("./diff-reading-tools");
-const { DIFF_SIZES, PinchSteps, diffSize, resetDiffSize, setDiffSize, stepDiffSize } = await import("./diff-reading");
-const { resetWorkspaceWrap, setWorkspaceWrap } = await import("./prefs");
+const { DiffReadingButton } = await import("./diff-reading-tools");
+const { closeTestDialogs } = await import("../../../test-support/close-dialogs");
+const { DIFF_SIZES, PinchSteps, beforeReadingChange, diffSize, diffWrap, resetDiffSize, resetDiffWrap, setDiffSize, setDiffWrap, stepDiffSize } = await import("./diff-reading");
+const { resetWorkspaceWrap, setWorkspaceWrap, workspaceWrap } = await import("./prefs");
 
 const SIZE_KEY = "pairfob.workspace.diffSize";
+const WRAP_KEY = "pairfob.workspace.diffWrap";
 
 function touch(el: HTMLElement, type: string, points: Array<[number, number]>): Event {
   const event = new (el.ownerDocument.defaultView as unknown as typeof globalThis).Event(type, { bubbles: true, cancelable: true });
@@ -47,6 +49,34 @@ describe("diff reading size", () => {
     expect(diffSize()).toBe(15);
     expect(localStorage.getItem(SIZE_KEY)).toBe("15");
   });
+
+  test("with no size chosen, a step starts from the size drawn, between the steps or past them", () => {
+    expect(stepDiffSize(1, 13.5)).toBe(true);
+    expect(diffSize()).toBe(15);
+    resetDiffSize();
+    expect(stepDiffSize(-1, 12.5)).toBe(true);
+    expect(diffSize()).toBe(12);
+    resetDiffSize();
+    expect(stepDiffSize(1, 16.5)).toBe(false);
+    expect(diffSize()).toBeNull();
+    expect(stepDiffSize(-1, 16.5)).toBe(true);
+    expect(diffSize()).toBe(15);
+  });
+});
+
+describe("diff wrap", () => {
+  beforeEach(() => { resetDiffWrap(); resetWorkspaceWrap(); });
+  afterEach(() => { resetDiffWrap(); resetWorkspaceWrap(); });
+
+  test("a diff wraps until the reader turns it off, and the file view's switch is its own", () => {
+    expect(diffWrap()).toBe(true);
+    setWorkspaceWrap(false);
+    expect(diffWrap()).toBe(true);
+    setDiffWrap(false);
+    expect(localStorage.getItem(WRAP_KEY)).toBe("0");
+    setDiffWrap(true);
+    expect(workspaceWrap()).toBe(false);
+  });
 });
 
 describe("pinch steps", () => {
@@ -66,72 +96,125 @@ describe("pinch steps", () => {
 describe("DiffScroller reading", () => {
   let host: HTMLDivElement;
   let root: Root;
+  let kept: number;
+  let stopKeeping = () => {};
 
   beforeEach(() => {
     resetDiffSize();
+    resetDiffWrap();
     resetWorkspaceWrap();
+    kept = 0;
+    stopKeeping = beforeReadingChange(() => { kept++; });
     host = document.createElement("div");
     document.body.append(host);
     root = createRoot(host);
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await closeTestDialogs();
     act(() => root.unmount());
     host.remove();
+    stopKeeping();
     resetDiffSize();
+    resetDiffWrap();
     resetWorkspaceWrap();
+    Reflect.deleteProperty(window, "visualViewport");
   });
 
+  function Reading({ split }: { split: boolean }) {
+    const lines = useRef<HTMLDivElement>(null);
+    return <>
+      <DiffReadingButton split={split} lines={lines} />
+      <DiffScroller diffKey="k" split={split} scroller={lines} digits={5}>lines</DiffScroller>
+    </>;
+  }
+
   function render(split = false) {
-    act(() => {
-      root.render(<>
-        <DiffReadingTools split={split} />
-        <DiffScroller diffKey="k" split={split}>lines</DiffScroller>
-      </>);
-    });
+    act(() => { root.render(<Reading split={split} />); });
     return host.querySelector<HTMLElement>(".workspace-diff")!;
   }
 
-  test("no chosen size leaves the style sheet's size alone", () => {
+  async function openSettings() {
+    await act(async () => { host.querySelector<HTMLButtonElement>(".workspace-diff-reading")!.click(); });
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+    return document.querySelector<HTMLDialogElement>("dialog.diff-reading-sheet[open]")!;
+  }
+  const stepper = (sheet: HTMLElement) => [...sheet.querySelectorAll<HTMLButtonElement>(".menu-stepper-btn")];
+  const shown = (sheet: HTMLElement) => sheet.querySelector(".menu-stepper-value")!.textContent;
+
+  test("no chosen size leaves the style sheet's size alone; the gutter is told the longest number", () => {
     const el = render();
     expect(el.classList.contains("has-diff-fs")).toBe(false);
     expect(el.style.getPropertyValue("--diff-fs")).toBe("");
+    expect(el.style.getPropertyValue("--diff-digits")).toBe("5");
   });
 
-  test("A+ and A− set the size through --diff-fs", () => {
+  test("one control opens size and wrap; − and + set the size through --diff-fs, holding the line being read", async () => {
     setDiffSize(12);
     const el = render();
+    kept = 0;
     expect(el.style.getPropertyValue("--diff-fs")).toBe("12px");
-    act(() => { host.querySelector<HTMLButtonElement>(".workspace-diff-bigger")!.click(); });
+    const sheet = await openSettings();
+    const [smaller, bigger] = stepper(sheet);
+    expect(shown(sheet)).toBe("12px");
+    expect(smaller.disabled).toBe(true);
+    await act(async () => { bigger.click(); });
     expect(el.classList.contains("has-diff-fs")).toBe(true);
     expect(el.style.getPropertyValue("--diff-fs")).toBe("13.5px");
-    act(() => { host.querySelector<HTMLButtonElement>(".workspace-diff-smaller")!.click(); });
+    expect(shown(sheet)).toBe("13.5px");
+    expect(kept).toBe(1);
+    await act(async () => { smaller.click(); });
     expect(el.style.getPropertyValue("--diff-fs")).toBe("12px");
-    expect(host.querySelector<HTMLButtonElement>(".workspace-diff-smaller")!.disabled).toBe(true);
+    expect(smaller.disabled).toBe(true);
+    expect(kept).toBe(2);
   });
 
-  test("the wrap toggle keeps lines whole, and a diff wraps until it is turned off", () => {
+  test("with no size chosen, the steps start from the size the lines are drawn at", async () => {
     const el = render();
-    const wrap = host.querySelector<HTMLButtonElement>(".workspace-diff-wrap")!;
-    expect(wrap.getAttribute("aria-pressed")).toBe("true");
+    el.style.fontSize = "16.5px";
+    render();
+    const sheet = await openSettings();
+    const [smaller, bigger] = stepper(sheet);
+    expect(shown(sheet)).toBe("16.5px");
+    expect(bigger.disabled).toBe(true);
+    await act(async () => { smaller.click(); });
+    expect(diffSize()).toBe(15);
+  });
+
+  test("the wrap switch keeps lines whole, and a diff wraps until it is turned off", async () => {
+    const el = render();
+    const sheet = await openSettings();
+    const wrap = sheet.querySelector<HTMLButtonElement>(".menu-switch")!;
+    expect(wrap.getAttribute("aria-checked")).toBe("true");
     expect(el.classList.contains("is-nowrap")).toBe(false);
-    act(() => { wrap.click(); });
+    await act(async () => { wrap.click(); });
     expect(el.classList.contains("is-nowrap")).toBe(true);
-    expect(wrap.getAttribute("aria-pressed")).toBe("false");
-    act(() => { wrap.click(); });
+    expect(wrap.getAttribute("aria-checked")).toBe("false");
+    expect(kept).toBe(1);
+    await act(async () => { wrap.click(); });
     expect(el.classList.contains("is-nowrap")).toBe(false);
   });
 
-  test("side by side never takes the nowrap class or the toggle", () => {
-    act(() => setWorkspaceWrap(false));
+  test("side by side never takes the nowrap class or the switch", async () => {
+    act(() => setDiffWrap(false));
     const el = render(true);
     expect(el.classList.contains("is-nowrap")).toBe(false);
-    expect(host.querySelector(".workspace-diff-wrap")).toBeNull();
+    const sheet = await openSettings();
+    expect(sheet.querySelector(".menu-switch")).toBeNull();
+    expect(stepper(sheet)).toHaveLength(2);
+  });
+
+  test("a change that changes nothing holds no place for a redraw that will not come", () => {
+    setDiffSize(15);
+    setDiffSize(15);
+    setDiffWrap(true);
+    expect(kept).toBe(1);
   });
 
   test("a two-finger spread snaps one step up and a pinch one down; one finger is left alone", () => {
     setDiffSize(12);
     const el = render();
+    kept = 0;
     touch(el, "touchstart", [[0, 0], [100, 0]]);
     const small = touch(el, "touchmove", [[0, 0], [110, 0]]);
     expect(small.defaultPrevented).toBe(true);
@@ -139,13 +222,38 @@ describe("DiffScroller reading", () => {
     touch(el, "touchmove", [[0, 0], [130, 0]]);
     expect(diffSize()).toBe(13.5);
     expect(el.style.getPropertyValue("--diff-fs")).toBe("13.5px");
+    expect(kept).toBe(1);
     touch(el, "touchmove", [[0, 0], [100, 0]]);
     expect(diffSize()).toBe(12);
+    // Past the smallest step nothing changes, and no place is held.
+    touch(el, "touchmove", [[0, 0], [60, 0]]);
+    expect(diffSize()).toBe(12);
+    expect(kept).toBe(2);
     touch(el, "touchend", []);
 
     touch(el, "touchstart", [[0, 0]]);
     const scroll = touch(el, "touchmove", [[0, 300]]);
     expect(scroll.defaultPrevented).toBe(false);
+    expect(diffSize()).toBe(12);
+  });
+
+  test("on a page the reader has zoomed, two fingers zoom the page, not the lines", () => {
+    setDiffSize(12);
+    const el = render();
+    const viewport = { scale: 2 };
+    Object.defineProperty(window, "visualViewport", { value: viewport, configurable: true });
+    touch(el, "touchstart", [[0, 0], [100, 0]]);
+    const zoom = touch(el, "touchmove", [[0, 0], [150, 0]]);
+    expect(zoom.defaultPrevented).toBe(false);
+    expect(diffSize()).toBe(12);
+    touch(el, "touchend", []);
+    // Zoomed while the fingers were already down: the pinch is handed back there and then.
+    viewport.scale = 1;
+    touch(el, "touchstart", [[0, 0], [100, 0]]);
+    viewport.scale = 2;
+    expect(touch(el, "touchmove", [[0, 0], [150, 0]]).defaultPrevented).toBe(false);
+    viewport.scale = 1;
+    expect(touch(el, "touchmove", [[0, 0], [200, 0]]).defaultPrevented).toBe(false);
     expect(diffSize()).toBe(12);
   });
 });

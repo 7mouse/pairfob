@@ -395,8 +395,12 @@ dialog.modal.pane-menu-sheet::backdrop {
   }
 
   /* The page behind steps back for as long as a sheet is up, and comes forward
-     again in step with the finger that is putting the sheet away. */
+     again in step with the finger that is putting the sheet away. Scaled, the
+     page also holds the screens fixed inside it and clips them to its own box,
+     so it is never less than the viewport: a fixed screen (the files) leaves it
+     no height of its own and would vanish behind the sheet. */
   body.sheet-open #app {
+    min-height: 100dvh;
     transform: scale(calc(1 - 0.015 * var(--sheet-lift, 1)));
     border-radius: calc(14px * var(--sheet-lift, 1));
     overflow: hidden;

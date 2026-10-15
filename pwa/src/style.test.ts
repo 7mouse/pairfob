@@ -206,7 +206,9 @@ describe("UI accessibility guardrails", () => {
     expect(css).toMatch(/\.workspace-list-pending,\s*\.workspace-change-pending,\s*\.workspace-file-pending,\s*\.workspace-diff-pending\s*\{[^}]*flex:\s*1/);
     expect(css).toMatch(/\.workspace-list-skeleton,\s*\.workspace-change-skeleton,\s*\.workspace-file-skeleton,\s*\.workspace-diff-skeleton\s*\{[^}]*flex:\s*1/);
     expect(rule(".workspace-file-skeleton-line")).toMatch(/height:\s*0\.62em/);
-    expect(rule(".workspace-diff-skeleton-line")).toMatch(/grid-template-columns:\s*3\.2rem 3\.2rem/);
+    // The diff's skeleton is shaped by the lines' own gutter and height, so nothing moves when they arrive.
+    expect(rule(".workspace-diff-skeleton-line")).toMatch(/grid-template-columns:\s*var\(--diff-gutter\)/);
+    expect(rule(".workspace-diff-skeleton-line")).toMatch(/min-height:\s*calc\(var\(--diff-lh\) \* 1em\)/);
     expect(rule(".workspace-feedback-pane")).toMatch(/flex:\s*1/);
     expect(rule(".workspace-feedback-pane")).toMatch(/flex-direction:\s*column/);
     expect(css).not.toMatch(/\.workspace-file-pending-status\s*\{/);

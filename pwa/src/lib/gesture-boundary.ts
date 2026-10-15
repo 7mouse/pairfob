@@ -1,4 +1,5 @@
-const APPLICATION_GESTURE_SURFACE = ".full-terminal-host, .board-canvas, .workspace-media-viewer";
+/** The board and the media viewer always own a pinch; the terminal and a diff's lines only while the page is not zoomed. */
+const APPLICATION_GESTURE_SURFACE = ".full-terminal-host, .workspace-diff, .board-canvas, .workspace-media-viewer";
 const LEGACY_GESTURE_EVENTS = ["gesturestart", "gesturechange"] as const;
 
 export function isPageZoomed(document: Document): boolean {

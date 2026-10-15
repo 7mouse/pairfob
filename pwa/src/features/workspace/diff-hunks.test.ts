@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { parseDiffLines, type DiffLine } from "../../lib/workspace";
-import { changedWords, diffHunks, splitRows } from "./diff-hunks";
+import { changedWords, diffHunks, lineDigits, splitRows } from "./diff-hunks";
 
 /** A patch as hunks with a place in the file, replaced lines paired, and rows of two sides. */
 
@@ -97,5 +97,14 @@ describe("splitRows", () => {
     const [added] = diffHunks(lines("@@ -1,1 +1,3 @@\n keep\n+one\n+two\n"));
     expect(splitRows(added.lines).map((row) => [row.left?.kind ?? null, row.right?.kind ?? null]))
       .toEqual([["context", "context"], [null, "add"], [null, "add"]]);
+  });
+});
+
+describe("lineDigits", () => {
+  test("the gutter holds the longest number on either side", () => {
+    expect(lineDigits(diffHunks(lines(PATCH)))).toBe(2);
+    // A removal far down the old file is the longest number though the new side stays short.
+    expect(lineDigits(diffHunks(lines("@@ -9998,3 +98,1 @@\n-a\n-b\n c\n")))).toBe(5);
+    expect(lineDigits([])).toBe(1);
   });
 });

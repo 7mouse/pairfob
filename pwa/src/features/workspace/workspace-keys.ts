@@ -4,6 +4,7 @@ import { macPlatform, useHardwareKeyboard } from "../../app/input-mode";
 import { currentScreen } from "../../app/navigation-store";
 import { workspaceBreadcrumbs } from "../../lib/workspace";
 import { loadDirectory, stepWorkspaceDiff, workspaceDiffStep } from "./actions";
+import { diffWrap, setDiffWrap } from "./diff-reading";
 import { setWorkspaceWrap, workspaceWrap } from "./prefs";
 import { getWorkspaceSnapshot } from "./store";
 
@@ -13,7 +14,7 @@ import { getWorkspaceSnapshot } from "./store";
  *   ↑ ↓      along the rows of the list (and from the filter into them)
  *   ←        up one folder, on the files tab
  *   [ ]      the previous and the next changed file, in an open diff
- *   Alt+Z    wrap long lines, in an open file
+ *   Alt+Z    wrap long lines, in an open file or diff
  *   ⌘/Ctrl+Shift+Enter   send the open diff's notes, as its Send button does
  *
  * The lines of a diff, the lines of a file and the tabs have keys of their own
@@ -83,11 +84,12 @@ const KEY_HINTS = {
  * the key after it for the tooltip. Nothing until the reader has shown a
  * keyboard: a finger is not told about keys it has not got.
  */
-export function useKeyHint(name: keyof typeof KEY_HINTS): { keys: string | undefined; title(label: string): string } {
+export function useKeyHint(name: keyof typeof KEY_HINTS): { keys: string | undefined; shown: string | undefined; title(label: string): string } {
   const keyboard = useHardwareKeyboard();
   const hint = KEY_HINTS[name];
-  if (!keyboard) return { keys: undefined, title: (label) => label };
-  return { keys: hint.keys, title: (label) => `${label} (${macPlatform() ? hint.mac : hint.other})` };
+  if (!keyboard) return { keys: undefined, shown: undefined, title: (label) => label };
+  const shown = macPlatform() ? hint.mac : hint.other;
+  return { keys: hint.keys, shown, title: (label) => `${label} (${shown})` };
 }
 
 /** Answer `event` for the files drawn in `root`. True when the key was one of theirs. */
@@ -135,7 +137,14 @@ export function workspaceKey(event: KeyboardEvent, root: ParentNode): boolean {
   if (typing(target)) return false;
 
   if (event.altKey) {
-    if (!wrapKey(event) || snapshot.view !== "file" || !root.querySelector(".workspace-code")) return false;
+    if (!wrapKey(event)) return false;
+    // A diff's wrap is its own; two sides next to each other never wrap.
+    if (snapshot.view === "diff") {
+      if (!root.querySelector(".workspace-diff:not(.is-split) .workspace-diff-line")) return false;
+      setDiffWrap(!diffWrap());
+      return true;
+    }
+    if (snapshot.view !== "file" || !root.querySelector(".workspace-code")) return false;
     setWorkspaceWrap(!workspaceWrap());
     return true;
   }

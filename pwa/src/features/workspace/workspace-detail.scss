@@ -224,6 +224,15 @@
 
 /* --- Diff ------------------------------------------------------------------------ */
 
+/* The lines' type, shared with the skeleton that stands in for them so nothing moves when they come. */
+.workspace-diff,
+.workspace-diff-pending {
+  --diff-lh: 1.6;
+  font: 0.72rem/1.6 var(--mono);
+  /* A diff line carries a number and a sign beside its text: half a pixel under the terminal's size. */
+  font-size: max(0.72rem, calc(var(--term-fs, 12px) - 0.5px));
+  line-height: var(--diff-lh);
+}
 .workspace-diff {
   flex: 1;
   min-width: 0;
@@ -231,15 +240,13 @@
   padding-bottom: 12px;
   overflow-x: hidden;
   overflow-y: auto;
-  font: 0.72rem/1.6 var(--mono);
-  /* A diff line carries a number and a sign beside its text: half a pixel under the terminal's size. */
-  font-size: max(0.72rem, calc(var(--term-fs, 12px) - 0.5px));
   -webkit-overflow-scrolling: touch;
 }
-/* Under a finger the page is read at arm's length and the lines wrap: a size up. */
+/* Under a finger the page is read at arm's length and the lines wrap: a size up, and a little more room between lines. */
 @media not all and (hover: hover) and (pointer: fine) {
   .workspace-code { font-size: max(0.8125rem, calc(var(--term-fs, 12px) + 1px)); }
-  .workspace-diff { font-size: max(13px, calc(var(--term-fs, 12px) + 0.5px)); line-height: 1.7; }
+  .workspace-diff,
+  .workspace-diff-pending { --diff-lh: 1.7; font-size: max(13px, calc(var(--term-fs, 12px) + 0.5px)); }
 }
 
 .workspace-diff-spacer { flex: 1; }
@@ -278,7 +285,7 @@
   display: grid;
   grid-template-columns: var(--diff-gutter, 2.7rem) 0.95rem minmax(0, 1fr) auto;
   width: 100%;
-  min-height: 1.6em;
+  min-height: calc(var(--diff-lh) * 1em);
 }
 .diff-line-number {
   padding: 0 6px 0 0;
@@ -314,7 +321,7 @@ button.diff-line-number {
   display: grid;
   place-items: center;
   width: 20px;
-  height: 1.6em;
+  height: calc(var(--diff-lh) * 1em);
   margin-right: 6px;
   color: var(--accent);
   opacity: 0;
