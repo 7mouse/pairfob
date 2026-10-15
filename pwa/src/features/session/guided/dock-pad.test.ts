@@ -55,6 +55,7 @@ const daemonPreferenceState = new DaemonPreferenceState();
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   unmountReact();
   appRoot().replaceChildren();
   setLang("zh");

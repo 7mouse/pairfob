@@ -141,6 +141,7 @@ async function remove(path: string, input: Input): Promise<void> {
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   clearWorkspacePendingReveal();
   clearAllDiffNotes();
   seedRestorer.capture();

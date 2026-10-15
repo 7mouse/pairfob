@@ -131,6 +131,7 @@ async function pressOn(target: HTMLElement, pointerType: "mouse" | "touch"): Pro
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../app/connected-loader")).loadConnectedRuntime();
   clearWorkspacePendingReveal();
   clearAllDiffNotes();
   seedRestorer.capture();

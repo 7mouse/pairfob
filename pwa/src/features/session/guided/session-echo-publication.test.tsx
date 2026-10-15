@@ -36,6 +36,7 @@ const snapshotRestorer = new WorkspaceSnapshotRestorer();
 
 beforeEach(async () => {
   await resetBoardTestDOM();
+  await (await import("../../../app/connected-loader")).loadConnectedRuntime();
   snapshotRestorer.capture();
   act(() => {
     resetPaneView(); setPhase("live"); setScreen("pane"); selectPane("p1");
