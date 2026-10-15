@@ -1,11 +1,11 @@
 ---
 title: Notifications
-description: Off by default. After the computer enables push, the phone can receive needs-you and task-completion alerts.
+description: Computer-side sending is on by default. Devices receive alerts after permission and subscription.
 ---
 
 # Notifications
 
-Off by default. When enabled, subscribed devices are notified when an Agent **needs you** or moves from **working to done**. Opening the notification goes to that session on the correct computer, not only the home list.
+Sending is enabled on the computer by default. After permission and subscription, devices are notified when an Agent **needs you** or moves from **working to done**. Opening the notification goes to that session on the correct computer, not only the home list.
 
 Completion means exactly `working → done`. Starting pairfob does not replay notifications for sessions that were already waiting or done.
 
@@ -13,37 +13,37 @@ Notification types cannot currently be selected separately: needs-you and comple
 
 Pairfob works without push: open the page or the Home Screen icon; **Needs you** cards are still emphasized.
 
-## Enable on the computer
+## Computer setup
 
-In the environment that starts `pairfob`:
+Sending is enabled by default. Pairfob creates and keeps its push signing key locally and uses `https://pairfob.com` as its default contact address. Upgrading repairs the old `mailto:operator@localhost` placeholder without changing the key or your subscriptions. Custom contact addresses are preserved.
 
-```sh
-PAIRFOB_PUSH=1
-PAIRFOB_VAPID_SUBJECT=mailto:you@example.com
-```
-
-`PAIRFOB_VAPID_SUBJECT` must be a `mailto:` or `https:` URL you control. Do not invent an address you do not own.
-
-The installer-created user service **does not** pick these up from your current shell. Write them into the service environment, then:
+To enable sending again after explicitly disabling it:
 
 ```sh
-pairfob service restart
+PAIRFOB_PUSH=1 pairfob service install
 ```
 
-On Linux, run `systemctl --user daemon-reload` before the restart so systemd reads the edited unit.
+This saves the setting and starts the service. Reinstalling preserves push settings already in the service definition; an explicit nonempty value on this command overrides them. An ordinary `pairfob service restart` does not import variables from your shell.
 
-`pairfob service install` and the installer rewrite the service definition without these variables. The command names each variable or `EnvironmentFile=` line it removed; add them again and restart as above.
+An optional contact override must be a real `mailto:` or `https:` URL you control:
+
+```sh
+PAIRFOB_VAPID_SUBJECT=https://example.com/contact pairfob service install
+```
+
+Do not use a localhost contact address. Updating the contact preserves the existing signing key. The supported settings above are saved directly in the service definition; external systemd environment files are not imported by the installer.
 
 ## Subscribe on the phone
 
-1. The computer already has push enabled and the service is up
-2. Pairfob → **Settings** → **Notifications**
-3. Tap **Turn on** on the Notifications row
-4. The browser asks for system permission once
+After pairing, choose **Turn on** in the notification invitation, or open **Settings → Notifications** later. Choosing **Later** dismisses the invitation for this computer; reconnecting will not show it again.
 
-If the computer has not enabled push, the row says so and **How to enable** expands the setup steps. Browsers without Web Notifications say so; they do not fake a subscription.
+On iPhone and iPad, add Pairfob to the Home Screen first and open it from that icon. Then tap **Turn on** and accept the system permission prompt. Permission is requested only after your tap. If permission was denied, change it in the system's notification settings before trying again.
 
-**Settings** shows whether this phone has notifications on.
+Browsers without Web Push do not offer a subscription. On older computers, update Pairfob first. If sending was explicitly disabled on the computer, Settings shows the command to enable it again.
+
+A browser's existing subscription is tied to one computer's signing key. Pairfob does not replace another computer's subscription silently; use a separate browser profile for another computer's notifications. Pairing and remote control still work across computers.
+
+See [Privacy](/privacy) for what the service and push provider handle.
 
 ## After you open a notification
 
@@ -52,6 +52,6 @@ You should land in the matching session. If that session is gone, you return to 
 ## Turning it off
 
 - Phone: disable notifications for the site in system settings, or revoke this device
-- Computer: drop `PAIRFOB_PUSH=1` and restart the service. Existing subscriptions stop getting “needs you” and completion pushes
+- Computer: run `PAIRFOB_PUSH=0 pairfob service install`. Existing subscriptions stop getting “needs you” and completion pushes
 
 A lost device should be [unpaired](/devices), not only muted.

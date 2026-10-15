@@ -14,6 +14,7 @@ import { FRIENDLY_ERROR } from "../../lib/notices";
 import { parseRuntimeOperationsConfig } from "../../lib/operations";
 import type { LiveSession, PairResult } from "../../lib/protocol/client";
 import { herdConfigIsCurrent, nextHerdConfigRequest } from "./generations";
+import { rememberPushConfig } from "../settings/push-config";
 
 export type RuntimeObservationPorts = {
   acceptDaemonVersion(config: unknown): void;
@@ -85,6 +86,7 @@ export async function refreshHerdConfig(ports: RuntimeObservationPorts): Promise
     // see the accepted observation as one coherent update, never runtime
     // identity without its push flag or capabilities.
     const credential = ports.currentCredential();
+    rememberPushConfig(session, config);
     batch(() => {
       applyRuntimeIdentity({ herdHost: hostname, runtimeKind });
       setPushEnabled(config.push_enabled === true);

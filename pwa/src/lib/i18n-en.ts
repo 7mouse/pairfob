@@ -1,3 +1,4 @@
+import { enPush } from "./i18n-push";
 import { enChatWork } from "./i18n-chat-work";
 import { enComposeV2 } from "./i18n-compose-v2";
 import { enKeypadV2 } from "./i18n-keypad-v2";
@@ -29,6 +30,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   ...enChatWork,
   ...enPaneMenuV2,
   ...enSettingsV3,
+  ...enPush,
   ...enQuota,
   ...enRowbarV2,
   ...enWorkspace,
@@ -271,7 +273,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "settings.pushOn": "This device is notified when an agent needs you or finishes.",
   "settings.pushOff": "When on, this device is notified when an agent needs you or finishes.",
   "settings.pushHowtoBody": "Start pairfob with ",
-  "settings.pushHowtoTail": " and PAIRFOB_VAPID_SUBJECT, then reopen this page.",
+  "settings.pushHowtoTail": ", then reopen this page.",
   "settings.devices": "Paired devices",
   "settings.devicesLoading": "Reading the device list…",
   "settings.manageOthersBody": "Unpair other devices here. On the computer you can also run ",

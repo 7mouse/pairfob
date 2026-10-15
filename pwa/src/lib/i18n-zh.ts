@@ -1,3 +1,4 @@
+import { zhPush } from "./i18n-push";
 import { zhChatWork } from "./i18n-chat-work";
 import { zhComposeV2 } from "./i18n-compose-v2";
 import { zhKeypadV2 } from "./i18n-keypad-v2";
@@ -32,6 +33,7 @@ export const zh = {
   ...zhChatWork,
   ...zhPaneMenuV2,
   ...zhSettingsV3,
+  ...zhPush,
   ...zhQuota,
   ...zhRowbarV2,
   ...zhWorkspace,
@@ -274,7 +276,7 @@ export const zh = {
   "settings.pushOn": "Agent 等你处理或完成任务时，会通知这台设备。",
   "settings.pushOff": "开启后，Agent 等你处理或完成任务时会通知这台设备。",
   "settings.pushHowtoBody": "启动 pairfob 时加入 ",
-  "settings.pushHowtoTail": "，并设置 PAIRFOB_VAPID_SUBJECT，然后重新打开本页。",
+  "settings.pushHowtoTail": "，然后重新打开本页。",
   "settings.devices": "已配对设备",
   "settings.devicesLoading": "正在读取设备列表…",
   "settings.manageOthersBody": "其他设备可在本页解除。电脑上也可以运行 ",

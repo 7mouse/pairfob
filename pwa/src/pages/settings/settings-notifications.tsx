@@ -20,7 +20,7 @@ export type NotificationRowInput = {
   error: string;
 };
 
-const PUSH_ENV = "PAIRFOB_PUSH=1\nPAIRFOB_VAPID_SUBJECT=mailto:you@example.com";
+const PUSH_ENV = "PAIRFOB_PUSH=1 pairfob service install";
 const copyLabels = () => ({ copy: t("set.copy"), copied: t("set.copied"), failed: t("set.copyFailed") });
 
 export function NotificationItem({ input }: { input: NotificationRowInput }) {
@@ -62,7 +62,6 @@ export function NotificationItem({ input }: { input: NotificationRowInput }) {
     <Fold open={steps} lazy>
       <ol className="set-steps">
         <li>{t("set.pushStepEnv")}<CommandLine command={PUSH_ENV} labels={copyLabels()} /></li>
-        <li>{t("set.pushStepRestart")}<CommandLine command="pairfob service restart" labels={copyLabels()} /></li>
         <li>{t("set.pushStepBack")}</li>
       </ol>
     </Fold>

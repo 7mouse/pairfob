@@ -9,6 +9,7 @@ import { RoomCore } from "./core.ts";
 import { handleRoomFetch } from "./http.ts";
 import { watchUpgradeCancellation } from "./upgrade-cancellation.ts";
 import { onMessage } from "./ws.ts";
+import { RoomActivity } from "./activity.ts";
 
 const closeReasons = new Set([
   "closed", "replaced", "kicked", "daemon_offline", "unpaired", "unbound",
@@ -31,6 +32,7 @@ export class DaemonRoom {
     this.env = env;
     const store = new CfStore(ctx.storage);
     const self = this;
+    const activity = new RoomActivity(ctx.storage, env.DB, ctx.id.name || "");
     this.core = new RoomCore({
       daemonId: ctx.id.name || "",
       store,
@@ -39,6 +41,7 @@ export class DaemonRoom {
       sockets: () => wrapSockets(self.ctx.getWebSockets(), self.wraps),
       index: env.PAIRING_INDEX ? new NamespaceIndexClient(env.PAIRING_INDEX) : undefined,
       metrics: roomMetrics(env, ctx.id.name || ""),
+      activity: (now) => ctx.waitUntil(activity.touch(now)),
     });
     ctx.blockConcurrencyWhile(async () => {
       this.core.coldStart();

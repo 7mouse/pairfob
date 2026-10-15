@@ -102,7 +102,7 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 ## 通知为什么开不了？
 
-默认关。先在电脑上打开推送，再 `pairfob service restart`。然后到手机设置里订阅。见 [通知](/zh/push)。
+电脑端默认开启发送能力。请在手机 **设置 → 通知** 中授权并订阅。iPhone 和 iPad 需先添加到主屏幕并从那里打开。如果电脑端曾被关闭，运行 `PAIRFOB_PUSH=1 pairfob service install`。见 [通知](/zh/push)。
 
 ## 可以给同事也扫这个码吗？
 

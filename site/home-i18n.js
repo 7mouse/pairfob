@@ -13,6 +13,7 @@
     "nav.what": "能做什么",
     "nav.safe": "安全吗",
     "nav.faq": "常见问题",
+    "nav.privacy": "隐私说明",
     "nav.doc": "文档",
     "nav.github": "GitHub 上的源码",
     "nav.feedback": "反馈",
@@ -197,6 +198,7 @@
     "nav.what": "What it does",
     "nav.safe": "Security",
     "nav.faq": "FAQ",
+    "nav.privacy": "Privacy",
     "nav.doc": "Docs",
     "nav.github": "Source on GitHub",
     "nav.feedback": "Feedback",
@@ -437,6 +439,7 @@
     const docHref = lang === "en" ? "/doc/" : "/doc/zh/";
     document.querySelectorAll("[data-locale-href=doc]").forEach((el) => el.setAttribute("href", docHref));
     const faqHref = lang === "en" ? "/doc/faq" : "/doc/zh/faq";
+    document.querySelectorAll("[data-locale-href=privacy]").forEach((el) => el.setAttribute("href", lang === "zh" ? "/doc/zh/privacy" : "/doc/privacy"));
     document.querySelectorAll("[data-locale-href=faq]").forEach((el) => el.setAttribute("href", faqHref));
 
     document.querySelectorAll(".lang-btn").forEach((btn) => {

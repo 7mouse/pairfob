@@ -3,6 +3,7 @@ import { timingSafeEqual } from "./crypto.ts";
 import { getDaemon, kickDaemonRow, listLiveDaemonIds } from "./d1.ts";
 import type { Env } from "./env.ts";
 import { adminStatsBody } from "./metrics.ts";
+import { conversionStats } from "./conversion.ts";
 import { bearerToken, buildOf, errorJson, jsonResponse, noStore } from "./http.ts";
 
 function unauthorized(build: string): Response {
@@ -23,6 +24,14 @@ export async function handleAdmin(req: Request, env: Env, now = Date.now()): Pro
   const build = buildOf(env);
   if (!env.OPERATOR_TOKEN) return errorJson(build, 503, "internal", noStore());
   if (!allowAdmin(req, env)) return unauthorized(build);
+
+  if (path === "/v2/admin/funnel" && req.method === "GET") {
+    try {
+      return jsonResponse(build, 200, await conversionStats(env.DB, now), noStore());
+    } catch {
+      return errorJson(build, 503, "internal", noStore());
+    }
+  }
 
   if (path === "/v2/admin/stats" && req.method === "GET") {
     const sample = await sampleLiveSockets(env);

@@ -35,7 +35,7 @@ Before sending, the computer checks that the terminal screen has not changed; if
 
 Run Codex in Herdr and pair your phone with Pairfob; a waiting Codex session is surfaced under **Needs you**, and its numbered approval prompt can be answered from the phone.
 
-For alerts when the phone is locked, enable push on the computer (it is off by default); subscribed devices are notified when an agent needs you or finishes. See [Notifications](/push).
+For alerts when the phone is locked, allow notifications on the phone; computer-side sending is on by default, and subscribed devices are notified when an agent needs you or finishes. See [Notifications](/push).
 
 ## Can I review what Codex changed before I'm back at the computer?
 

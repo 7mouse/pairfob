@@ -1,4 +1,6 @@
-import { afterEach, expect, test } from "bun:test";
+import { resetBoardTestDOM } from "../../../test-support/dom";
+import { rememberPushConfig } from "./push-config";
+import { afterEach, beforeEach, expect, test } from "bun:test";
 import { attachLiveSession } from "../computers/catalog-store";
 import { beginSettingsRead, resetRuntime, runtimeStore, setPushEnabled, setPushSubscribed } from "../connection/runtime-store";
 import { setScreen } from "../../app/navigation-store";
@@ -21,6 +23,8 @@ const validConfig = (push = true) => ({
   capabilities: { ...NO_OPERATION_CAPABILITIES },
   agent_kinds: [],
 });
+
+beforeEach(resetBoardTestDOM);
 
 afterEach(() => {
   attachLiveSession(null);
@@ -181,6 +185,7 @@ test("enablePush that is authorized after a computer switch does not write or to
     listDevices: async () => ({ devices: [] }),
   } as unknown as LiveSession;
   attachLiveSession(a);
+  rememberPushConfig(a, validConfig(true));
   const pending = enablePush();
   for (let i = 0; i < 16; i++) await Promise.resolve();
   attachLiveSession(b);

@@ -26,6 +26,8 @@ interface SqlStorage {
 }
 
 interface DurableObjectStorage {
+  get<T>(key: string): Promise<T | undefined>;
+  put<T>(key: string, value: T): Promise<void>;
   readonly sql: SqlStorage;
   getAlarm(): Promise<number | null>;
   setAlarm(scheduledTime: number | Date): Promise<void>;
@@ -33,6 +35,7 @@ interface DurableObjectStorage {
 }
 
 interface DurableObjectState {
+  waitUntil(promise: Promise<unknown>): void;
   readonly id: DurableObjectId;
   readonly storage: DurableObjectStorage;
   acceptWebSocket(ws: WebSocket, tags?: string[]): void;

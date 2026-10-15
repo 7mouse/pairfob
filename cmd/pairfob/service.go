@@ -246,7 +246,10 @@ func installUserServiceLayout(layout serviceLayout) error {
 // The previous unit is examined before it is replaced; afterwards its settings
 // are gone. The notice follows the write so it never describes an unmade change.
 func rewriteServiceUnit(layout serviceLayout, out io.Writer) error {
-	body := []byte(unitBody(layout))
+	body, err := serviceBodyPreservingPush(layout)
+	if err != nil {
+		return err
+	}
 	notice := runtimeSettingsNotice(layout, body)
 	if err := os.WriteFile(layout.UnitPath, body, 0o644); err != nil {
 		return err

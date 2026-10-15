@@ -376,6 +376,21 @@ func (s *Store) LoadOrCreateVAPID(subject string) (VAPID, error) {
 		if !bytes.Equal(pub, elliptic.Marshal(curve, x, y)) {
 			return v, errors.New("vapid.json public/private key mismatch")
 		}
+		// Keep the subscription's application-server key while repairing the
+		// historical placeholder or applying an explicit operator override.
+		nextSubject := subject
+		if nextSubject == "" && v.Subject == "mailto:operator@localhost" {
+			nextSubject = defaultVAPIDSubject
+		}
+		if nextSubject != "" && nextSubject != v.Subject {
+			if err := validateVAPIDSubject(nextSubject); err != nil {
+				return v, err
+			}
+			v.Subject = nextSubject
+			if err := atomicJSON(s.path("vapid.json"), v); err != nil {
+				return v, err
+			}
+		}
 		return v, nil
 	}
 	if !errors.Is(err, os.ErrNotExist) {
@@ -388,7 +403,7 @@ func (s *Store) LoadOrCreateVAPID(subject string) (VAPID, error) {
 	priv := key.D.FillBytes(make([]byte, 32))
 	pub := elliptic.Marshal(elliptic.P256(), key.X, key.Y)
 	if subject == "" {
-		subject = "mailto:operator@localhost"
+		subject = defaultVAPIDSubject
 	}
 	if err := validateVAPIDSubject(subject); err != nil {
 		return v, err
@@ -399,6 +414,8 @@ func (s *Store) LoadOrCreateVAPID(subject string) (VAPID, error) {
 	}
 	return v, nil
 }
+
+const defaultVAPIDSubject = "https://pairfob.com"
 
 func validateVAPIDSubject(subject string) error {
 	if len(subject) == 0 || len(subject) > 512 {

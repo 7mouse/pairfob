@@ -102,7 +102,7 @@ Do not tap again. Look at the frame or refresh the list. Pairfob does not retry 
 
 ## Notifications will not turn on.
 
-They are off by default. Enable push on the computer, then `pairfob service restart`. Subscribe in **Settings → Notifications**. See [Notifications](/push).
+Computer-side sending is on by default. Subscribe in **Settings → Notifications**. On iPhone and iPad, first add Pairfob to the Home Screen and open it there. If sending was disabled on the computer, run `PAIRFOB_PUSH=1 pairfob service install`. See [Notifications](/push).
 
 ## Can I let a coworker scan this code?
 

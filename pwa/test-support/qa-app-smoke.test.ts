@@ -198,7 +198,7 @@ function assertPaneRoot(expectedPane: string): void {
 }
 
 test("every QA scene id + untitled built", () => {
-  expect(scenes.length).toBe(123);
+  expect(scenes.length).toBe(124);
   const seen = new Set<string>();
   for (const scene of scenes) {
     expect(seen.has(scene.name)).toBeFalse();
@@ -207,7 +207,7 @@ test("every QA scene id + untitled built", () => {
   }
 });
 
-test("every scene renders: 121 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
+test("every scene renders: 122 through the stable App (incl. mock-engine terminals), 2 shellOnly fixtures", async () => {
   expect(domReady).toBeTrue();
   const failures: string[] = [];
   const appRendered: string[] = [];
@@ -262,8 +262,8 @@ test("every scene renders: 121 through the stable App (incl. mock-engine termina
   }
   expect(failures).toEqual([]);
   expect(shellRendered).toEqual(["terminal-loading", "terminal-error"]);
-  expect(appRendered).toHaveLength(121);
-  expect(appRendered.length + shellRendered.length).toBe(123);
+  expect(appRendered).toHaveLength(122);
+  expect(appRendered.length + shellRendered.length).toBe(124);
 }, 180_000);
 
 test("attention QA scenes show all statuses and runtime replacement without filter pills", async () => {
@@ -765,6 +765,6 @@ test("scene names and descriptions are documented for the window.qa surface", ()
   const names = scenes.map((scene) => scene.name);
   expect(names).toContain("terminal-loading");
   expect(names).toContain("terminal-error");
-  expect(names.length).toBe(123);
+  expect(names.length).toBe(124);
   for (const scene of scenes) expect(scene.description).toBeTruthy();
 });

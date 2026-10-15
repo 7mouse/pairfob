@@ -33,10 +33,10 @@ Operator-facing variables only. Leave unspecified variables unset. Do not put se
 
 | Variable | Notes |
 | --- | --- |
-| `PAIRFOB_PUSH` | `1` enables. Off by default |
-| `PAIRFOB_VAPID_SUBJECT` | A `mailto:` or `https:` URL you control |
+| `PAIRFOB_PUSH` | Defaults to `1` (on); `0` disables |
+| `PAIRFOB_VAPID_SUBJECT` | Optional `mailto:` or `https:` URL you control; default `https://pairfob.com` |
 
-The user service does not inherit your current shell. Write these into the service file, then `pairfob service restart`. See [Notifications](/push).
+Save explicit settings with `PAIRFOB_PUSH=0 pairfob service install` (or `1` to enable). Reinstallation preserves existing push settings; a plain restart does not import shell variables. See [Notifications](/push).
 
 ## Keep off
 

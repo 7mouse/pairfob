@@ -5,7 +5,7 @@ import { encodeRaw, reject, sendErr } from "../frames.ts";
 import type { RoomCore } from "./core.ts";
 import type { RoomSocket } from "./types.ts";
 
-/** Envelope PING/PONG: no SQL, no platform alarm writes, no ResumeHello renewal. */
+/** PING does not renew ResumeHello. Authenticated phone activity is checkpointed separately. */
 export function handlePing(room: RoomCore, ws: RoomSocket, frame: Frame): void {
   const att = room.att(ws);
   const now = room.now();
@@ -27,6 +27,7 @@ export function handlePing(room: RoomCore, ws: RoomSocket, frame: Frame): void {
     return;
   }
   ws.send(encodeRaw(Typ.PONG, frame.routeId, frame.payload));
+  if (att?.role === "phone" && att.kind === "established" && room.daemon) room.deps.activity?.(now);
 }
 
 export function handlePong(ws: RoomSocket, frame: Frame): void {
