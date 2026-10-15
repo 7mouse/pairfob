@@ -378,7 +378,9 @@ export class DirectSessionDriver {
       this.host.emit({ type: "latency", rttMs: direct.rttMs, transport: "p2p" });
       this.host.observe({ result: "connected", extra: iceGathering });
       this.clearDirectRetry();
-      relay.close("transport_upgrade");
+      // If the commit reply was lost, direct Ping still proves the move but
+      // requests left on relay may already have run. Never report them refused.
+      relay.close("transport_upgrade", new ProtocolError("disconnected", "连接已切换，请求结果未知"));
     } catch (error) {
       const diagnostic = directFailureDiagnostic(error);
       recordConnectionDiagnostic({

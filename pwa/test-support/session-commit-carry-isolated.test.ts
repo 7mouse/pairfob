@@ -41,7 +41,7 @@ const failures = () => connectionDiagnostics().filter((record) => record.event =
 
 /** A relay session with a device list the computer has not answered yet, and a candidate about to be ready. */
 async function slowRead(script: SocketScript, holdPing = false) {
-  SessionSocket.script = { ...script, slowOps: ["ListDevices", "SendText"] };
+  SessionSocket.script = { ...script, slowOps: ["ListDevices", "SendText", ...(script.slowOps ?? [])] };
   const direct = new ProbeWire("p2p", 5);
   direct.hold = holdPing;
   const negotiated = deferred<void>();
@@ -103,3 +103,13 @@ test("a carried mutation whose direct route then fails its proof hears its outco
   expect((await typed).code).toBe("unknown_outcome");
   expect(f.direct.requests.some((request) => request.op === "SendText")).toBe(false);
 }, 10_000);
+
+test("a lost commit reply leaves an unanswered mutation unknown after direct proves the switch", async () => {
+  const f = await slowRead({ answerCommit: true, slowOps: ["TransportCommit"] });
+  const typed = f.live.sendText("w1:p1", "ls").catch((caught) => caught as { code: string });
+  await until(() => count(f.relay, "SendText") === 1);
+  await until(() => f.relay.closeCalls > 0, 12_000);
+  expect((await typed).code).toBe("unknown_outcome");
+  expect(count(f.relay, "TransportCommit")).toBe(1);
+  expect(f.direct.requests.some((request) => request.op === "SendText")).toBe(false);
+}, 15_000);

@@ -8,5 +8,5 @@ test("a direct switch carries relay requests still out instead of waiting for th
     new Response(process.stdout).text(), new Response(process.stderr).text(), process.exited,
   ]);
   if (code !== 0) throw new Error(`${stdout}\n${stderr}`);
-  expect(stderr).toContain("3 pass");
+  expect(stderr).toContain("4 pass");
 }, 30_000);
