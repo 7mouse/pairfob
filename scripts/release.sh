@@ -40,6 +40,18 @@ for os in darwin linux; do
   done
 done
 
+# Termux runs an ELF binary like any other Linux, but Go's linux net package
+# reads the interface table through a NETLINK_ROUTE dump that Android denies to
+# apps. Pion cannot enumerate interfaces then, so every direct attempt is
+# refused with "failed to create network". The android build reads the same
+# table through ioctl instead. It needs CGO_ENABLED=0 for that path and the
+# linkname check off because pion's interface fallback (wlynxg/anet) aliases a
+# net symbol whose definition changed; with CGO_ENABLED=0 anet never reaches
+# the aliased variable, it only has to link.
+dest="${OUT}/pairfob-android-arm64"
+echo "build ${dest}"
+CGO_ENABLED=0 GOOS=android GOARCH=arm64 go build -trimpath -ldflags "$ldflags -checklinkname=0" -o "$dest" ./cmd/pairfob
+
 printf '%s\n' "$VERSION" >"${OUT}/VERSION"
 
 (

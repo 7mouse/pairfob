@@ -68,6 +68,7 @@ pairfob_require_release_dir() {
     pairfob-darwin-arm64 \
     pairfob-linux-amd64 \
     pairfob-linux-arm64 \
+    pairfob-android-arm64 \
     VERSION \
     SHA256SUMS; do
     path="$dir/$name"
@@ -77,7 +78,7 @@ pairfob_require_release_dir() {
     fi
   done
 
-  for name in pairfob-darwin-amd64 pairfob-darwin-arm64 pairfob-linux-amd64 pairfob-linux-arm64; do
+  for name in pairfob-darwin-amd64 pairfob-darwin-arm64 pairfob-linux-amd64 pairfob-linux-arm64 pairfob-android-arm64; do
     if [[ ! -x "$dir/$name" ]]; then
       echo "release binary is not executable: $dir/$name" >&2
       return 1
@@ -90,7 +91,7 @@ pairfob_require_release_dir() {
     fi
     name="${path##*/}"
     case "$name" in
-      pairfob-darwin-amd64|pairfob-darwin-arm64|pairfob-linux-amd64|pairfob-linux-arm64|VERSION|SHA256SUMS) ;;
+      pairfob-darwin-amd64|pairfob-darwin-arm64|pairfob-linux-amd64|pairfob-linux-arm64|pairfob-android-arm64|VERSION|SHA256SUMS) ;;
       *)
         echo "unexpected release artifact: $path" >&2
         return 1
@@ -104,6 +105,7 @@ pairfob_require_release_dir() {
       required["pairfob-darwin-arm64"] = 1
       required["pairfob-linux-amd64"] = 1
       required["pairfob-linux-arm64"] = 1
+      required["pairfob-android-arm64"] = 1
       required["VERSION"] = 1
     }
     {
@@ -114,7 +116,7 @@ pairfob_require_release_dir() {
       }
     }
     END {
-      if (NR != 5) exit 1
+      if (NR != 6) exit 1
       for (name in required) if (!seen[name]) exit 1
     }
   ' "$dir/SHA256SUMS"; then

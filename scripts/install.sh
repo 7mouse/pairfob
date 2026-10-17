@@ -108,6 +108,12 @@ case "$arch" in
     exit 1
     ;;
 esac
+# Go's linux net package reads the interface table through a NETLINK_ROUTE dump
+# that Android denies to apps, and ICE gathering then finds no candidate. Termux
+# downloads the android build of the same release instead.
+if [ "$termux" -eq 1 ]; then
+  os=android
+fi
 name="pairfob-${os}-${arch}"
 
 if [ "$termux" -eq 1 ] && [ "$NO_SERVICE" -eq 0 ] && ! command -v sv >/dev/null 2>&1; then
@@ -162,7 +168,13 @@ trap cleanup 0
 
 echo "downloading ${name} from ${BASE}"
 curl -fsSL "${BASE}/SHA256SUMS" -o "${workdir}/SHA256SUMS"
-curl -fsSL "${BASE}/${name}" -o "${workdir}/${name}"
+if ! curl -fsSL "${BASE}/${name}" -o "${workdir}/${name}"; then
+  echo "install.sh: this release has no ${name} download" >&2
+  if [ "$os" = android ]; then
+    echo "install.sh: Termux needs a release that ships pairfob-android-${arch}" >&2
+  fi
+  exit 1
+fi
 want="$(sums_hash "$name" <"${workdir}/SHA256SUMS")"
 got="$(file_sha256 "${workdir}/${name}")"
 if [ "$want" != "$got" ]; then

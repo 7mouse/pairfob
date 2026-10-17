@@ -10,6 +10,7 @@ const releaseFiles = [
   "pairfob-darwin-arm64",
   "pairfob-linux-amd64",
   "pairfob-linux-arm64",
+  "pairfob-android-arm64",
 ];
 
 function run(body: string, env: Record<string, string> = {}): { exit: number; stderr: string } {

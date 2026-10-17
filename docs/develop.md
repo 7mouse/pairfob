@@ -189,7 +189,7 @@ deployment, follow the asset-continuity steps below and use
 artifact snapshot; subsequent edits require the affected checks again.
 
 After verification, tag that exact commit and push the current branch to its
-configured upstream, then push the tag to the same remote. Upload all six
+configured upstream, then push the tag to the same remote. Upload all seven
 files from the verified `dist/dl/` directory; these are also the files served
 at `https://pairfob.com/dl/`. Write reviewed release notes to a file outside
 the working tree, including changes, requirements and upgrade instructions.
@@ -199,6 +199,7 @@ For example, replacing `vX.Y.Z` with the chosen version:
 gh release create vX.Y.Z \
   dist/dl/pairfob-darwin-amd64 dist/dl/pairfob-darwin-arm64 \
   dist/dl/pairfob-linux-amd64 dist/dl/pairfob-linux-arm64 \
+  dist/dl/pairfob-android-arm64 \
   dist/dl/VERSION dist/dl/SHA256SUMS \
   --repo arronKler/pairfob --verify-tag --draft \
   --title "Pairfob vX.Y.Z" --notes-file /tmp/pairfob-release-notes.md
@@ -206,7 +207,7 @@ gh release create vX.Y.Z \
 
 Before publishing, download the draft's assets to a fresh directory with
 `gh release download`, check every file against `SHA256SUMS`, and confirm
-that `VERSION` matches the tag. Inspect all four binaries with
+that `VERSION` matches the tag. Inspect all five binaries with
 `go version -m`: their `vcs.revision` must match the tagged commit,
 `vcs.modified` must be `false`, and their OS/architecture must match their
 filenames. Check the native binary's `version` output as well. Then publish:
@@ -226,6 +227,32 @@ When backfilling an already hosted version, reuse its exact artifacts after
 checking the official checksums, version, clean build metadata and remote tag.
 Do not rebuild it from a newer or dirty checkout. Record this as artifact
 verification, not a new full test run.
+
+### Android and Termux
+
+Termux runs an ordinary arm64 Linux userland, but Android denies apps the
+`NETLINK_ROUTE` interface dump that Go's `linux` network stack reads. Pion then
+fails to create a PeerConnection with
+`failed to create network: route ip+net: netlinkrib: permission denied`, the
+daemon refuses every direct attempt with `p2p_offer_failed`, and only the relay
+keeps working. `release.sh` therefore also builds `pairfob-android-arm64`, and
+`install.sh` downloads it when it detects Termux. Two build constraints hold:
+
+- `CGO_ENABLED=0`: with cgo on, `wlynxg/anet` (pion's interface fallback) asks
+  for the device API level and then builds its own netlink table, which Android
+  denies as well. Without cgo the API level is `-1`, so it defers to Go's
+  android `net` package, which reads the interface table through ioctl.
+- `-checklinkname=0`: that deferred path never touches anet's
+  `//go:linkname net.zoneCache` alias, but the linker still rejects the
+  reference. The flag only relaxes that check.
+
+```sh
+CGO_ENABLED=0 GOOS=android GOARCH=arm64 \
+  go build -trimpath -ldflags "-X main.version=dev -checklinkname=0" -o "$HOME/.local/bin/pairfob" ./cmd/pairfob
+```
+
+A `linux/arm64` binary also runs on Termux and serves the relay; only direct
+connections are refused, which reaches the phone as a strict NAT.
 
 ### PWA performance and asset continuity
 
