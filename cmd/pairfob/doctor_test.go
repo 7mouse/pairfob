@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"strings"
 	"testing"
 )
@@ -38,6 +39,34 @@ func TestWriteDoctorSanitizesOriginNote(t *testing.T) {
 	}
 	if !strings.Contains(got, "Origin") || !strings.Contains(got, "incomplete") {
 		t.Fatalf("doctor missing sanitized origin note: %s", got)
+	}
+}
+
+func TestWriteDoctorShowsLocalCandidates(t *testing.T) {
+	var buf bytes.Buffer
+	writeDoctor(&buf, health{Version: "dev", P2P: testBool(true), P2PGather: 5, HerdrNote: "on"})
+	if !strings.Contains(buf.String(), "on (5 local candidates)") {
+		t.Fatalf("%s", buf.String())
+	}
+}
+
+func TestWriteDoctorShowsWhenICEGatheringFails(t *testing.T) {
+	var buf bytes.Buffer
+	writeDoctor(&buf, health{
+		Version: "dev", P2P: testBool(true), HerdrNote: "on",
+		P2PGatherNote: doctorGatherNote(errors.New("route ip+net: netlinkrib: permission denied")),
+	})
+	got := buf.String()
+	assertOperatorText(t, got)
+	if !strings.Contains(got, "cannot read its own interfaces") {
+		t.Fatalf("doctor hid the gather failure: %s", got)
+	}
+}
+
+func TestDoctorGatherNoteKeepsAddressesOut(t *testing.T) {
+	note := doctorGatherNote(errors.New("gather 172.20.3.238:51820: bind: cannot assign requested address"))
+	if note == "" || strings.Contains(note, "172.20.3.238") {
+		t.Fatalf("note = %q", note)
 	}
 }
 

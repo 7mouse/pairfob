@@ -54,6 +54,24 @@ func pairSlotError(err error) error {
 	}
 }
 
+// doctorNoGatherNote explains an ICE gather that produced no candidate at all.
+const doctorNoGatherNote = "no local ICE candidate — direct connections will fail"
+
+// doctorGatherNote explains a refused ICE gather. Pion errors can quote local
+// addresses, so only the cause is kept.
+func doctorGatherNote(err error) string {
+	if err == nil {
+		return ""
+	}
+	raw := err.Error()
+	switch {
+	case strings.Contains(raw, "netlinkrib"), strings.Contains(raw, "permission denied"):
+		return "this computer cannot read its own interfaces, so direct connections fail — install the build for this platform"
+	default:
+		return "ICE gathering is unavailable, so direct connections fail"
+	}
+}
+
 func doctorOriginNote(raw string) string {
 	if raw == "" {
 		return ""

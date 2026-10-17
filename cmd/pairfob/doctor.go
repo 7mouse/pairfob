@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"os"
 	"strings"
+	"time"
 
 	"pairfob/internal/admin"
 	"pairfob/internal/runtime"
@@ -27,7 +29,13 @@ type health struct {
 	Origin         string
 	OriginNote     string
 	P2P            *bool
+	P2PGather      int
+	P2PGatherNote  string
 }
+
+// doctorGatherTimeout bounds the local ICE gather; host candidates need no STUN,
+// so a healthy host answers in milliseconds.
+const doctorGatherTimeout = 3 * time.Second
 
 func doctorCommand(sock string) error {
 	h, err := gatherHealth(sock)
@@ -47,6 +55,11 @@ var errDoctor = fmt.Errorf("not ready")
 func gatherHealth(sock string) (health, error) {
 	configuredP2P := getenv("PAIRFOB_P2P", "1") != "0"
 	h := health{Version: version, Running: daemonIsLive(sock), P2P: &configuredP2P}
+	if configuredP2P {
+		ctx, cancel := context.WithTimeout(context.Background(), doctorGatherTimeout)
+		h.P2PGather, h.P2PGatherNote = probeICEGathering(ctx)
+		cancel()
+	}
 	if !h.Running {
 		h.Recovery = localServiceHint()
 	}
@@ -150,6 +163,14 @@ func writeDoctor(w io.Writer, h health) {
 	p2p := "unknown — restart Pairfob to check"
 	if h.P2P != nil {
 		p2p = yesNo(*h.P2P, "on", "off — this computer is relay-only")
+		if *h.P2P {
+			switch {
+			case h.P2PGatherNote != "":
+				p2p += " — " + h.P2PGatherNote
+			case h.P2PGather > 0:
+				p2p += fmt.Sprintf(" (%d local candidates)", h.P2PGather)
+			}
+		}
 	}
 	fmt.Fprintf(w, "  P2P         %s\n", p2p)
 	origin := h.Origin
