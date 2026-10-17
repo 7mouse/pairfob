@@ -76,13 +76,38 @@ func TestAnswerStopsWithItsContext(t *testing.T) {
 	}
 }
 
-func TestProductAnswerPaceStaysInsideTheOfferBudget(t *testing.T) {
-	if p2pAnswerPace.settle >= p2pAnswerPace.local || p2pAnswerPace.local >= 5*time.Second {
-		t.Fatalf("pace %+v must answer before pion's 5s STUN wait", p2pAnswerPace)
+func TestProductAnswerPaceOutlastsTheSTUNTimeout(t *testing.T) {
+	if p2pAnswerPace.settle >= p2pAnswerPace.local {
+		t.Fatalf("pace %+v must settle before the local deadline", p2pAnswerPace)
+	}
+	// Pion keeps a STUN binding open for five seconds before it gives up on the
+	// reply. An answer sent before that carries host candidates alone, and a
+	// peer behind NAT or on another network cannot reach those.
+	if p2pAnswerPace.local < 5*time.Second {
+		t.Fatalf("pace %+v answers before pion's STUN wait ends", p2pAnswerPace)
+	}
+	if p2pAnswerPace.local > 9*time.Second {
+		t.Fatalf("pace %+v does not fit the offer budget", p2pAnswerPace)
 	}
 }
 
-func TestWebRTCAcceptorAnswersWithoutWaitingOutAnUnansweredSTUNServer(t *testing.T) {
+func TestAnswerWaitsForALateReflexiveCandidate(t *testing.T) {
+	pace := answerPace{settle: 30 * time.Millisecond, local: 600 * time.Millisecond}
+	gathered, reflexive := make(chan struct{}), make(chan struct{})
+	time.AfterFunc(400*time.Millisecond, func() { close(reflexive) })
+	started := time.Now()
+	if err := awaitAnswerCandidates(context.Background(), gathered, reflexive, func() bool { return true }, pace); err != nil {
+		t.Fatal(err)
+	}
+	if elapsed := time.Since(started); elapsed < 400*time.Millisecond || elapsed > 550*time.Millisecond {
+		t.Fatalf("answered after %v, want the 400ms reflexive candidate plus the settle time", elapsed)
+	}
+}
+
+func TestWebRTCAcceptorAnswersWhenSTUNStaysSilent(t *testing.T) {
+	saved := p2pAnswerPace
+	p2pAnswerPace = answerPace{settle: 30 * time.Millisecond, local: 300 * time.Millisecond}
+	defer func() { p2pAnswerPace = saved }()
 	caller, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
 		t.Fatal(err)
@@ -105,12 +130,12 @@ func TestWebRTCAcceptorAnswersWithoutWaitingOutAnUnansweredSTUNServer(t *testing
 	}
 	<-callerGathered
 
-	// A documentation address: its STUN binding is never answered, so pion
-	// would keep gathering open for its full five seconds.
+	// A documentation address: its STUN binding is never answered, so the answer
+	// can only carry the host candidates gathered immediately.
 	acceptor := &webRTCAcceptor{configuration: webrtc.Configuration{
 		ICEServers: []webrtc.ICEServer{{URLs: []string{"stun:192.0.2.1:3478"}}},
 	}}
-	ctx, cancel := context.WithTimeout(context.Background(), 8*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	started := time.Now()
 	answer, link, err := acceptor.Accept(ctx, caller.LocalDescription().SDP, func(mux.Conn, envelope.Frame) {}, func(mux.Conn) {})
@@ -118,8 +143,8 @@ func TestWebRTCAcceptorAnswersWithoutWaitingOutAnUnansweredSTUNServer(t *testing
 		t.Fatal(err)
 	}
 	defer link.Close()
-	if elapsed := time.Since(started); elapsed >= 4*time.Second {
-		t.Fatalf("answered after %v", elapsed)
+	if elapsed := time.Since(started); elapsed >= 2*time.Second {
+		t.Fatalf("answered after %v, want the local deadline", elapsed)
 	}
 	if !sdpCandidate.MatchString(answer) {
 		t.Fatalf("answer carries no candidate:\n%s", answer)

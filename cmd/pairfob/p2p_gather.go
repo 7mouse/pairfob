@@ -12,15 +12,18 @@ import (
 // An answer does not wait for ICE gathering to complete: pion waits up to five
 // seconds for a STUN reply that was lost, while the reply from the other
 // interfaces arrived within a fraction of a second. Candidates are not trickled
-// afterwards; connectivity checks find any address the answer left out.
+// afterwards, so an answer sent without the server-reflexive candidate is only
+// reachable from the computer's own networks: hold the answer until STUN either
+// answers or gives up.
 type answerPace struct {
 	// After the first server-reflexive candidate, for the other interfaces' replies.
 	settle time.Duration
-	// With host candidates alone, when no STUN reply has come at all.
+	// Hard stop once STUN stayed silent that long; answer with the host
+	// candidates instead of waiting for the context.
 	local time.Duration
 }
 
-var p2pAnswerPace = answerPace{settle: 300 * time.Millisecond, local: 2 * time.Second}
+var p2pAnswerPace = answerPace{settle: 300 * time.Millisecond, local: 6 * time.Second}
 
 var sdpCandidate = regexp.MustCompile(`(?m)^a=candidate:`)
 

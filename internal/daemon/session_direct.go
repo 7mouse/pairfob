@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	directOfferTimeout = 6 * time.Second
+	directOfferTimeout = 9 * time.Second
 	directReadyTTL     = 20 * time.Second
 	// The browser budget is deliberately larger so relay and queue overhead do
 	// not expire the caller at the same instant as this server-side operation.
