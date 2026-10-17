@@ -14,6 +14,8 @@ import (
 func TestNotRunningUsesServiceHintAndPreservesOtherErrors(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 	t.Setenv("PAIRFOB_STATE_DIR", t.TempDir())
+	t.Setenv("PREFIX", t.TempDir())
+	t.Setenv("TERMUX_VERSION", "")
 	layout, err := currentServiceLayout()
 	if err != nil {
 		t.Fatal(err)

@@ -33,6 +33,9 @@ func migrateLegacyUserService() error {
 	if err != nil {
 		return err
 	}
+	if current.GOOS == "termux" {
+		return nil
+	}
 	return withServiceLock(current, migrateLegacyServiceLocked)
 }
 

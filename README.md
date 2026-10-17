@@ -79,8 +79,9 @@ vulnerabilities privately via [SECURITY.md](SECURITY.md).
 
 | Item | Requirement |
 | --- | --- |
-| Computer | macOS or Linux (Windows is not supported) |
+| Computer | macOS, Linux, or Termux on Android (Windows is not supported) |
 | Herdr | 0.8 or newer; the installer installs the latest stable release if missing |
+| Termux service | `termux-services` (the installer uses runit instead of systemd) |
 | Herdr plugin | Herdr 0.8.2 or newer |
 | Close a workspace from the phone | Herdr 0.9.0 or newer |
 | Phone / tablet | A current mobile browser; installable as a PWA |

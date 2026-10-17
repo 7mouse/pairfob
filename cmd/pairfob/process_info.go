@@ -26,7 +26,7 @@ func newProcessInfo(dir string) (admin.ProcessInfo, error) {
 		return admin.ProcessInfo{}, err
 	}
 	image := exe
-	if runtime.GOOS == "linux" {
+	if runtime.GOOS == "linux" || runtime.GOOS == "android" {
 		image = "/proc/self/exe"
 	}
 	hash, err := executableHash(image)

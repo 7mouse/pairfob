@@ -101,6 +101,8 @@ func lifecycleFixture(t *testing.T) (serviceLayout, string) {
 	}
 	t.Setenv("HOME", dir)
 	t.Setenv("PAIRFOB_STATE_DIR", dir)
+	t.Setenv("PREFIX", filepath.Join(dir, "prefix"))
+	t.Setenv("TERMUX_VERSION", "")
 	sock := filepath.Join(dir, "pairfob.sock")
 	t.Setenv("PAIRFOB_ADMIN_SOCK", sock)
 	layout, err := currentServiceLayout()

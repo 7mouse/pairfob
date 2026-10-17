@@ -53,6 +53,10 @@ func managedDaemon() bool {
 	if _, err = os.Stat(layout.UnitPath); err != nil {
 		return false
 	}
+	if layout.GOOS == "termux" {
+		observation, err := observeTermuxService(layout)
+		return err == nil && observation.PID == os.Getpid()
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	if runtime.GOOS == "darwin" {

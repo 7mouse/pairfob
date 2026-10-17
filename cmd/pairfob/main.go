@@ -17,9 +17,11 @@ import (
 	"pairfob/internal/pairingqr"
 	"pairfob/internal/runtime"
 	"pairfob/internal/state"
+	"pairfob/internal/termux"
 )
 
 func main() {
+	termux.Configure()
 	if len(os.Args) > 1 {
 		sock, err := admin.SocketPath()
 		if err != nil {

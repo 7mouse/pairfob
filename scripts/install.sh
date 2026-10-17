@@ -31,6 +31,12 @@ SKIP_HERDR_CHECK=0
 BASE="${PAIRFOB_DOWNLOAD_BASE:-https://pairfob.com/dl}"
 BASE="${BASE%/}"
 
+# Termux has no systemd/launchd; services run under termux-services' runit.
+termux=0
+if [ -n "${TERMUX_VERSION:-}" ] || { [ "${ANDROID_ROOT:-}" = "/system" ] && [ -n "${PREFIX:-}" ]; }; then
+  termux=1
+fi
+
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --grant | --grant=*)
@@ -103,6 +109,11 @@ case "$arch" in
     ;;
 esac
 name="pairfob-${os}-${arch}"
+
+if [ "$termux" -eq 1 ] && [ "$NO_SERVICE" -eq 0 ] && ! command -v sv >/dev/null 2>&1; then
+  echo "install.sh: Termux runs the background service with runit; install it first: pkg install termux-services" >&2
+  exit 1
+fi
 
 # Match the login service's startup directory, while preserving relative prefixes.
 case "$PREFIX" in

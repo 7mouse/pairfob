@@ -49,6 +49,8 @@ func TestBareTTYOfflineExitsWithoutStartingDaemon(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Setenv("HOME", test.home)
+			t.Setenv("PREFIX", t.TempDir())
+			t.Setenv("TERMUX_VERSION", "")
 			stateDir := t.TempDir()
 			t.Setenv("PAIRFOB_STATE_DIR", stateDir)
 			sock := testSocket(t)

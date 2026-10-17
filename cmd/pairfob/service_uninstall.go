@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -36,6 +37,13 @@ func serviceSystemdUnit(layout serviceLayout) string {
 }
 
 func serviceActive(layout serviceLayout) (bool, error) {
+	if layout.GOOS == "termux" {
+		observation, err := observeTermuxService(layout)
+		if err != nil {
+			return false, err
+		}
+		return observation.State == "running" || observation.State == "starting", nil
+	}
 	cmds := serviceCommands(layout, "status")
 	if len(cmds) != 1 {
 		return false, fmt.Errorf("unsupported service platform %q", layout.GOOS)
@@ -97,7 +105,11 @@ func uninstallServiceLayout(layout serviceLayout) error {
 		}
 	}
 
-	if err := os.Remove(layout.UnitPath); err != nil && !errors.Is(err, os.ErrNotExist) {
+	if layout.GOOS == "termux" {
+		if err := os.RemoveAll(filepath.Dir(layout.UnitPath)); err != nil {
+			return err
+		}
+	} else if err := os.Remove(layout.UnitPath); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
 	if unitExists && layout.GOOS == "linux" {

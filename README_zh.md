@@ -68,8 +68,9 @@ pairfob pair
 
 | 项目 | 要求 |
 | --- | --- |
-| 电脑 | macOS 或 Linux（不支持 Windows） |
+| 电脑 | macOS、Linux，或 Android 上的 Termux（不支持 Windows） |
 | Herdr | 0.8 及以上；缺少时自动安装最新稳定版 |
+| Termux 服务 | `termux-services`（安装脚本用 runit 代替 systemd） |
 | Herdr 插件 | Herdr 0.8.2 及以上 |
 | 在手机上关闭工作区 | Herdr 0.9.0 及以上 |
 | 手机 / 平板 | 较新的移动浏览器，可安装为 PWA |

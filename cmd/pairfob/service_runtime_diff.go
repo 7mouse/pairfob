@@ -161,8 +161,10 @@ func readUnitRuntime(goos string, body []byte) (unitRuntime, error) {
 		return unitRuntime{env: env}, err
 	case "linux":
 		return systemdUnitRuntime(body)
+	case "termux":
+		return termuxUnitRuntime(body)
 	default:
-		return unitRuntime{}, errors.New("user service is supported on macOS and Linux")
+		return unitRuntime{}, errors.New("user service is supported on macOS, Linux and Termux")
 	}
 }
 

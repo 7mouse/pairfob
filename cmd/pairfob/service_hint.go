@@ -17,7 +17,7 @@ func localServiceHint() serviceRecoveryHint {
 // recoveryHint is used only when the daemon is not answering. It observes the
 // service manager without controlling the service or taking its lock.
 func recoveryHint(layout serviceLayout, layoutErr error) serviceRecoveryHint {
-	if layoutErr != nil || (layout.GOOS != "darwin" && layout.GOOS != "linux") {
+	if layoutErr != nil || (layout.GOOS != "darwin" && layout.GOOS != "linux" && layout.GOOS != "termux") {
 		return serviceRecoveryHint{"service unavailable", "pairfob run"}
 	}
 	if _, err := os.Stat(layout.UnitPath); errors.Is(err, os.ErrNotExist) {

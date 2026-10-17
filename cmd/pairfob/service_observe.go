@@ -17,6 +17,9 @@ type serviceObservation struct {
 }
 
 func observeService(layout serviceLayout) (serviceObservation, error) {
+	if layout.GOOS == "termux" {
+		return observeTermuxService(layout)
+	}
 	if layout.GOOS == "linux" {
 		out, err := runServiceCommand([]string{"systemctl", "--user", "show", serviceSystemdUnit(layout), "--no-pager", "--property=MainPID,ActiveState,SubState,Result,ExecMainStatus,ExecStart"})
 		if err != nil {

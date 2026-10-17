@@ -9,9 +9,11 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 
 	"pairfob/internal/admin"
 	"pairfob/internal/state"
+	"pairfob/internal/termux"
 )
 
 const (
@@ -101,10 +103,17 @@ func currentServiceLayout() (serviceLayout, error) {
 	switch runtime.GOOS {
 	case "darwin":
 		layout.UnitPath = filepath.Join(home, "Library", "LaunchAgents", launchdLabel+".plist")
-	case "linux":
-		layout.UnitPath = filepath.Join(home, ".config", "systemd", "user", systemdUnit)
+	case "linux", "android":
+		if termux.Enabled() {
+			layout.GOOS = "termux"
+			layout.UnitPath = filepath.Join(termux.ServiceDir(), "run")
+		} else if runtime.GOOS == "linux" {
+			layout.UnitPath = filepath.Join(home, ".config", "systemd", "user", systemdUnit)
+		} else {
+			return serviceLayout{}, errors.New("user service is supported on macOS, Linux and Termux")
+		}
 	default:
-		return serviceLayout{}, errors.New("user service is supported on macOS and Linux")
+		return serviceLayout{}, errors.New("user service is supported on macOS, Linux and Termux")
 	}
 	return layout, nil
 }
@@ -174,15 +183,18 @@ WantedBy=default.target
 }
 
 func userServicePATH(home string) string {
-	return strings.Join([]string{
-		filepath.Join(home, ".local", "bin"),
+	parts := []string{filepath.Join(home, ".local", "bin")}
+	if termux.Enabled() {
+		parts = append(parts, filepath.Join(termux.Prefix(), "bin"))
+	}
+	return strings.Join(append(parts,
 		"/usr/local/bin",
 		"/opt/homebrew/bin",
 		"/usr/bin",
 		"/bin",
 		"/usr/sbin",
 		"/sbin",
-	}, ":")
+	), ":")
 }
 
 func xmlEscape(s string) string {
@@ -213,6 +225,12 @@ func installUserService() error {
 }
 
 func installUserServiceLayout(layout serviceLayout) error {
+	if layout.GOOS == "termux" {
+		// Fail before stopping a working service when runit is unavailable.
+		if err := termuxRequireRunit(); err != nil {
+			return err
+		}
+	}
 	if err := os.MkdirAll(layout.StateDir, 0o700); err != nil {
 		return err
 	}
@@ -248,8 +266,19 @@ func installUserServiceLayout(layout serviceLayout) error {
 func rewriteServiceUnit(layout serviceLayout, out io.Writer) error {
 	body := []byte(unitBody(layout))
 	notice := runtimeSettingsNotice(layout, body)
-	if err := os.WriteFile(layout.UnitPath, body, 0o644); err != nil {
+	mode := os.FileMode(0o644)
+	if layout.GOOS == "termux" {
+		// runit executes the run script; systemd and launchd only read theirs.
+		mode = 0o700
+	}
+	if err := os.WriteFile(layout.UnitPath, body, mode); err != nil {
 		return err
+	}
+	if layout.GOOS == "termux" {
+		// WriteFile keeps the mode of an existing file; run needs the bit.
+		if err := os.Chmod(layout.UnitPath, mode); err != nil {
+			return err
+		}
 	}
 	io.WriteString(out, notice)
 	return nil
@@ -317,12 +346,22 @@ func unitBody(layout serviceLayout) string {
 		return launchdPlist(layout.ExecPath, layout.LogPath, layout.Home)
 	case "linux":
 		return systemdUnitFile(layout.ExecPath, layout.LogPath, layout.Home)
+	case "termux":
+		return termuxRunScript(layout)
 	default:
 		return ""
 	}
 }
 
 func applyService(layout serviceLayout, action string) error {
+	if layout.GOOS == "termux" && action == "install" {
+		if err := termuxRequireRunit(); err != nil {
+			return err
+		}
+		if err := waitForTermuxSupervise(layout, 15*time.Second); err != nil {
+			return err
+		}
+	}
 	cmds := serviceCommands(layout, action)
 	var firstErr error
 	for _, c := range cmds {
@@ -380,6 +419,19 @@ func serviceCommands(layout serviceLayout, action string) [][]string {
 			return [][]string{{"systemctl", "--user", "is-active", unit}}
 		case "uninstall":
 			return [][]string{{"systemctl", "--user", "disable", "--now", unit}}
+		}
+	case "termux":
+		// runsv answers `sv down` before the daemon has exited; -w makes the
+		// command block until the requested state is reached.
+		switch action {
+		case "install", "start":
+			return [][]string{{"sv", "-w", "30", "up", termuxServiceName}}
+		case "restart":
+			return [][]string{{"sv", "-w", "30", "restart", termuxServiceName}}
+		case "stop", "uninstall":
+			return [][]string{{"sv", "-w", "30", "down", termuxServiceName}}
+		case "status":
+			return [][]string{{"sv", "status", termuxServiceName}}
 		}
 	}
 	return nil

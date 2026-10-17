@@ -48,6 +48,8 @@ func TestRealServiceRecovery(t *testing.T) {
 	}
 	t.Setenv("HOME", dir)
 	t.Setenv("PAIRFOB_STATE_DIR", dir)
+	t.Setenv("PREFIX", filepath.Join(dir, "prefix"))
+	t.Setenv("TERMUX_VERSION", "")
 	sock := filepath.Join(dir, "pairfob.sock")
 	t.Setenv("PAIRFOB_ADMIN_SOCK", sock)
 	t.Setenv("PAIRFOB_HERDR_AUTOSTART", "0")
