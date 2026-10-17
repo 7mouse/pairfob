@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -18,6 +19,11 @@ func TestNotRunningUsesServiceHintAndPreservesOtherErrors(t *testing.T) {
 	t.Setenv("TERMUX_VERSION", "")
 	layout, err := currentServiceLayout()
 	if err != nil {
+		// An android build only has a layout inside Termux, and this test pins a
+		// systemd or launchd manager. Termux runs the termux service tests.
+		if runtime.GOOS == "android" {
+			t.Skip("android build outside Termux has no user service")
+		}
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Dir(layout.UnitPath), 0700); err != nil {

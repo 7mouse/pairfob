@@ -37,7 +37,7 @@ func TestRealServiceRecovery(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir, err := os.MkdirTemp("/tmp", "pf-e2e-")
+	dir, err := os.MkdirTemp("", "pf-e2e-")
 	if err != nil {
 		t.Fatal(err)
 	}

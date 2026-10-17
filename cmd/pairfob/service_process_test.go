@@ -90,7 +90,7 @@ func startLifecycleExecutable(t *testing.T, executable, dir, sock, build string,
 
 func lifecycleFixture(t *testing.T) (serviceLayout, string) {
 	t.Helper()
-	dir, err := os.MkdirTemp("/tmp", "pfr-")
+	dir, err := os.MkdirTemp("", "pfr-")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -107,6 +107,11 @@ func lifecycleFixture(t *testing.T) (serviceLayout, string) {
 	t.Setenv("PAIRFOB_ADMIN_SOCK", sock)
 	layout, err := currentServiceLayout()
 	if err != nil {
+		// The android build only has a service layout inside Termux, and these
+		// fixtures stub a systemd or launchd manager.
+		if runtime.GOOS == "android" {
+			t.Skip("android build outside Termux has no user service")
+		}
 		t.Fatal(err)
 	}
 	if err := os.MkdirAll(filepath.Dir(layout.UnitPath), 0700); err != nil {
