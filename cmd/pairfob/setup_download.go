@@ -2,12 +2,21 @@ package main
 
 import (
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"os"
 	runtimeapi "pairfob/internal/runtime"
 	"path/filepath"
 	"runtime"
+	"syscall"
 )
+
+// linkUnsupported reports a filesystem that refuses hardlinks, as Android does
+// to apps with EACCES.
+func linkUnsupported(err error) bool {
+	return errors.Is(err, syscall.EACCES) || errors.Is(err, syscall.EPERM) ||
+		errors.Is(err, syscall.EOPNOTSUPP) || errors.Is(err, syscall.ENOTSUP)
+}
 
 func installHerdr() error {
 	f, err := localHerdrFiles()
@@ -119,7 +128,14 @@ func activateHerdr(dest string, payload []byte, want string) error {
 	// Link atomically publishes a complete executable without replacing an
 	// existing file or symlink, including one installed while downloading.
 	if err = os.Link(file.Name(), dest); err != nil {
-		return fmt.Errorf("install Herdr without replacing an existing installation: %w", err)
+		if !linkUnsupported(err) {
+			return fmt.Errorf("install Herdr without replacing an existing installation: %w", err)
+		}
+		// Android denies hardlinks to apps. RENAME_NOREPLACE publishes the same
+		// finished file without replacing anything already there.
+		if err = renameNoReplace(file.Name(), dest); err != nil {
+			return fmt.Errorf("install Herdr without replacing an existing installation: %w", err)
+		}
 	}
 	return nil
 }
