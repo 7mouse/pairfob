@@ -2,6 +2,7 @@ package workspace
 
 import (
 	"errors"
+	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +15,25 @@ var ErrMutationUnknown = errors.New("file operation outcome is unknown")
 
 // MutateFile pins the parent directory before touching a name. All path
 // components must be ordinary directories; symlinks and Git metadata are excluded.
+// openMutationRoot returns a descriptor for the deepest ancestor of canonical it
+// can open, plus the components still to walk from there. Resolving by
+// descriptor keeps a parent replaced with a symlink after canonicalization from
+// redirecting the mutation; Android denies apps "/" itself, so the walk starts
+// at the deepest ancestor they may open.
+func openMutationRoot(canonical string) (*os.File, string, error) {
+	parts := strings.Split(strings.TrimPrefix(canonical, "/"), "/")
+	for i := 0; i <= len(parts); i++ {
+		dir, err := os.Open("/" + strings.Join(parts[:i], "/"))
+		if err == nil {
+			return dir, strings.Join(parts[i:], "/"), nil
+		}
+		if !errors.Is(err, fs.ErrPermission) {
+			return nil, "", err
+		}
+	}
+	return nil, "", fs.ErrPermission
+}
+
 func MutateFile(root, expectedRoot, relative, newName, revision string, size, modifiedMS int64, rename bool) error {
 	canonical, err := canonicalRoot(root)
 	if err != nil {
@@ -38,14 +58,12 @@ func MutateFile(root, expectedRoot, relative, newName, revision string, size, mo
 			return ErrInvalidPath
 		}
 	}
-	dir, err := os.Open(string(filepath.Separator))
+	dir, anchored, err := openMutationRoot(canonical)
 	if err != nil {
 		return err
 	}
 	defer func() { dir.Close() }()
-	// Resolve even the canonical absolute root by descriptor: a parent replaced
-	// with a symlink after canonicalization must not redirect the mutation.
-	parents := append(strings.Split(strings.TrimPrefix(canonical, "/"), "/"), components[:len(components)-1]...)
+	parents := append(strings.Split(anchored, "/"), components[:len(components)-1]...)
 	for _, component := range parents {
 		if component == "" {
 			continue
