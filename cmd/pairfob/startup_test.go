@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"os"
+	goruntime "runtime"
 	"strings"
 	"testing"
 
@@ -40,6 +41,11 @@ func TestBareTTYLiveShowsSnapshot(t *testing.T) {
 }
 
 func TestBareTTYOfflineExitsWithoutStartingDaemon(t *testing.T) {
+	if goruntime.GOOS == "android" {
+		// The android build only has a service layout inside Termux, and this
+		// table pins the systemd and launchd advice.
+		t.Skip("android build outside Termux has no user service")
+	}
 	for _, test := range []struct {
 		name, home, note, advice string
 		foregroundAlternative    bool

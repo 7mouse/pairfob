@@ -32,8 +32,20 @@ bash -n "$ROOT/plugin/herdr/pairfob.sh"
 
 jq empty proto/pairfob-vectors.json proto/pgp-words.json proto/rpc.schema.json
 go vet ./...
-go test ./...
-go test -race ./...
+
+# An android GOOS build links pion's interface fallback, which aliases a net
+# symbol whose definition changed; the deferred path never touches it and the
+# flag only relaxes the link check. Termux tests otherwise fail to build.
+test_flags=()
+if [[ "$(go env GOOS)" == "android" ]]; then
+  test_flags+=("-ldflags=-checklinkname=0")
+fi
+go test "${test_flags[@]}" ./...
+if [[ "$(go env GOOS)" == "android" ]]; then
+  echo "verify: skipping go test -race; the race detector has no android/arm64 runtime" >&2
+else
+  go test -race "${test_flags[@]}" ./...
+fi
 go run golang.org/x/vuln/cmd/govulncheck@v1.7.0 ./...
 bun test scripts/load-mux.test.ts
 bun test scripts/dev-acme.test.ts
