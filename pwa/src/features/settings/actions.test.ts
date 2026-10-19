@@ -8,6 +8,8 @@ import { clearNotice } from "../../app/notices-store";
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { NO_OPERATION_CAPABILITIES } from "../../lib/operations";
 import { enablePush, refreshSettings, settingsReadStillOwned } from "./actions";
+import { computerPushScope } from "./push-registrations";
+import { installFakeServiceWorkers } from "../../../test-support/service-workers";
 
 const validConfig = (push = true) => ({
   protocol: 1,
@@ -158,12 +160,14 @@ test("a newer settings read started during loading publication retires the outer
 test("enablePush that is authorized after a computer switch does not write or toast the replacement", async () => {
   let grant!: (value: NotificationPermission) => void;
   const permission = new Promise<NotificationPermission>(resolve => { grant = resolve; });
-  const subscription = { toJSON: () => ({ endpoint: "https://push.local/id" }) };
+  // Made earlier with this computer's key, so enablePush reuses it.
+  const subscription = { options: { applicationServerKey: new Uint8Array([0]).buffer }, toJSON: () => ({ endpoint: "https://push.local/id" }) };
   Object.defineProperty(navigator, "serviceWorker", {
     configurable: true,
     value: {
       ready: Promise.resolve({ pushManager: { getSubscription: async () => subscription, subscribe: async () => subscription } }),
       getRegistration: async () => ({ pushManager: { getSubscription: async () => subscription } }),
+      getRegistrations: async () => [],
     },
   });
   Object.defineProperty(window, "PushManager", { configurable: true, value: class {} });
@@ -195,4 +199,64 @@ test("enablePush that is authorized after a computer switch does not write or to
   expect(aWrites).toBe(0);
   expect(bReads).toBe(0);
   expect(runtimeStore.get().pushSubscribed).toBeNull();
+});
+
+test("the notification row reads each computer's own subscription and readies a worker for the next", async () => {
+  const workers = installFakeServiceWorkers();
+  const pushManager = Object.getOwnPropertyDescriptor(window, "PushManager");
+  const notification = { permission: "granted" };
+  Object.defineProperty(window, "PushManager", { configurable: true, value: class {} });
+  Object.defineProperty(window, "Notification", { configurable: true, value: notification });
+  Object.defineProperty(globalThis, "Notification", { configurable: true, value: notification });
+  const computer = (config: ReturnType<typeof validConfig>) => ({
+    isConnected: () => true, listDevices: async () => ({ devices: [] }), getConfig: async () => config,
+  } as unknown as LiveSession);
+  try {
+    workers.subscribe(workers.app, 0);
+    attachLiveSession(computer(validConfig(true)));
+    await refreshSettings();
+    expect(runtimeStore.get().pushSubscribed).toBeTrue();
+    expect(workers.registerCalls).toEqual([]);
+
+    const second = { ...validConfig(true), daemon_id: "d_bbbbbbbbbbbbbbbbbbbb", vapid_public: "AQ" };
+    attachLiveSession(computer(second));
+    await refreshSettings();
+    expect(runtimeStore.get().pushSubscribed).toBeFalse();
+    expect(workers.registerCalls).toEqual([computerPushScope(second.daemon_id)]);
+  } finally {
+    workers.restore();
+    if (pushManager) Object.defineProperty(window, "PushManager", pushManager);
+    else Reflect.deleteProperty(window, "PushManager");
+  }
+});
+
+test("a subscription the computer never saved is not reported on", async () => {
+  const workers = installFakeServiceWorkers();
+  const pushManager = Object.getOwnPropertyDescriptor(window, "PushManager");
+  const notification = { permission: "granted" };
+  Object.defineProperty(window, "PushManager", { configurable: true, value: class {} });
+  Object.defineProperty(window, "Notification", { configurable: true, value: notification });
+  Object.defineProperty(globalThis, "Notification", { configurable: true, value: notification });
+  const computer = (count?: number) => ({
+    isConnected: () => true,
+    listDevices: async () => ({ devices: [{ device_id: "dev_self", self: true, ...(count === undefined ? {} : { subscription_count: count }) }] }),
+    getConfig: async () => validConfig(true),
+  } as unknown as LiveSession);
+  try {
+    workers.subscribe(workers.app, 0);
+    attachLiveSession(computer(0));
+    await refreshSettings();
+    expect(runtimeStore.get().pushSubscribed).toBeFalse();
+    attachLiveSession(computer(1));
+    await refreshSettings();
+    expect(runtimeStore.get().pushSubscribed).toBeTrue();
+    // An older computer that does not report a count falls back to the browser's own record.
+    attachLiveSession(computer());
+    await refreshSettings();
+    expect(runtimeStore.get().pushSubscribed).toBeTrue();
+  } finally {
+    workers.restore();
+    if (pushManager) Object.defineProperty(window, "PushManager", pushManager);
+    else Reflect.deleteProperty(window, "PushManager");
+  }
 });

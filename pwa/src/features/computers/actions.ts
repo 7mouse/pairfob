@@ -35,6 +35,7 @@ import type { ComputersBackTarget, ComputersViewInput } from "./model";
 import { advanceComputersFlow, computersFlowId } from "./work";
 import { createMachineLinks } from "./machine-link";
 import { capabilitiesStore, capabilityEnabled } from "../operations/capabilities-store";
+import { forgetComputerPush } from "../settings/push-registrations";
 
 /**
  * Computer controller — the feature's one connected adapter.
@@ -202,6 +203,9 @@ export async function forgetComputer(daemonId: string): Promise<void> {
   // local rows (its epoch is marked before any await, so late writes can't
   // resurrect them). No server RPC; other daemons are preserved.
   await forgetDaemonAttachments(forgottenDaemonId);
+  // Its own push worker goes too, and its subscription with it. A subscription
+  // on the app's registration stays: the phone keeps no record of its owner.
+  await forgetComputerPush(forgottenDaemonId).catch(() => undefined);
   // reloadComputers publishes the fresh catalog through the computers domain
   // (batched after its load-generation guard); the stale-owner guard below
   // suppresses this completion's landing/toast for a replacement owner.

@@ -1,7 +1,8 @@
-import { useState, useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
+import { useNavigation } from "../../app/domain-hooks";
 import { useConnection, useRuntime } from "../../features/connection/hooks";
 import { useComputers } from "../../features/computers/hooks";
-import { enablePush, supportsWebPush } from "../../features/settings/actions";
+import { enablePush, preparePush, supportsWebPush } from "../../features/settings/actions";
 import { dismissNotifications, notificationPromptRevision, notificationsPending, subscribeNotificationPrompt } from "../../features/settings/notification-onboarding";
 import { t } from "../../lib/i18n";
 import { Button } from "../../shared/ui/primitives/button";
@@ -13,15 +14,19 @@ export function needsHomeScreen(): boolean {
     && !(navigator as Navigator & { standalone?: boolean }).standalone;
 }
 
-/** A floating invitation never resizes the computer's terminal or takes focus. */
+/**
+ * A floating invitation never resizes the computer's terminal or takes focus.
+ * Settings has its own notification row, which the card would float over.
+ */
 export function NotificationPrompt() {
   const { phase } = useConnection();
+  const { screen } = useNavigation();
   const { credential, live } = useComputers();
   const { pushEnabled, pushSubscribed } = useRuntime();
   useSyncExternalStore(subscribeNotificationPrompt, notificationPromptRevision);
   const daemonId = credential?.daemonId ?? "";
   const install = needsHomeScreen();
-  if (phase !== "live" || !live || !daemonId || !notificationsPending(daemonId)
+  if (phase !== "live" || !live || screen === "settings" || !daemonId || !notificationsPending(daemonId)
     || pushEnabled !== true || pushSubscribed === true
     || (!install && !supportsWebPush()) || ("Notification" in window && Notification.permission === "denied")) return null;
   return <NotificationInvitation key={daemonId} daemonId={daemonId} install={install} />;
@@ -30,6 +35,7 @@ export function NotificationPrompt() {
 function NotificationInvitation({ daemonId, install }: { daemonId: string; install: boolean }) {
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  useEffect(() => { if (!install) preparePush(); }, [daemonId, install]);
   return <aside className="notification-prompt" aria-label={t("push.inviteTitle")}>
     <strong>{t("push.inviteTitle")}</strong>
     <p>{t(install ? "push.homeScreen" : "push.inviteBody")}</p>

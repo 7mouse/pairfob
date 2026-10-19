@@ -1,12 +1,15 @@
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act } from "react";
 import { resetBoardTestDOM } from "../../../test-support/dom";
+import { installFakeServiceWorkers, type FakeServiceWorkers } from "../../../test-support/service-workers";
 import { renderReact, unmountReact } from "../../../test-support/react-harness";
 import { attachLiveSession, setCredential } from "../../features/computers/catalog-store";
 import { setPhase } from "../../features/connection/connection-store";
+import { setScreen } from "../../app/navigation-store";
 import { resetRuntime, setPushEnabled, setPushSubscribed } from "../../features/connection/runtime-store";
 import { dismissNotifications, notificationsPending, offerNotifications } from "../../features/settings/notification-onboarding";
 import { rememberPushConfig } from "../../features/settings/push-config";
+import { computerPushScope } from "../../features/settings/push-registrations";
 import { enablePush } from "../../features/settings/actions";
 import type { LiveSession, PairResult } from "../../lib/protocol/client";
 import { NO_OPERATION_CAPABILITIES } from "../../lib/operations";
@@ -22,7 +25,7 @@ let permissionCalls: number;
 let writes: number;
 let reads: number;
 let session: LiveSession;
-let subscription: PushSubscription | null;
+let workers: FakeServiceWorkers;
 let permissionResult: NotificationPermission;
 let restore: Array<() => void>;
 
@@ -38,16 +41,8 @@ beforeEach(async () => {
   daemonId = `prompt-test-${++serial}`;
   permissionCalls = writes = reads = 0;
   permissionResult = "denied";
-  subscription = null;
-  const registration = { pushManager: {
-    getSubscription: async () => subscription,
-    subscribe: async () => {
-      subscription = { options: { applicationServerKey: new Uint8Array([0]).buffer },
-        toJSON: () => ({ endpoint: "https://push.example/id" }) } as PushSubscription;
-      return subscription;
-    },
-  } };
-  property(navigator, "serviceWorker", { ready: Promise.resolve(registration), getRegistration: async () => registration });
+  workers = installFakeServiceWorkers();
+  restore.push(workers.restore);
   property(window, "PushManager", class {});
   const notification = { permission: "default", requestPermission: () => { permissionCalls++; return Promise.resolve(permissionResult); } };
   property(window, "Notification", notification);
@@ -66,6 +61,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   unmountReact();
+  setScreen("home");
   dismissNotifications(daemonId);
   attachLiveSession(null);
   setCredential(null);
@@ -103,12 +99,30 @@ test("a successful subscription is saved once and the invitation is dismissed", 
   expect(document.querySelector(".notification-prompt")).toBeNull();
 });
 
-test("an existing subscription for another computer is not replaced or reported enabled", async () => {
+test("another computer's subscription stays; this computer gets its own and saves it once", async () => {
   permissionResult = "granted";
-  subscription = { options: { applicationServerKey: new Uint8Array([1]).buffer } } as PushSubscription;
+  const other = workers.subscribe(workers.app, 1);
+  expect(await enablePush()).toBeTrue();
+  expect(writes).toBe(1);
+  expect(workers.app.subscription).toBe(other);
+  expect(workers.at(computerPushScope(config.daemon_id))!.subscription!.key).toBe(0);
+});
+
+test("a browser that cannot hold another subscription writes nothing and keeps the other computer's", async () => {
+  permissionResult = "granted";
+  const other = workers.subscribe(workers.app, 1);
+  workers.failRegister = new Error("SecurityError");
   expect(await enablePush()).toBeFalse();
   expect(writes).toBe(0);
-  expect(new Uint8Array(subscription.options.applicationServerKey!)[0]).toBe(1);
+  expect(workers.app.subscription).toBe(other);
+});
+
+test("the invitation readies this computer's worker without asking for permission", async () => {
+  workers.subscribe(workers.app, 1);
+  renderReact(<NotificationPrompt />);
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 0)); });
+  expect(workers.registerCalls).toEqual([computerPushScope(config.daemon_id)]);
+  expect(permissionCalls).toBe(0);
 });
 
 test("unsupported, disabled, already subscribed and unpaired surfaces have no invitation", () => {
@@ -119,4 +133,14 @@ test("unsupported, disabled, already subscribed and unpaired surfaces have no in
   expect(document.querySelector(".notification-prompt")).toBeNull();
   act(() => { setPushSubscribed(false); setPhase("connect"); });
   expect(document.querySelector(".notification-prompt")).toBeNull();
+});
+
+test("Settings shows its own notification row, so the floating invitation steps aside there", () => {
+  renderReact(<NotificationPrompt />);
+  expect(document.querySelector(".notification-prompt")).not.toBeNull();
+  act(() => setScreen("settings"));
+  expect(document.querySelector(".notification-prompt")).toBeNull();
+  act(() => setScreen("home"));
+  expect(document.querySelector(".notification-prompt")).not.toBeNull();
+  expect(notificationsPending(daemonId)).toBeTrue();
 });

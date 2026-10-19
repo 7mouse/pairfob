@@ -1,4 +1,5 @@
-import { preparedPushConfig, rememberPushConfig, subscriptionMatches } from "./push-config";
+import { preparedPushConfig, rememberPushConfig, type PushConfig } from "./push-config";
+import { computerSubscription, preparePushRegistration, subscribeComputer } from "./push-registrations";
 export { selectNetworkMode } from "./network-preference";
 import { currentScreen, goToScreen } from "../../app/navigation-store";
 import { liveSession } from "../computers/catalog-store";
@@ -79,11 +80,26 @@ export function supportsWebPush(): boolean {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
-async function localPushSubscription(): Promise<PushSubscription | null> {
-  if (!supportsWebPush()) return null;
-  const registration = await navigator.serviceWorker.getRegistration();
-  if (!registration) return null;
-  return registration.pushManager.getSubscription();
+/** Whether this browser holds a subscription made with the connected computer's key. */
+async function computerSubscribed(push: PushConfig | undefined): Promise<boolean> {
+  if (!supportsWebPush() || !push) return false;
+  const app = await navigator.serviceWorker.getRegistration();
+  if (!app) return false;
+  const subscribed = (await computerSubscription(app, push.daemon_id, push.vapid_public)) !== null;
+  if (push.push_enabled && Notification.permission !== "denied") {
+    void preparePushRegistration(app, push.daemon_id, push.vapid_public).catch(() => undefined);
+  }
+  return subscribed;
+}
+
+/** Get the connected computer's worker ready before a tap may subscribe it. */
+export function preparePush(): void {
+  const session = liveSession();
+  const push = session ? preparedPushConfig(session) : undefined;
+  if (!push?.push_enabled || !supportsWebPush() || Notification.permission === "denied") return;
+  void navigator.serviceWorker.getRegistration()
+    .then(app => app && preparePushRegistration(app, push.daemon_id, push.vapid_public))
+    .catch(() => undefined);
 }
 
 export async function refreshSettings(): Promise<void> {
@@ -96,14 +112,19 @@ export async function refreshSettings(): Promise<void> {
     endSettingsRead(request);
     return;
   }
-  const [devices, config, subscription] = await Promise.allSettled([
+  const [devices, config] = await Promise.allSettled([
     session.listDevices(),
     session.getConfig(),
-    localPushSubscription(),
   ]);
   if (!settingsReadStillOwned(request, session)) return;
+  // The computer's own count for this device: a subscription the browser holds
+  // but the computer never saved (its PushSubscribe was lost) is not "on".
+  let computerHolds: boolean | null = null;
   if (devices.status === "fulfilled") {
-    applyDeviceList(Array.isArray(devices.value.devices) ? devices.value.devices : [], "");
+    const list = Array.isArray(devices.value.devices) ? devices.value.devices : [];
+    const count = list.find(device => device.self)?.subscription_count;
+    if (typeof count === "number") computerHolds = count > 0;
+    applyDeviceList(list, "");
   } else {
     setDevicesError(t("err.devicesLoad"));
   }
@@ -128,8 +149,10 @@ export async function refreshSettings(): Promise<void> {
     setPushConfigError(t("err.pushStatusLoad"));
   }
   if (!settingsReadStillOwned(request, session)) return;
-  if (subscription.status === "fulfilled") {
-    setPushSubscribed(subscription.value !== null && subscriptionMatches(subscription.value, preparedPushConfig(session)?.vapid_public ?? ""));
+  const [subscribed] = await Promise.allSettled([computerSubscribed(preparedPushConfig(session))]);
+  if (!settingsReadStillOwned(request, session)) return;
+  if (subscribed.status === "fulfilled") {
+    setPushSubscribed(subscribed.value && computerHolds !== false);
   } else {
     setPushSubscribed(null);
     if (!settingsReadStillOwned(request, session)) return;
@@ -137,13 +160,6 @@ export async function refreshSettings(): Promise<void> {
   }
   if (!settingsReadStillOwned(request, session)) return;
   endSettingsRead(request);
-}
-
-
-function vapidKey(value: string): ArrayBuffer {
-  const padded = value.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (value.length % 4)) % 4);
-  const raw = atob(padded);
-  return Uint8Array.from(raw, (char) => char.charCodeAt(0)).buffer as ArrayBuffer;
 }
 
 export async function enablePush(): Promise<boolean> {
@@ -162,15 +178,9 @@ export async function enablePush(): Promise<boolean> {
     if (permission !== "granted") throw new Error(t("err.pushPermission"));
     const registration = await navigator.serviceWorker.ready;
     if (!sessionStillOwned(session)) return false;
-    const existing = await registration.pushManager.getSubscription();
-    if (!sessionStillOwned(session)) return false;
-    if (existing && !subscriptionMatches(existing, config.vapid_public)) throw new Error(t("push.otherComputer"));
-    const subscription =
-      existing ||
-      (await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: vapidKey(config.vapid_public),
-      }));
+    // A switch to another computer meanwhile leaves this subscription with this
+    // computer's registration, unsent; the next tap here reuses it.
+    const subscription = await subscribeComputer(registration, config.daemon_id, config.vapid_public);
     if (!sessionStillOwned(session)) return false;
     await session.pushSubscribe(subscription.toJSON());
     if (!sessionStillOwned(session)) return false;

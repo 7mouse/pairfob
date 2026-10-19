@@ -41,7 +41,7 @@ On iPhone and iPad, add Pairfob to the Home Screen first and open it from that i
 
 Browsers without Web Push do not offer a subscription. On older computers, update Pairfob first. If sending was explicitly disabled on the computer, Settings shows the command to enable it again.
 
-A browser's existing subscription is tied to one computer's signing key. Pairfob does not replace another computer's subscription silently; use a separate browser profile for another computer's notifications. Pairing and remote control still work across computers.
+Every paired computer can notify the same browser: each one gets its own subscription. Turn notifications on once per computer — switch to it, then open **Settings → Notifications**. If a browser cannot hold a subscription for one more computer, Pairfob says so and leaves the other computers' notifications untouched; use a separate browser profile for that computer.
 
 See [Privacy](/privacy) for what the service and push provider handle.
 

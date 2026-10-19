@@ -1,12 +1,13 @@
 import type { LiveSession } from "../../lib/protocol/client";
 
-type PushConfig = { push_enabled: boolean; vapid_public: string };
+export type PushConfig = { push_enabled: boolean; vapid_public: string; daemon_id: string };
 const configs = new WeakMap<object, PushConfig>();
 
 /** Called only after GetConfig validation, bound to that exact session. */
 export function rememberPushConfig(session: LiveSession, config: Record<string, unknown>): void {
   configs.set(session, { push_enabled: config.push_enabled === true,
-    vapid_public: typeof config.vapid_public === "string" ? config.vapid_public : "" });
+    vapid_public: typeof config.vapid_public === "string" ? config.vapid_public : "",
+    daemon_id: typeof config.daemon_id === "string" ? config.daemon_id : "" });
 }
 export const preparedPushConfig = (session: LiveSession) => configs.get(session);
 
