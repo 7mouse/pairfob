@@ -172,6 +172,14 @@ scope. If edits continue during verification, compare source snapshots before
 publishing rather than moving the work to another branch. Push to the current
 branch's configured upstream; do not force-push.
 
+Daemon releases stay three-part SemVer `vX.Y.Z`: never drop a component, since
+the daemon and PWA updaters refuse to order versions of different lengths.
+Version bumps default to the patch: fixes and features both ship as
+`vX.Y.(Z+1)`. Bump the minor only for a deliberate named milestone release, and
+the major only for a backward-incompatible change. A release commit carries the
+matching `herdr-plugin.toml` version and its `plugin/herdr/plugin.test.ts`
+assertion.
+
 ## Verify
 
 Choose verification by **change scope and task stage**. Do not run the full

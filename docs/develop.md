@@ -188,6 +188,11 @@ deployment, follow the asset-continuity steps below and use
 `PAIRFOB_PACK_DL=1` during verification. Preserve the verified source and
 artifact snapshot; subsequent edits require the affected checks again.
 
+Version numbers default to a patch bump: fixes and features both ship as
+`vX.Y.(Z+1)`. Bump the minor only for a deliberate named milestone release and
+the major only for a backward-incompatible change. Keep all three components;
+the daemon and PWA updaters only order versions of equal length.
+
 After verification, tag that exact commit and push the current branch to its
 configured upstream, then push the tag to the same remote. Upload all six
 files from the verified `dist/dl/` directory; these are also the files served
