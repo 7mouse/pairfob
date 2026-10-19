@@ -44,11 +44,32 @@ pairfob service status
 
 | 输出 | 处理 |
 | --- | --- |
-| Running no | 按提示执行：未安装用 `pairfob service install`，已停止用 `pairfob service start`，服务运行但无响应用 `pairfob service restart`，状态查询失败用 `pairfob service status`。前台运行用 `pairfob run` |
+| Running no | 按提示执行：未安装用 `pairfob service install`，已停止用 `pairfob service start`，服务运行但无响应用 `pairfob service restart`，服务管理器不可用时用 `pairfob run` |
 | Herdr 不是 `ready` | 照那一行的提示做：`pairfob setup` 会在缺少 Herdr 时安装最新稳定版，并按需启动服务。需要 Herdr 0.8+ |
 | Origin … not set up | 再跑一遍安装脚本 |
 | Paired 0 | `pairfob pair` |
 | P2P off | 这台电脑只用中继（`PAIRFOB_P2P=0`） |
+
+## 容器中没有 systemd 用户总线
+
+在 Linux 容器或 Kubernetes pod 中，`systemctl --user` 可能报
+`Failed to connect to bus: No medium found`。即使存在 `pairfob.service`
+文件，也不代表 systemd 用户服务管理器可用。仅设置 `XDG_RUNTIME_DIR` 不会启动它。
+
+此时 `pairfob update` 可以替换磁盘上的程序，但无法通过服务管理器重启守护进程。
+命令会报告重启失败，原来的进程可能继续运行旧程序。`pairfob version` 显示的是
+已安装程序的版本，不是正在运行的进程版本。
+
+用 `pairfob doctor` 检查运行中的守护进程。服务管理器查询失败时，
+`pairfob service status` 也会通过本地管理套接字检查 PID、版本和程序是否一致，
+单独显示服务管理器错误。由于无法验证用户服务，即使安装和运行的程序一致，
+它仍会以非零状态退出。
+
+让容器入口或外部进程管理器通过绝对路径执行 `pairfob run`，例如
+`/home/agent/.local/bin/pairfob run`。更新后通过该管理器重启进程；如果用 cron
+看门狗，先暂停看门狗、停止旧进程，再让它启动新程序。保持用户、`HOME`、状态目录
+和运行环境一致，以保留配对。没有守护进程运行时，可用 `pairfob run` 在前台启动。
+重启后再次运行 `pairfob doctor` 和 `pairfob service status` 检查。
 
 ## 安装和登记
 

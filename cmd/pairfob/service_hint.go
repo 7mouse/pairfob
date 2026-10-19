@@ -27,7 +27,7 @@ func recoveryHint(layout serviceLayout, layoutErr error) serviceRecoveryHint {
 	}
 	observed, err := observeService(layout)
 	if err != nil {
-		return serviceRecoveryHint{"service status unavailable", "pairfob service status"}
+		return serviceRecoveryHint{"service unavailable", "pairfob run"}
 	}
 	if observed.State != "running" {
 		return serviceRecoveryHint{"service stopped", "pairfob service start"}

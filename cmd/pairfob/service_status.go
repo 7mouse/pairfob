@@ -11,15 +11,18 @@ import (
 
 func writeServiceStatus(w io.Writer, layout serviceLayout) error {
 	status := serviceObservation{State: "stopped", Detail: "not installed"}
+	var managerErr error
 	if _, err := os.Stat(layout.UnitPath); err == nil {
-		status, err = observeService(layout)
-		if err != nil {
-			return err
-		}
+		status, managerErr = observeService(layout)
 	} else if !errors.Is(err, os.ErrNotExist) {
 		return err
 	}
-	fmt.Fprintf(w, "Service     %s (%s)\n", status.State, status.Detail)
+	if managerErr != nil {
+		fmt.Fprintf(w, "Service     unavailable (%v)\n", managerErr)
+	} else {
+		fmt.Fprintf(w, "Service     %s (%s)\n", status.State, status.Detail)
+	}
+	fmt.Fprintf(w, "Installed   %s\n", version)
 	sock, err := admin.SocketPathIn(layout.StateDir)
 	if err != nil {
 		return err
@@ -27,6 +30,9 @@ func writeServiceStatus(w io.Writer, layout serviceLayout) error {
 	p, err := inspectLocalProcess(sock)
 	if errors.Is(err, admin.ErrNotRunning) {
 		fmt.Fprintln(w, "Daemon      not running")
+		if managerErr != nil {
+			return errors.New("service unavailable; run pairfob run in the foreground or start Pairfob with your supervisor")
+		}
 		if status.State == "stopped" {
 			return nil
 		}
@@ -41,10 +47,13 @@ func writeServiceStatus(w io.Writer, layout serviceLayout) error {
 	} else {
 		fmt.Fprintf(w, "Daemon      %s, PID %d\nExecutable  %s\n", p.info.Version, p.info.PID, p.info.Executable)
 	}
-	if status.State != "running" || status.PID != p.peer.PID {
+	if managerErr == nil && (status.State != "running" || status.PID != p.peer.PID) {
 		return fmt.Errorf("PID %d is running outside this service; run pairfob service restart to reconcile it", p.peer.PID)
 	}
 	if p.legacy {
+		if managerErr != nil {
+			return errors.New("running version cannot be verified; stop the existing daemon with your supervisor, then start pairfob run")
+		}
 		return errors.New("running version cannot be verified; run pairfob update")
 	}
 	want, err := executableHash(layout.ExecPath)
@@ -54,11 +63,20 @@ func writeServiceStatus(w io.Writer, layout serviceLayout) error {
 	if err := processBelongsTo(p.info, layout); err != nil {
 		return err
 	}
-	if err := verifyServiceTarget(status, layout); err != nil {
-		return err
+	if managerErr == nil {
+		if err := verifyServiceTarget(status, layout); err != nil {
+			return err
+		}
 	}
 	if p.info.SHA256 != want || p.info.Version != version {
+		if managerErr != nil {
+			return errors.New("installed and running programs differ; stop the existing daemon with your supervisor, then start pairfob run")
+		}
 		return errors.New("installed and running programs differ; run pairfob service restart")
+	}
+	if managerErr != nil {
+		fmt.Fprintln(w, "Programs    installed and running programs match")
+		return errors.New("service unavailable; daemon verified through the admin socket, service ownership unknown")
 	}
 	return nil
 }

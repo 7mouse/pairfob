@@ -46,11 +46,36 @@ Match the English Pairfob string on screen:
 
 | Output | Action |
 | --- | --- |
-| Running no | Follow the suggested command: `pairfob service install` if not installed, `pairfob service start` if stopped, `pairfob service restart` if running but not answering, or `pairfob service status` if status is unavailable. For foreground use: `pairfob run` |
+| Running no | Follow the suggested command: `pairfob service install` if not installed, `pairfob service start` if stopped, `pairfob service restart` if running but not answering, or `pairfob run` if the service manager is unavailable |
 | Herdr anything but `ready` | Follow the hint on that line: `pairfob setup` installs the latest stable Herdr if missing and starts its server when needed. Herdr 0.8+ is required |
 | Origin … not set up | Rerun the installer |
 | Paired 0 | `pairfob pair` |
 | P2P off | This computer is relay-only (`PAIRFOB_P2P=0`) |
+
+## Running in a container without a systemd user bus
+
+In a Linux container or Kubernetes pod, `systemctl --user` may fail with
+`Failed to connect to bus: No medium found`. A `pairfob.service` file can exist
+even when no systemd user manager is available. Setting `XDG_RUNTIME_DIR` alone
+does not start one.
+
+`pairfob update` can replace the installed binary but cannot restart the daemon
+through an unavailable service manager. It reports the restart failure; the old
+process may keep running the previous image. `pairfob version` describes the
+installed binary, not that process.
+
+Use `pairfob doctor` to inspect the running daemon. `pairfob service status` also
+checks its PID, version and image through the local admin socket when the service
+manager fails. It shows the manager error separately and exits nonzero because
+the service cannot be verified, even if the installed and running images match.
+
+Configure your container entrypoint or external supervisor to run the absolute
+path to `pairfob run` (for example, `/home/agent/.local/bin/pairfob run`). After an
+update, restart it through that supervisor. For a cron watchdog, pause the
+watchdog, stop its existing daemon, then let it start the new binary. Keep the
+same user, `HOME`, state directory and runtime environment to preserve pairing.
+If no daemon is running, `pairfob run` starts it in the foreground. Check
+`pairfob doctor` and `pairfob service status` again after restarting.
 
 ## Install and enroll
 

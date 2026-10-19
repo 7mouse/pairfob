@@ -16,7 +16,7 @@ func TestRecoveryHintOnlyObservesService(t *testing.T) {
 			{"absent", "service not installed", "pairfob service install"},
 			{"stopped", "service stopped", "pairfob service start"},
 			{"running", "service running but not answering", "pairfob service restart"},
-			{"error", "service status unavailable", "pairfob service status"},
+			{"error", "service unavailable", "pairfob run"},
 		} {
 			t.Run(platform+"/"+test.name, func(t *testing.T) {
 				layout := serviceLayout{GOOS: platform, UnitPath: filepath.Join(t.TempDir(), "unit"), ExecPath: "/bin/pairfob"}
