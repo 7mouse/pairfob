@@ -76,6 +76,7 @@ const actions = {
   revealAttention: (groupId: string, kind: string) => calls.push(`reveal:${groupId}:${kind}`),
   togglePin: (paneId: string) => calls.push(`pin:${paneId}`),
   markRead: (paneId: string) => calls.push(`read:${paneId}`),
+  markAllRead: () => null,
   openHostMenu() {}, openGroupModeMenu() {}, openAttention() {}, openBoard() {}, openSettings() {}, openQuickCreate() {},
   createConversation() {}, openCreate() {},
 } as unknown as HerdActions;

@@ -1,5 +1,6 @@
 import { displayText, displayTokens, displayWorktree } from "./agent-inspect";
 import { t } from "./i18n.ts";
+import { parsePaneActivity } from "./pane-activity.ts";
 import type { AgentCard, ListGroup } from "./ranking.ts";
 
 export type DashboardAgentCard = AgentCard & {
@@ -32,6 +33,7 @@ export type SnapshotWire = {
     state_change_seq?: unknown;
     interactive_ready?: unknown;
     launch_pending?: unknown;
+    activity?: unknown;
     scroll?: { viewport_rows?: number };
   }>;
 };
@@ -74,6 +76,7 @@ export function mapSnapshotAgents(snapshot: SnapshotWire): DashboardAgentCard[] 
       const ws = workspace.get(pane.workspace_id);
       const agent = pane.agent?.trim() || "";
       const hasAgent = agent !== "";
+      const activity = hasAgent ? parsePaneActivity(pane.activity) : undefined;
       return {
         paneId: pane.pane_id!,
         paneLabel: pane.label?.trim() || undefined,
@@ -101,6 +104,7 @@ export function mapSnapshotAgents(snapshot: SnapshotWire): DashboardAgentCard[] 
         interactiveReady: wireBoolean(pane.interactive_ready),
         launchPending: wireBoolean(pane.launch_pending),
         runtimeSession: boundedString(snapshot.session),
+        ...(activity ? { activity } : {}),
       };
     });
 }
@@ -373,6 +377,7 @@ export function herdSignature(agents: DashboardAgentCard[]): string {
       agent.interactiveReady ?? null,
       agent.launchPending ?? null,
       agent.runtimeSession ?? null,
+      agent.activity ?? null,
     ]),
   );
 }

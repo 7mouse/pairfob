@@ -110,6 +110,28 @@
 .card-status.is-working { color: var(--accent); }
 .card-status.is-done { color: var(--ok); }
 
+/* The agent's step (`row-step.tsx`, on list rows and the desk's tickets): its
+   kind in the line's own grey, the target (a path, a command) in ink and the
+   code face, and a breathing dot while the step has no answer yet. It shares
+   its line's single row and ellipsis. */
+.row-step-object { margin-left: 4px; color: var(--ink); font-family: var(--mono); font-size: 0.95em; }
+.row-step.is-failed .row-step-lead { color: var(--error); }
+
+.row-step-run {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  margin-left: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 0.1em;
+  animation: row-step-breathe 1.4s ease-in-out infinite;
+}
+
+@keyframes row-step-breathe {
+  50% { opacity: 0.25; }
+}
+
 .card-side {
   flex: none;
   align-self: stretch;
@@ -344,6 +366,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .row-step-run { animation: none; }
   @keyframes card-in {
     from { opacity: 0; }
     to { opacity: 1; }

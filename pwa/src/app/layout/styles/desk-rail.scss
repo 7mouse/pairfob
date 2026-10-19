@@ -217,6 +217,12 @@
 }
 
 .rail .attn-ticket { min-height: 44px; max-width: 172px; }
+/* The rail has room for the action's icon only; its name is the tooltip and
+   the button's label. The undo keeps its word: an arrow alone says little. */
+.rail .attn-read-all { min-width: 44px; min-height: 44px; justify-content: center; margin: 0 8px 8px 6px; padding: 0 6px; }
+.rail .attn-read-all:not(.is-undo) .attn-read-all-label { display: none; }
+.rail .attn-strip-note { min-height: 44px; padding-left: 4px; }
+
 /* The row itself sits under its workspace heading a few lines below. */
 .rail .attn-ticket-ws { display: none; }
 
@@ -379,6 +385,10 @@ html[data-kb="open"] .rail-nav { display: none; }
 
   .rail .attn-ticket .agent-avatar.is-sm { width: 20px; height: 20px; border-radius: 6px; }
   .rail .attn-ticket:hover { border-color: var(--muted); }
+  .rail .attn-read-all { min-width: 28px; min-height: 28px; padding: 0 6px; }
+  .rail .attn-read-all::before { top: calc(50% - 7px); left: -4px; height: 14px; }
+  .rail .attn-read-all:hover { background: var(--surface); }
+  .rail .attn-strip-note { min-height: 28px; }
 
   .rail .daemon-update .btn-small { min-height: 30px; padding: 0 10px; border-radius: var(--r-sm); font-size: var(--text-secondary); }
 

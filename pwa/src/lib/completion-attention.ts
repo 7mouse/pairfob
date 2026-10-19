@@ -84,6 +84,54 @@ export function markCompletionSeen(
   return { ...current, [paneId]: token };
 }
 
+/**
+ * Acknowledge every completion the list shows as unread. `added` holds only the
+ * acknowledgements this call made, so an undo takes back no more than that.
+ */
+export function markAllCompletionsSeen(
+  current: SeenCompletions,
+  runtimeStatuses: RuntimeAgentStatuses,
+  agents: readonly DashboardAgentCard[],
+): { seen: SeenCompletions; added: SeenCompletions } {
+  let seen = current;
+  const added: SeenCompletions = Object.create(null);
+  for (const agent of agents) {
+    if (!agent.hasAgent || agent.status !== "done") continue;
+    const next = markCompletionSeen(seen, runtimeStatuses, agent.paneId, agents);
+    if (next === seen) continue;
+    seen = next;
+    added[agent.paneId] = next[agent.paneId];
+  }
+  return { seen, added };
+}
+
+/**
+ * Undo `markAllCompletionsSeen`: drop each acknowledgement it made that is still
+ * the one on record. A pane opened or read again since keeps its own.
+ */
+export function forgetCompletionsSeen(current: SeenCompletions, added: SeenCompletions): SeenCompletions {
+  const drop = Object.keys(added).filter((paneId) => current[paneId] === added[paneId]);
+  if (!drop.length) return current;
+  const next = { ...current };
+  for (const paneId of drop) delete next[paneId];
+  return next;
+}
+
+/** Show a completion as unread again once its acknowledgement is gone. */
+export function restoreUnseenCompletions(
+  agents: DashboardAgentCard[],
+  runtimeStatuses: RuntimeAgentStatuses,
+  seen: SeenCompletions,
+): DashboardAgentCard[] {
+  let changed = false;
+  const displayed = agents.map((agent) => {
+    if (agent.status !== "idle" || runtimeStatuses[agent.paneId] !== "done" || acknowledgementMatches(agent, seen[agent.paneId])) return agent;
+    changed = true;
+    return { ...agent, status: "done" as const };
+  });
+  return changed ? displayed : agents;
+}
+
 /** A successful submit re-arms completion even if a fast turn hides working. */
 export function rearmCompletion(current: SeenCompletions, paneId: string): SeenCompletions {
   if (!Object.hasOwn(current, paneId)) return current;

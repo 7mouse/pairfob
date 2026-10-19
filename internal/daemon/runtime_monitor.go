@@ -225,7 +225,7 @@ func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionR
 		if healthyEvery < every {
 			healthyEvery = every
 		}
-		timer := time.NewTimer(healthyEvery)
+		timer := time.NewTimer(e.monitorRefreshEvery(&state, every, healthyEvery))
 		reconnect, streamFailed := false, false
 		for !reconnect {
 			select {
@@ -267,7 +267,7 @@ func (e *Engine) runSessionMonitor(ctx context.Context, session runtime.SessionR
 				changed, panes := e.reconcileRuntimeSession(ctx, session, allowPush, &state, emitPoke, emitPush)
 				membership = panes
 				reconnect = changed
-				timer.Reset(healthyEvery)
+				timer.Reset(e.monitorRefreshEvery(&state, every, healthyEvery))
 			}
 		}
 		if !timer.Stop() {
@@ -397,6 +397,7 @@ func herdPushForPane(pane runtime.Pane, workspaceLabel, tabLabel string, kind Pu
 func observedPaneChanged(previous, current monitoredPane) bool {
 	return previous.status != current.status || previous.instanceID != current.instanceID ||
 		observedTaskTitle(previous.pane) != observedTaskTitle(current.pane) ||
+		observedActivity(previous.pane.Activity) != observedActivity(current.pane.Activity) ||
 		!equalUint64(previous.stateChangeSeq, current.stateChangeSeq) ||
 		!equalBool(previous.interactiveReady, current.interactiveReady) ||
 		!equalBool(previous.launchPending, current.launchPending)

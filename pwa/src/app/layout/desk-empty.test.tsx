@@ -28,7 +28,7 @@ const actions = () => [...container.querySelectorAll<HTMLButtonElement>(".desk-e
 function session(paneId: string, title: string, status: "blocked" | "done" = "blocked"): PaletteSession {
   return {
     type: "session", key: `session:${paneId}`, paneId, kind: "agent", agentKind: "claude", title,
-    statusLabel: t(`status.${status}`), statusTone: status, meta: "claude · pairfob · implementation", waiting: status === "blocked",
+    statusLabel: t(`status.${status}`), statusTone: status, meta: "claude · pairfob · implementation", step: null, waiting: status === "blocked",
   };
 }
 
@@ -75,6 +75,15 @@ afterEach(async () => {
 });
 
 describe("desk empty view", () => {
+  test("a ticket names the agent's step in place of its facts, as the list row does", () => {
+    const waiting = { ...session("p1", "Ship it"), step: { lead: "要运行", object: "git push origin main", running: false, failed: false } };
+    act(() => root!.render(<DeskEmptyView attention={[waiting, session("p2", "Paginate audit log")]} hasSessions state={null}
+      create={null} shortcut={false} onOpen={() => {}} onCreate={() => {}} onSearch={() => {}} onAction={() => {}} />));
+    const metas = [...container.querySelectorAll(".desk-ticket-meta")].map((node) => node.textContent);
+    expect(metas).toEqual([`${t("status.blocked")} · 要运行git push origin main`, `${t("status.blocked")} · claude · pairfob · implementation`]);
+    expect(container.querySelector(".desk-ticket-meta .row-step-object")?.textContent).toBe("git push origin main");
+  });
+
   test("sessions that wait are entries that hand their pane and title to the open action", () => {
     const opened: Array<[string, string | null]> = [];
     act(() => root!.render(<DeskEmptyView attention={[session("p1", "Review swipes"), session("p2", "Paginate audit log")]} hasSessions state={null}

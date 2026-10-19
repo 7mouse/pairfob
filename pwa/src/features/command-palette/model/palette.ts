@@ -34,6 +34,8 @@ export type PaletteSession = {
   statusTone: HerdCardView["statusTone"];
   /** Agent, place and tab, without the status. */
   meta: string;
+  /** What the agent is doing or what its turn came to, when its computer reports it. */
+  step: HerdCardView["step"];
   waiting: boolean;
 };
 
@@ -111,6 +113,7 @@ function sessionEntries(input: PaletteInput): SessionEntry[] {
       statusLabel: card.statusLabel,
       statusTone: card.statusTone,
       meta: card.meta,
+      step: card.step,
       waiting: card.blocked,
     },
     fields: [card.title, card.agent.agent, card.agent.displayAgent, card.agent.workspaceLabel,

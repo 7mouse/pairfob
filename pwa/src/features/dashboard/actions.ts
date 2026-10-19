@@ -30,6 +30,8 @@ export type HerdActionPorts = {
   togglePin(paneId: string): void;
   /** Acknowledge an unread completion without opening the pane. */
   markRead(paneId: string): void;
+  /** Acknowledge every unread completion; null when there was none. */
+  markAllRead(): ReadAllReceipt | null;
   /** The create sheet, optionally on one workspace. */
   openCreate(workspace?: AgentCard): void;
   /**
@@ -42,6 +44,9 @@ export type HerdActionPorts = {
   /** A pane opened from the list did not come from the board: back must not lead there. */
   forgetBoardReturn?(): void;
 };
+
+/** What "mark all read" did, and how to take it back. */
+export type ReadAllReceipt = { count: number; undo(): void };
 
 export type HerdActions = {
   /** `title` is inside the tapped card: the card grows into the pane from there. */
@@ -68,6 +73,7 @@ export type HerdActions = {
   openQuickCreate(anchor?: Element | null): void;
   togglePin(paneId: string): void;
   markRead(paneId: string): void;
+  markAllRead(): ReadAllReceipt | null;
 };
 
 export function createHerdActions(ports: HerdActionPorts): HerdActions {
@@ -126,6 +132,9 @@ export function createHerdActions(ports: HerdActionPorts): HerdActions {
     },
     markRead(paneId) {
       ports.markRead(paneId);
+    },
+    markAllRead() {
+      return ports.markAllRead();
     },
     runEmptyAction(kind) {
       if (kind === "create") ports.openCreate();

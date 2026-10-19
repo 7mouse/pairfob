@@ -71,7 +71,7 @@ describe("palette with nothing typed", () => {
     const [row] = buildPalette(input([agent("ask", "blocked")]), "").items;
     expect(row).toEqual({
       type: "session", key: "session:ask", paneId: "ask", kind: "agent", agentKind: "codex", title: "ask",
-      statusLabel: t("status.blocked"), statusTone: "blocked", meta: "codex · pairfob · implementation", waiting: true,
+      statusLabel: t("status.blocked"), statusTone: "blocked", meta: "codex · pairfob · implementation", step: null, waiting: true,
     });
   });
 

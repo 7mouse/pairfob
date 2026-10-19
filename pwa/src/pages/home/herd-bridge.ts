@@ -29,7 +29,7 @@ import { t } from "../../lib/i18n";
 import { connectionStore, networkOnline } from "../../features/connection/connection-store";
 import { dashboardStore, liveAgents } from "../../features/dashboard/catalog-store";
 import { listGroup, listGroupCollapsed, paneActivated, panePinned, paneTouched, preferencesStore, setListGroupCollapsed, togglePanePin } from "../../features/settings/preferences-store";
-import { acknowledgePaneCompletion } from "../../features/dashboard/catalog-store";
+import { acknowledgeAllCompletions, acknowledgePaneCompletion, restoreCompletions } from "../../features/dashboard/catalog-store";
 import { openGroupModeSheet } from "../../features/dashboard/components/group-mode-sheet";
 import { openCreateSheet, openQuickCreate } from "./create-bridge";
 import { loadCreateMemory } from "../../features/operations/create-memory";
@@ -345,6 +345,10 @@ export function herdActionPorts(): HerdActionPorts {
     togglePin: togglePanePin,
     markRead: (paneId) => {
       acknowledgePaneCompletion(paneId);
+    },
+    markAllRead: () => {
+      const done = acknowledgeAllCompletions();
+      return done ? { count: done.count, undo: () => restoreCompletions(done.added) } : null;
     },
     openCreate: (workspace) => {
       void openCreateSheet({ workspaceId: workspace?.workspaceId });

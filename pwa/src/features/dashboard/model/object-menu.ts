@@ -17,6 +17,7 @@ import { t } from "../../../lib/i18n";
 import type { AgentCard, ListGroup } from "../../../lib/ranking";
 
 export type ObjectMenuKind =
+  | "markRead"
   | "pin"
   | "newTabBeside"
   | "openBoard"
@@ -75,6 +76,9 @@ export function paneMenuModel(input: {
   const { agent, agents, listGroup } = input;
   const split = tabIsSplit(agent, agents);
   const items: ObjectMenuItem[] = [
+    // The row's swipe and hover "Read", for a hold or a right-click. Only an
+    // agent pane is ever "done" (a plain terminal reads as idle).
+    ...(agent.status === "done" ? [{ kind: "markRead" as const, label: t("menu.markRead"), scope: "pane" as const }] : []),
     { kind: "pin", label: t(input.pinned ? "menu.unpin" : "menu.pin"), scope: "pane" },
     { kind: "renamePane", label: t("menu.renamePane"), scope: "pane" },
     { kind: "closePane", label: t("op.closePane"), scope: "pane", danger: true },

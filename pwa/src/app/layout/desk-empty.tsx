@@ -7,6 +7,7 @@ import { runtimeStore } from "../../features/connection/runtime-store";
 import { createHerdActions } from "../../features/dashboard/actions";
 import { dashboardStore } from "../../features/dashboard/catalog-store";
 import { CommandLine } from "../../features/dashboard/components/herd-empty";
+import { RowStepText } from "../../features/dashboard/components/row-step";
 import { buildHerdViewModel, type HerdEmptyAction, type HerdEmptyView, type HerdViewModel } from "../../features/dashboard/model/herd-view";
 import { capabilitiesStore } from "../../features/operations/capabilities-store";
 import { openPaneId, sessionStore } from "../../features/session/session-store";
@@ -172,7 +173,9 @@ export function DeskEmptyView({ attention, hasSessions, state, create, shortcut,
                   <span className="desk-ticket-name">{session.title}</span>
                   <span className="desk-ticket-meta">
                     <span className={`desk-ticket-status is-${session.statusTone}`}>{session.statusLabel}</span>
-                    {session.meta ? <><span aria-hidden="true"> · </span>{session.meta}</> : null}
+                    {/* As on the list row, the agent's step takes the facts' place. */}
+                    {session.step ? <><span aria-hidden="true"> · </span><RowStepText step={session.step} /></>
+                      : session.meta ? <><span aria-hidden="true"> · </span>{session.meta}</> : null}
                   </span>
                 </span>
                 <ChevronRight size={16} aria-hidden="true" />

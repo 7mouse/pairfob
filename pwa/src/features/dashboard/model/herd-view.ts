@@ -22,6 +22,7 @@ import {
   type TouchedAt,
 } from "../../../lib/ranking";
 import type { RuntimeLiveness } from "../../../lib/runtime-liveness";
+import { rowStep, rowStepAt, type RowStep } from "../../../lib/pane-step";
 import { runtimeLiveness } from "../../../lib/runtime-liveness";
 
 /** Status tone vocabulary of the app chrome; core publishes the same union. */
@@ -108,7 +109,9 @@ export type HerdCardView = {
   statusTone: AgentCard["status"];
   /** Second line: status-free facts (place, tab, task tokens). */
   line: string;
-  /** Time since the phone last saw this pane change; empty when unknown. */
+  /** What the agent is doing, or what its turn came to; shown instead of `line`. */
+  step: RowStep | null;
+  /** Time since the agent's last step, else since the phone saw this pane change; empty when unknown. */
   ago: string;
   blocked: boolean;
   unread: boolean;
@@ -376,7 +379,8 @@ function cardView(
     statusLabel: identity.statusLabel,
     statusTone: identity.statusTone,
     line: identity.line,
-    ago: herdAgo(input.paneTouched[agent.paneId], input.now),
+    step: rowStep(agent, stale),
+    ago: herdAgo(rowStepAt(agent, input.paneTouched[agent.paneId]), input.now),
     blocked: needs === "blocked",
     unread: needs === "done",
     agent,

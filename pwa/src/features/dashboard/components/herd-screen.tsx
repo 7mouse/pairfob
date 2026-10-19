@@ -10,9 +10,10 @@ import { AppNotice } from "../../../app/notice";
 import { HerdBanners } from "../../../features/connection/herd-banners";
 import { HerdSessionSwitch } from "../../herd-sessions/herd-session-row";
 import { CreateFab, GroupModeButton } from "./herd-controls";
-import type { HerdActions } from "../actions";
+import type { HerdActions, ReadAllReceipt } from "../actions";
 import type { HerdViewModel } from "../model/herd-view";
-import { AttentionStrip } from "./attention-strip";
+import { openAttentionSheet } from "./attention-sheet";
+import { AttentionStrip, type AttentionReadAll, type AttentionUndo } from "./attention-strip";
 import { HerdList } from "./herd-list";
 import { HostTitle } from "./host-title";
 import { useListKeys } from "./list-keys";
@@ -65,6 +66,41 @@ function useReveal(view: HerdViewModel, root: React.RefObject<HTMLElement | null
   };
 }
 
+/** How long "mark all read" can be taken back. */
+const READ_ALL_UNDO_MS = 5000;
+
+/**
+ * "Mark all read" and its undo for the needs-you strip: pressed at the rail
+ * strip's end or in the phone's sheet behind the strip's label. The undo is
+ * offered for a few seconds at the strip's end; a second press after that is a
+ * new one.
+ */
+function useReadAll(view: HerdViewModel, actions: HerdActions): { readAll: AttentionReadAll | null; undo: AttentionUndo | null } {
+  const [receipt, setReceipt] = useState<ReadAllReceipt | null>(null);
+  const timer = useRef(0);
+  useEffect(() => () => window.clearTimeout(timer.current), []);
+  const unread = view.attention.filter(item => item.kind === "done").length;
+  const readAll = unread ? {
+    count: unread,
+    onReadAll: () => {
+      const next = actions.markAllRead();
+      if (!next) return;
+      window.clearTimeout(timer.current);
+      timer.current = window.setTimeout(() => setReceipt(null), READ_ALL_UNDO_MS);
+      setReceipt(next);
+    },
+  } : null;
+  const undo = receipt ? {
+    count: receipt.count,
+    onUndo: () => {
+      window.clearTimeout(timer.current);
+      receipt.undo();
+      setReceipt(null);
+    },
+  } : null;
+  return { readAll, undo };
+}
+
 /** Minute ticks keep the "changed n ago" column honest while the list is open. */
 function useMinuteTick(): void {
   const [, setTick] = useState(0);
@@ -101,6 +137,7 @@ export function HerdScreen({
   // anchoring would pull the list up by the difference.
   const [folded, setFolded] = useState(() => variant === "page" && rememberedScroll("herd") > FOLD_PX);
   const head = useRef<HTMLElement>(null);
+  const { readAll, undo } = useReadAll(view, actions);
   useMinuteTick();
   // The list keeps its place across tab switches and a trip into a session.
   useRememberedScroll("herd", variant === "page");
@@ -190,7 +227,8 @@ export function HerdScreen({
       <aside ref={bindRoot} className="rail">
         <RailHead view={view} actions={actions} />
         <RailSearch />
-        <AttentionStrip items={view.attention} onOpen={actions.openAttention} onLocate={() => revealNext("any")} wheel />
+        <AttentionStrip items={view.attention} onOpen={actions.openAttention} onLocate={() => revealNext("any")} wheel
+          readAll={readAll} undo={undo} />
         {/* As on the page: an empty list already says Herdr is gone or silent, here and in the column beside it. */}
         {explained ? null : <HerdBanners tone={view.status.tone} />}
         <div className="rail-list">
@@ -218,7 +256,9 @@ export function HerdScreen({
           <HerdSessionSwitch />
           {view.groups.length ? <GroupModeButton mode={view.listGroup} onOpen={actions.openGroupModeMenu} /> : null}
         </div>
-        <AttentionStrip items={view.attention} onOpen={actions.openAttention} hidden={folded} />
+        {/* A phone strip has room for little more than one ticket: its label opens them all, and "mark all read" with them. */}
+        <AttentionStrip items={view.attention} onOpen={actions.openAttention} hidden={folded} undo={undo}
+          onShowAll={(anchor) => openAttentionSheet({ view, readAll, anchor, onOpen: (paneId) => actions.openAttention(paneId, null) })} />
       </header>
       {/* An empty list's panel already explains Herdr being gone or silent. */}
       {explained ? null : <HerdBanners tone={view.status.tone} />}

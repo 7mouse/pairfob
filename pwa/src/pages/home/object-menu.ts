@@ -17,7 +17,7 @@ import { capabilityEnabled, operationBusy } from "../../features/operations/capa
 import { liveSession } from "../../features/computers/catalog-store";
 import { networkOnline } from "../../features/connection/connection-store";
 import { runtimeStore } from "../../features/connection/runtime-store";
-import { liveAgents } from "../../features/dashboard/catalog-store";
+import { acknowledgePaneCompletion, liveAgents } from "../../features/dashboard/catalog-store";
 import { herdLivenessModel } from "../../features/dashboard/model/herd-status";
 import { canCreateSession } from "../../features/dashboard/model/herd-view";
 import { listGroup, panePinned, togglePanePin } from "../../features/settings/preferences-store";
@@ -67,6 +67,9 @@ export function openListWorkspaceMenu(agent: AgentCard): void {
 
 function runObjectMenuAction(kind: ObjectMenuKind, agent: AgentCard): void | Promise<void> {
   switch (kind) {
+    case "markRead":
+      acknowledgePaneCompletion(agent.paneId);
+      return;
     case "pin":
       // Publishes: the subscribed herd list reorders itself, no repaint needed.
       togglePanePin(agent.paneId);

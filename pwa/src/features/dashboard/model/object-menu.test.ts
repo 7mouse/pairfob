@@ -32,6 +32,12 @@ describe("pane object menu model", () => {
     expect(model.facts.find((row) => row.kind === "path")?.value).toBe("/two/project");
   });
 
+  test("an unread completion is offered \"mark as read\" first, as its swipe and hover offer it", () => {
+    const unread = paneMenuModel({ agent: agent("p2", { status: "done" }), ...plain });
+    expect(unread.items[0]).toEqual({ kind: "markRead", label: t("menu.markRead"), scope: "pane" });
+    expect(kinds(paneMenuModel({ agent: agent("p2", { status: "working" }), ...plain }).items)).not.toContain("markRead");
+  });
+
   test("a pinned card is offered unpin, and the pin targets the card not the open pane", () => {
     expect(paneMenuModel({ agent: agent("p2"), ...plain, pinned: true }).items[0].label).toBe(t("menu.unpin"));
   });

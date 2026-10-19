@@ -6,6 +6,7 @@ import { useObjectPress } from "../../../shared/ui/overlay";
 import type { HerdActions } from "../actions";
 import type { HerdCardView } from "../model/herd-view";
 import { indexedStyle } from "./indexed";
+import { RowStepText } from "./row-step";
 import { bindSwipeRow } from "./swipe-row";
 
 /** Trailing actions a left swipe reveals: pin and the full menu. */
@@ -59,6 +60,7 @@ export function AgentCard({ card, actions, hoverActions = false, listed = false 
   }, [actions, hoverActions, paneId, press]);
   const classes = [card.className, card.kind === "terminal" ? "is-terminal" : "",
     card.blocked ? "is-blocked" : "", card.unread ? "is-unread" : ""].filter(Boolean).join(" ");
+  const step = card.step;
   const pinLabel = card.pinned ? t("list.swipeUnpin") : t("list.swipePin");
   // Behind the sliding row the buttons are out of reach until a swipe uncovers
   // them, and the menu holds the same actions; as a hover cluster they are
@@ -106,8 +108,9 @@ export function AgentCard({ card, actions, hoverActions = false, listed = false 
           <span className="card-meta">
             {/* The word marks its own change: a status the agent reported, or one that can no longer be confirmed. */}
             {card.statusLabel ? <Swap on={card.statusLabel} className={`card-status is-${card.statusTone}`}>{card.statusLabel}</Swap> : null}
-            {card.statusLabel && card.line ? <span aria-hidden="true"> · </span> : null}
-            {card.line}
+            {card.statusLabel && (step || card.line) ? <span aria-hidden="true"> · </span> : null}
+            {/* The agent's own step takes the facts' place, and fades in as it moves on. */}
+            {step ? <RowStepText step={step} /> : card.line}
           </span>
         </span>
         <span className="card-side">

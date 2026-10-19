@@ -90,6 +90,7 @@ const actions: HerdActions = {
   openQuickCreate: () => calls.push("quickCreate"),
   togglePin: (paneId) => calls.push(`pin:${paneId}`),
   markRead: (paneId) => calls.push(`read:${paneId}`),
+  markAllRead: () => null,
 };
 
 function paint(view: HerdViewModel, variant: "page" | "rail" = "page"): void {
@@ -389,9 +390,11 @@ describe("herd screen presentation", () => {
     expect(app().querySelectorAll(".card-main")).toHaveLength(4);
     act(() => app().querySelector<HTMLButtonElement>(".rail .attn-ticket")!.click());
     expect(calls).toEqual(["attention:a"]);
-    // On the phone the label is plain text: the strip is one swipe wide there.
+    // On the phone the label opens them all instead (`herd-read-all.test.tsx`): it walks nothing.
     paint(model({ agents: [agent("a", "alpha", "blocked")] }));
-    expect(app().querySelector(".attn-strip-label")?.tagName).toBe("SPAN");
+    const more = app().querySelector<HTMLButtonElement>(".attn-strip-label")!;
+    expect(more.classList.contains("is-more")).toBeTrue();
+    expect(more.getAttribute("aria-label")).toBe(t("list.needsYouAll", { count: "1" }));
   });
 
   test("stale sessions do not present attention as current", () => {

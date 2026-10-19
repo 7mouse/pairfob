@@ -1,4 +1,5 @@
 import { t } from "./i18n.ts";
+import type { PaneActivity } from "./pane-activity.ts";
 
 export type AgentStatus = "blocked" | "working" | "done" | "idle" | "unknown";
 
@@ -31,6 +32,8 @@ export interface AgentCard extends DisplayMetadata {
   interactiveReady?: boolean;
   launchPending?: boolean;
   runtimeSession?: string;
+  /** The step the agent is on, from its transcript (working, blocked or done panes). */
+  activity?: PaneActivity;
 }
 
 export type TouchedAt = Record<string, number>;

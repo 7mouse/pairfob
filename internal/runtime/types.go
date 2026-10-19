@@ -170,6 +170,28 @@ type Pane struct {
 		ViewportRows     int `json:"viewport_rows"`
 	} `json:"scroll"`
 	VisibleText string `json:"-"`
+	// Activity is the step the agent's current turn is on, from its trusted
+	// transcript (proto/agent-activity.md). Daemon-derived; Herdr never sends it.
+	Activity *PaneActivity `json:"activity,omitempty"`
+}
+
+// PaneActivity names a step and, for a finished turn, its outcome. It never
+// carries thinking or reply text, tool input or tool output.
+type PaneActivity struct {
+	Type  string    `json:"type"`
+	Name  string    `json:"name,omitempty"`
+	Label string    `json:"label,omitempty"`
+	State string    `json:"state,omitempty"`
+	At    int64     `json:"at,omitempty"`
+	Turn  *PaneTurn `json:"turn,omitempty"`
+}
+
+type PaneTurn struct {
+	Steps       int    `json:"steps"`
+	Files       int    `json:"files"`
+	Plan        string `json:"plan,omitempty"`
+	Failed      bool   `json:"failed,omitempty"`
+	Interrupted bool   `json:"interrupted,omitempty"`
 }
 
 type Query interface{ runtimeQuery() }

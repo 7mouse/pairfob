@@ -1,10 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import type { DashboardAgentCard } from "./dashboard";
 import {
+  forgetCompletionsSeen,
+  markAllCompletionsSeen,
   markCompletionSeen,
   parseSeenCompletions,
   projectAgentSubmission,
   projectCompletionAttention,
+  restoreUnseenCompletions,
 } from "./completion-attention";
 
 function agent(paneId: string, status: DashboardAgentCard["status"]): DashboardAgentCard {
@@ -74,5 +77,29 @@ describe("completion attention", () => {
     expect(Object.getPrototypeOf(parsed)).toBeNull();
     expect(Object.hasOwn(parsed, "__proto__")).toBe(true);
     expect(Object.hasOwn(parsed, "constructor")).toBe(true);
+  });
+
+  test("mark all read acknowledges only the unread completions, and an undo takes back only those", () => {
+    const rich = { ...agent("p3", "done"), runtimeSession: "named", terminalId: "t3", agentInstanceId: "a3", stateChangeSeq: 2 };
+    const agents = [agent("p1", "done"), agent("p2", "working"), rich, { ...agent("p4", "idle") }, { ...agent("p5", "done"), hasAgent: false }];
+    const statuses = { p1: "done", p2: "working", p3: "done", p4: "done", p5: "done" } as const;
+    // p4 was read before: it is idle on the list and keeps its own acknowledgement.
+    const before = { p4: true } as const;
+    const { seen, added } = markAllCompletionsSeen(before, statuses, agents);
+    expect(seen).toEqual({ p4: true, p1: true, p3: '["named","t3","a3",2]' });
+    expect(added).toEqual({ p1: true, p3: '["named","t3","a3",2]' });
+    expect(markAllCompletionsSeen(seen, statuses, agents).seen).toBe(seen);
+
+    // p1 was read again after the bulk read with a newer completion: its own acknowledgement stays.
+    const later = { ...seen, p1: '["x","","",9]' };
+    const undone = forgetCompletionsSeen(later, added);
+    expect(undone).toEqual({ p4: true, p1: '["x","","",9]' });
+    expect(forgetCompletionsSeen(undone, added)).toBe(undone);
+
+    const shown = restoreUnseenCompletions([agent("p1", "idle"), { ...rich, status: "idle" }, agent("p4", "idle"), agent("p2", "working")],
+      statuses, forgetCompletionsSeen(seen, added));
+    expect(shown.map((card) => card.status)).toEqual(["done", "done", "idle", "working"]);
+    const unchanged = [agent("p4", "idle")];
+    expect(restoreUnseenCompletions(unchanged, statuses, { p4: true })).toBe(unchanged);
   });
 });

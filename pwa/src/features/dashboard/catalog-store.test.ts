@@ -2,8 +2,8 @@ import { afterEach, describe, expect, test } from "bun:test";
 import "../../../test-support/boot-dom";
 import type { SnapshotWire } from "../../lib/dashboard";
 
-const { acknowledgePaneCompletion, applySnapshot, dashboardStore, liveAgents, markPaneSubmitted, replaceAgentsFromSnapshot, resetDashboard,
-  selectedAgent, setRefreshBusy } = await import("./catalog-store");
+const { acknowledgeAllCompletions, acknowledgePaneCompletion, applySnapshot, dashboardStore, liveAgents, markPaneSubmitted, replaceAgentsFromSnapshot, resetDashboard,
+  restoreCompletions, selectedAgent, setRefreshBusy } = await import("./catalog-store");
 const { boardStore, resetBoardCatalog } = await import("../board/layout-store");
 const { preferencesStore, setPaneTermMode } = await import("../settings/preferences-store");
 const { selectPane, sessionStore, openPaneId } = await import("../session/session-store");
@@ -133,6 +133,42 @@ describe("dashboard domain", () => {
     markPaneSubmitted("missing");
     expect(dashboardStore.get().agents).toEqual(cards);
     expect(publishes).toBe(0);
+    release();
+  });
+
+  test("mark all read acknowledges every unread completion and its undo brings them back", () => {
+    useTestDaemon();
+    const finished: SnapshotWire = {
+      workspaces: [{ workspace_id: "w1", label: "alpha" }],
+      tabs: [{ tab_id: "t1", workspace_id: "w1", label: "main" }],
+      panes: ["p1", "p2", "p3"].map((paneId, index) => ({
+        pane_id: paneId, workspace_id: "w1", tab_id: "t1", cwd: "/tmp/a", agent: "claude",
+        agent_status: index === 2 ? "blocked" : "done", label: paneId,
+      })),
+    };
+    replaceAgentsFromSnapshot(finished);
+    expect(acknowledgePaneCompletion("p2")).toBeTrue();
+    const status = () => dashboardStore.get().agents.map((card) => card.status);
+    expect(status()).toEqual(["done", "idle", "blocked"]);
+
+    let publishes = 0;
+    const release = dashboardStore.subscribe(() => { publishes += 1; });
+    const receipt = acknowledgeAllCompletions();
+    expect(receipt?.count).toBe(1);
+    expect(status()).toEqual(["idle", "idle", "blocked"]);
+    expect(publishes).toBe(1);
+    expect(acknowledgeAllCompletions()).toBeNull();
+    // Acknowledgements survive the next snapshot of the same completions.
+    replaceAgentsFromSnapshot(finished);
+    expect(status()).toEqual(["idle", "idle", "blocked"]);
+
+    restoreCompletions(receipt!.added);
+    // Only the bulk read is undone: the pane read on its own stays read.
+    expect(status()).toEqual(["done", "idle", "blocked"]);
+    expect(dashboardStore.get().completionSeen).toEqual({ p2: true });
+    const count = publishes;
+    restoreCompletions(receipt!.added);
+    expect(publishes).toBe(count);
     release();
   });
 

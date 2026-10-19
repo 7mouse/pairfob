@@ -1,10 +1,13 @@
 import { herdSignature, mapSnapshotAgents, type DashboardAgentCard, type SnapshotWire } from "../../lib/dashboard";
 import {
   applySeenCompletions,
+  forgetCompletionsSeen,
+  markAllCompletionsSeen,
   markCompletionSeen,
   parseSeenCompletions,
   projectAgentSubmission,
   projectCompletionAttention,
+  restoreUnseenCompletions,
   type RuntimeAgentStatuses,
   type SeenCompletions,
 } from "../../lib/completion-attention";
@@ -175,6 +178,39 @@ export function acknowledgePaneCompletion(paneId: string): boolean {
     saveCompletionSeen();
   });
   return true;
+}
+
+/**
+ * Mark every unread completion read at once. Returns what an undo needs (the
+ * acknowledgements this call added), or null when nothing was unread.
+ */
+export function acknowledgeAllCompletions(): { count: number; added: SeenCompletions } | null {
+  const { seen, added } = markAllCompletionsSeen(read().completionSeen, read().runtimeAgentStatuses, read().agents);
+  const paneIds = Object.keys(added);
+  if (!paneIds.length) return null;
+  for (const paneId of paneIds) noteCompletionAcknowledged(paneId);
+  batch(() => {
+    write((record) => {
+      record.completionSeen = seen;
+      record.agents = applySeenCompletions(record.agents, seen);
+      record.lastHerdSig = herdSignature(record.agents);
+    });
+    saveCompletionSeen();
+  });
+  return { count: paneIds.length, added };
+}
+
+/** Undo `acknowledgeAllCompletions`; a completion read again since stays read. */
+export function restoreCompletions(added: SeenCompletions): void {
+  writeIf((record) => {
+    const seen = forgetCompletionsSeen(record.completionSeen, added);
+    if (seen === record.completionSeen) return false;
+    record.completionSeen = seen;
+    record.agents = restoreUnseenCompletions(record.agents, record.runtimeAgentStatuses, seen);
+    record.lastHerdSig = herdSignature(record.agents);
+    saveCompletionSeen();
+    return true;
+  });
 }
 
 /** The reader submitted to this pane: its pending turn is no longer new output. */
