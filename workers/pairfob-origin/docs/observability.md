@@ -41,6 +41,50 @@ Clients cannot emit `enroll` / `ws_open` / `error`.
 
 ## Query
 
+### Persistent conversion counts
+
+Apply D1 migration `0007_conversion.sql` before deploying the corresponding
+Worker (`bunx wrangler d1 migrations apply pairfob --remote` from the Worker
+directory). Do not run this on production as part of local verification.
+
+`GET /v2/admin/funnel`, with the same `Authorization: Bearer` operator token
+as `/v2/admin/stats`, returns `installed`, `paired`, `active_7d`,
+`tracking_started_at`, `as_of`, definitions and activity resolution. Responses
+are `no-store`; missing migration/database failures return 503, never zeroes.
+
+- Installed means enrolled daemon identities, including revoked ones, not
+  installer downloads, people or physical computers. Reset identity means a
+  new registration.
+- Paired means at least one observed daemon-confirmed authenticated phone
+  session. The relay does not inspect encrypted pairing or RPC payloads.
+- Active means relay-observed authenticated phone connection activity in the last seven days,
+  including keepalives and encrypted frame traffic, not a human action. A
+  daemon's unattended connection alone does not count. Switching to P2P closes
+  the phone's relay connection, so activity during that direct-only period is
+  not observed. A direct session lasting more than seven days without another
+  relay connection can therefore be absent from active_7d. This endpoint does
+  not claim to measure all direct usage.
+
+`daemons.first_session_at` is the earliest **observed** authenticated connection
+since tracking began. Existing identities have unknown original pairing dates;
+the migration deliberately leaves them NULL until observed. Never backdate them
+to `created_at`, or treat an old machine's first post-upgrade reconnect as its
+actual first pairing. `last_active_at` checkpoints are throttled to five minutes
+per daemon, including across DO hibernation. D1 failures leave the first
+observation pending in DO storage; subsequent connection activity retries after
+a short backoff. Until that succeeds, totals can lag. Watch
+`conversion_write_failed` logs.
+
+These are overall counts, not an installation-cohort conversion rate. For a
+cohort, filter `created_at` to the same interval on both numerator and
+denominator; exclude pre-tracking identities when measuring time to first use.
+Persistent registration/activity records have no automatic expiry. Analytics
+Engine's three-month events are a separate, potentially sampled source and
+cannot reconstruct complete historical pairing times. See the public
+[privacy explanation](https://pairfob.com/doc/privacy).
+
+### Event queries
+
 Analytics Engine SQL API (`POST /accounts/{account_id}/analytics_engine/sql`). Always filter on time. Use `SUM(_sample_interval)` rather than `COUNT(*)`.
 
 ```sql

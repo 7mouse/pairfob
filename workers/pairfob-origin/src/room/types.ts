@@ -111,4 +111,5 @@ export interface RoomDeps {
   sockets: () => RoomSocket[];
   index?: PairIndexClient;
   metrics?: RoomMetrics;
+  activity?: (now: number) => void;
 }

@@ -5,9 +5,11 @@ import { prepareFullTerminal } from "../features/session/full-terminal/full-term
 import { presentHerdView } from "../pages/home/herd-bridge";
 import { prepareSessionPaint } from "../features/session/guided/view";
 import type { ConnectedPresentation } from "./presentation";
+import { NotificationPrompt } from "../pages/settings/notification-prompt";
 
 /** Ready as a unit before entering the first connected composition. */
 export const presentation: ConnectedPresentation = {
+  NotificationPrompt,
   pageFor, TabBar, prepareFullTerminal, presentHerdView, prepareSessionPaint,
   systemBackAction, subscribeBack: subscribeConnectedBack,
 };

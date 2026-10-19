@@ -48,9 +48,9 @@ func writeUnit(t *testing.T, layout serviceLayout, body string) {
 // Adds variables the way a user edits the unit by hand.
 func withHandAddedVariables(t *testing.T, goos, body string) string {
 	t.Helper()
-	marker, added := "Environment=HOME=", "Environment=PAIRFOB_PUSH=1\nEnvironment=\"PAIRFOB_VAPID_SUBJECT=mailto:secret@example.com\"\n"
+	marker, added := "Environment=HOME=", "Environment=EXAMPLE_PUSH=1\nEnvironment=\"EXAMPLE_SUBJECT=mailto:secret@example.com\"\n"
 	if goos == "darwin" {
-		marker, added = "    <key>HOME</key>", "    <key>PAIRFOB_PUSH</key>\n    <string>1</string>\n    <key>PAIRFOB_VAPID_SUBJECT</key>\n    <string>mailto:secret@example.com</string>\n"
+		marker, added = "    <key>HOME</key>", "    <key>EXAMPLE_PUSH</key>\n    <string>1</string>\n    <key>EXAMPLE_SUBJECT</key>\n    <string>mailto:secret@example.com</string>\n"
 	}
 	if !strings.Contains(body, marker) {
 		t.Fatalf("no %q in %s", marker, body)
@@ -129,8 +129,8 @@ func TestRewriteNamesHandAddedVariablesWithoutTheirValues(t *testing.T) {
 			}
 			notice := out.String()
 			for _, want := range []string{
-				"  PAIRFOB_PUSH: removed (not written by service install)\n",
-				"  PAIRFOB_VAPID_SUBJECT: removed (not written by service install)\n",
+				"  EXAMPLE_PUSH: removed (not written by service install)\n",
+				"  EXAMPLE_SUBJECT: removed (not written by service install)\n",
 				"does not carry over these entries. To restore one, edit " + layout.UnitPath + " again",
 			} {
 				if !strings.Contains(notice, want) {
@@ -237,10 +237,13 @@ func TestRewriteSaysWhichDefinitionCannotBeCompared(t *testing.T) {
 			t.Fatal(err)
 		}
 		var out bytes.Buffer
-		if err := rewriteServiceUnit(layout, &out); err != nil {
-			t.Fatal(err)
+		if err := rewriteServiceUnit(layout, &out); err == nil || !strings.Contains(err.Error(), "left unchanged") {
+			t.Fatalf("unreadable unit must not lose push preferences: %v", err)
 		}
-		notice := out.String()
+		if unchanged, _ := os.ReadFile(layout.UnitPath); string(unchanged) != tc.previous || out.Len() != 0 {
+			t.Fatal("failed rewrite changed the previous definition")
+		}
+		notice := runtimeSettingsNotice(layout, []byte(unitBody(layout)))
 		if !strings.Contains(notice, "cannot read the previous service definition") || strings.Contains(notice, "hunter2") || strings.Contains(notice, "ssw0rd") {
 			t.Fatalf("%q gave %q", tc.previous, notice)
 		}
@@ -340,7 +343,7 @@ func TestInstallPrintsTheRuntimeSettingsNotice(t *testing.T) {
 		t.Fatal(err)
 	}
 	printed, err := os.ReadFile(captured.Name())
-	if err != nil || !strings.Contains(string(printed), "  PAIRFOB_PUSH: removed (not written by service install)\n") {
+	if err != nil || !strings.Contains(string(printed), "  EXAMPLE_PUSH: removed (not written by service install)\n") {
 		t.Fatalf("install printed %q: %v", printed, err)
 	}
 }

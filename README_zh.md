@@ -15,8 +15,8 @@
 
 ## 快速开始
 
-需要一台 macOS 或 Linux 电脑和 Herdr 0.8 或更高版本。没装 Herdr 时，
-安装脚本会自动安装最新稳定版。用手机接着操作时，电脑必须保持唤醒并联网。
+需要一台 macOS 或 Linux 电脑。安装脚本会安装 Pairfob，并在缺少 Herdr 时
+自动补装最新稳定版。用手机接着操作时，电脑必须保持唤醒并联网。
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh
@@ -24,7 +24,9 @@ pairfob pair
 ```
 
 在手机上打开 [pairfob.com/pair](https://pairfob.com/pair) 扫码，然后在电脑上按
-一次回车放行这台设备。加到主屏幕就可以用了。完整步骤见
+一次回车放行这台设备。配对后可以创建终端会话；使用 AI Agent 前，需要先在
+电脑上安装并登录对应 Agent，Pairfob 不负责安装 Agent 或配置其账号。手机只需
+浏览器，无需注册 Pairfob 账号，也可以选择加到主屏幕。完整步骤见
 [开始使用](https://pairfob.com/doc/zh/start)。
 
 平时就在 Herdr 里？`herdr plugin install arronKler/pairfob` 会把
@@ -70,6 +72,7 @@ pairfob pair
 | --- | --- |
 | 电脑 | macOS 或 Linux（不支持 Windows） |
 | Herdr | 0.8 及以上；缺少时自动安装最新稳定版 |
+| AI Agent（可选） | 在电脑上另行安装并登录；不装 Agent 也可以使用终端 |
 | Herdr 插件 | Herdr 0.8.2 及以上 |
 | 在手机上关闭工作区 | Herdr 0.9.0 及以上 |
 | 手机 / 平板 | 较新的移动浏览器，可安装为 PWA |

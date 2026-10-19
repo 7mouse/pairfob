@@ -40,9 +40,15 @@ export { MAX_LATE_CALLBACKS as MEDIA_LATE_CALLBACK_CAP };
 const LATE_CALLBACK_TTL_MS = 60_000;
 
 type Pending = {
+  op: string;
   resolve: (value: unknown) => void;
   reject: (error: Error) => void;
   timer: ReturnType<typeof setTimeout>;
+  /** `performance.now()` at which the caller stops waiting. */
+  deadline: number;
+  onLate?: (result: unknown) => void;
+  /** Sealed and sent; a bulk job may still be waiting for send budget. */
+  sent: boolean;
   /** Bulk upload write: admitted through the hard 4-job cap. */
   bulk: boolean;
   /** Counts toward bulkActive from admission until settled; released once. */
@@ -50,7 +56,12 @@ type Pending = {
   /** Aborts the pre-seal readiness wait on timeout/response/close. */
   abort: AbortController;
 };
-type Late = { fn: (result: unknown) => void; expires: ReturnType<typeof setTimeout> };
+type Late = { fn: (result: unknown) => void; expires: ReturnType<typeof setTimeout>; until: number };
+/**
+ * Requests already sent when the computer moved the session to another route.
+ * It answers them on the route it moved to, so they leave unsettled.
+ */
+export type CarriedRequests = { readonly pending: ReadonlyMap<string, Pending>; readonly late: ReadonlyMap<string, Late> };
 /**
  * WorkspaceMediaOpen hashes up to 32 MiB at 8 MiB/s session disk quota
  * (~4 s) plus sniff/JPEG scan. 20 s matches the daemon Open deadline and
@@ -135,10 +146,13 @@ export class SessionTransport {
     private readonly s2c: Direction,
     private readonly emit: (event: SessionEvent) => void,
     sent: readonly SentRead[] = [],
+    carried?: CarriedRequests,
   ) {
     channel.onDiagnostic?.((details) => this.diagnose("transport_closed", details));
+    // Before taking the channel, which may already hold their answers; and
+    // before the record, whose pending count then says how many were carried.
+    if (carried) this.carryIn(carried);
     this.diagnose("session_open");
-    // Adopt before taking the channel: answers may already be queued on it.
     for (const read of sent) this.adopt(read);
     channel.use((frame) => this.receive(frame));
     channel.onClose((error) => this.disconnect(error));
@@ -207,10 +221,45 @@ export class SessionTransport {
 
   private adopt(read: SentRead): void {
     const entry: Pending = {
-      resolve: read.resolve, reject: read.reject, bulk: false, counted: false, abort: new AbortController(),
+      op: read.op, resolve: read.resolve, reject: read.reject, bulk: false, counted: false, abort: new AbortController(),
+      deadline: performance.now() + READ_RPC_TIMEOUT_MS, sent: true,
       timer: globalThis.setTimeout(() => this.expireRPC(read.id, entry, read.op), READ_RPC_TIMEOUT_MS),
     };
     this.pending.set(read.id, entry);
+  }
+
+  /**
+   * Give up the requests already sent, unsettled, once the computer has moved
+   * the session to another route: it answers them there. Bulk jobs still waiting
+   * for send budget were never sent and stay to fail with this transport.
+   */
+  carryOut(): CarriedRequests {
+    const pending = new Map<string, Pending>();
+    for (const [id, entry] of this.pending) {
+      if (!entry.sent) continue;
+      clearTimeout(entry.timer);
+      this.pending.delete(id);
+      if (entry.counted) this.bulkActive--;
+      pending.set(id, entry);
+    }
+    const late = new Map(this.late);
+    for (const entry of late.values()) clearTimeout(entry.expires);
+    this.late.clear();
+    return { pending, late };
+  }
+
+  /** Take over carried requests, keeping each caller's deadline. */
+  private carryIn(carried: CarriedRequests): void {
+    const now = performance.now();
+    for (const [id, entry] of carried.pending) {
+      if (entry.counted) this.bulkActive++;
+      entry.timer = globalThis.setTimeout(() => this.expireRPC(id, entry, entry.op, entry.onLate), Math.max(0, entry.deadline - now));
+      this.pending.set(id, entry);
+    }
+    for (const [id, entry] of carried.late) {
+      entry.expires = globalThis.setTimeout(() => this.dropLate(id), Math.max(0, entry.until - now));
+      this.late.set(id, entry);
+    }
   }
 
   async rpc(op: string, params: unknown, timeoutMs = READ_RPC_TIMEOUT_MS, onSent?: () => void, onLate?: (result: unknown) => void): Promise<unknown> {
@@ -233,7 +282,7 @@ export class SessionTransport {
     return new Promise<unknown>((resolve, reject) => {
       const abort = new AbortController();
       const entry: Pending = {
-        resolve, reject, bulk, counted: bulk, abort,
+        op, resolve, reject, bulk, counted: bulk, abort, deadline: performance.now() + timeoutMs, onLate, sent: false,
         timer: globalThis.setTimeout(() => this.expireRPC(id, entry, op, onLate), timeoutMs),
       };
       this.bulkActive += bulk ? 1 : 0;
@@ -318,6 +367,7 @@ export class SessionTransport {
   private sealAndSend(id: string, entry: Pending, plaintext: Uint8Array, onSent?: () => void): void {
     try {
       this.sendSealed(plaintext);
+      entry.sent = true;
       onSent?.();
     } catch (error) {
       if (this.pending.has(id)) {
@@ -349,6 +399,7 @@ export class SessionTransport {
     const entry: Late = {
       fn,
       expires: globalThis.setTimeout(() => this.dropLate(id), LATE_CALLBACK_TTL_MS),
+      until: performance.now() + LATE_CALLBACK_TTL_MS,
     };
     this.late.set(id, entry);
   }
@@ -360,27 +411,13 @@ export class SessionTransport {
     this.late.delete(id);
   }
 
-  async waitIdle(timeoutMs = 2_000): Promise<void> {
-    if (!await this.idleWithin(timeoutMs)) throw new ProtocolError("timeout", "等待在途请求完成超时");
-  }
-
-  /** True once no request is in flight; false when `timeoutMs` passes or `signal` aborts first. */
-  async idleWithin(timeoutMs: number, signal?: AbortSignal): Promise<boolean> {
-    const deadline = performance.now() + timeoutMs;
-    while (this.pending.size > 0) {
-      if (this.stopped) throw this.stopError ?? new ProtocolError("disconnected", "连接已断开");
-      if (signal?.aborted || performance.now() >= deadline) return false;
-      await new Promise<void>((resolve) => globalThis.setTimeout(resolve, 5));
-    }
-    return true;
-  }
-
-  close(reason = "local_close"): void {
+  /** `pending` is what requests still out learn; a carried mutation may need to hear its outcome is unknown. */
+  close(reason = "local_close", pending = new ProtocolError("closed", "会话已关闭")): void {
     if (this.stopped) return;
     this.diagnose("session_close", { reason });
     this.stopped = true;
     this.stopLifecycle();
-    this.rejectPending(new ProtocolError("closed", "会话已关闭"));
+    this.rejectPending(pending);
     this.channel.close(1000, "client close");
   }
 

@@ -6,12 +6,6 @@ export const DIRECT_RETRY_MAX_MS = DIRECT_RETRY_STEPS_MS[DIRECT_RETRY_STEPS_MS.l
 export const DIRECT_ICE_GRACE_MS = 2_000;
 /** Health Ping on an established P2P path. Matches the commit probe. */
 export const DIRECT_HEALTH_PING_MS = 3_000;
-/**
- * How long a ready candidate lets relay requests finish before the switch holds
- * new ones back. With the 2s drain it stays inside the daemon's 20s candidate
- * lifetime, which also covers the offer and the handshake before it.
- */
-export const DIRECT_COMMIT_IDLE_MS = 8_000;
 /** Minimum gap between ICE restarts so a flapping path cannot loop. */
 export const DIRECT_RESTART_MIN_INTERVAL_MS = 15_000;
 /** Must exceed the daemon's 20s restart budget plus relay and queue overhead. */

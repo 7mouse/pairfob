@@ -25,10 +25,13 @@ continues to see only encrypted FWD bytes.
 3. Over the DataChannel, the endpoints perform the unchanged
    `DeviceHello1/2/3` exchange using the fresh route. This derives fresh AEAD
    directions; relay sequence numbers and keys are never reused on P2P.
-4. The phone stops admitting new RPCs, drains relay RPCs, then sends one
-   `TransportCommit` over relay. The daemon replies over relay before atomically
-   moving the same logical session and live terminal controller to the direct
-   route and key epoch.
+4. The phone holds new RPCs back, then sends one `TransportCommit` over relay.
+   The daemon replies over relay before atomically moving the same logical
+   session and live terminal controller to the direct route and key epoch.
+   Every reply it sent before that arrives on relay ahead of the commit reply;
+   it sends the rest on the direct route. The phone therefore carries the RPCs
+   still out to the direct transport when the commit reply arrives, each with
+   its own deadline, and does not wait for them before committing.
 5. The phone proves the committed direct route with an encrypted `Ping`, swaps
    locally, then closes its relay socket. If the commit reply is lost, that
    direct probe resolves the outcome without replaying `TransportCommit`.
@@ -43,12 +46,6 @@ candidate, with host candidates alone after 2 seconds, or once gathering
 completes, instead of waiting out a STUN reply that was lost. Candidates are
 not trickled afterwards; each end learns any other working address from the
 connectivity checks themselves.
-
-A candidate that is ready while relay requests are still out (the reads a
-screen issues as it connects) lets them finish for up to 8 seconds before step
-4, while new requests still flow. Step 4's drain then holds new requests back
-for at most 2 seconds; if requests are still out after that, the attempt fails
-and the retry schedule below applies.
 
 If the relay drops while the candidate is still proving itself in step 5, the
 candidate keeps its 3-second Ping and a relay standby (the first flight of

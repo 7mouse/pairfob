@@ -21,7 +21,8 @@ export function App() {
   const layout = frame.layout;
   if (!layout) return null;
   const Tabs = connected?.TabBar ?? TabBarView;
-  return <>{pageFor(layout, frame)}{layout.shell.tabs ? <Tabs mode={layout.mode} /> : null}</>;
+  const Prompt = connected?.NotificationPrompt;
+  return <>{pageFor(layout, frame)}{layout.shell.tabs ? <Tabs mode={layout.mode} /> : null}{Prompt && <Prompt />}</>;
 }
 
 function ReadingBoot() {

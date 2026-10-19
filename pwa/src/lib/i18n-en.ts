@@ -1,3 +1,4 @@
+import { enPush } from "./i18n-push";
 import { enChatWork } from "./i18n-chat-work";
 import { enComposeV2 } from "./i18n-compose-v2";
 import { enKeypadV2 } from "./i18n-keypad-v2";
@@ -29,6 +30,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   ...enChatWork,
   ...enPaneMenuV2,
   ...enSettingsV3,
+  ...enPush,
   ...enQuota,
   ...enRowbarV2,
   ...enWorkspace,
@@ -271,7 +273,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "settings.pushOn": "This device is notified when an agent needs you or finishes.",
   "settings.pushOff": "When on, this device is notified when an agent needs you or finishes.",
   "settings.pushHowtoBody": "Start pairfob with ",
-  "settings.pushHowtoTail": " and PAIRFOB_VAPID_SUBJECT, then reopen this page.",
+  "settings.pushHowtoTail": ", then reopen this page.",
   "settings.devices": "Paired devices",
   "settings.devicesLoading": "Reading the device list…",
   "settings.manageOthersBody": "Unpair other devices here. On the computer you can also run ",
@@ -494,7 +496,7 @@ export const en: { [K in keyof typeof zh]: string } = {
   "connect.manual": "Type the pairing code",
   "connect.submit": "Connect",
   "connect.installTitle": "Install pairfob on the computer",
-  "connect.installReq": "macOS or Linux. If Herdr is missing, the installer automatically installs its latest stable version.",
+  "connect.installReq": "macOS or Linux. Missing Herdr is installed automatically. Install and sign in to AI agents separately, or use Terminal after pairing.",
   "connect.installRunBefore": "In a terminal on that computer, run ",
   "connect.installRunAfter": ", then run pairfob pair.",
   "connect.installPlugin": "Using the Herdr plugin? Run the Pair a device action in Herdr instead.",

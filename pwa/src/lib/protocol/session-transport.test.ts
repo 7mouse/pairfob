@@ -280,6 +280,98 @@ describe("late WorkspaceMediaOpen replies", () => {
   });
 });
 
+describe("requests carried to the route the computer moved to", () => {
+  // The relay epoch uses key 7 / route 3; the direct one key 8 / route 4.
+  const direct = () => ({
+    c2s: new Direction(new Uint8Array(32).fill(8), DIR_C), s2c: new Direction(new Uint8Array(32).fill(8), DIR_S),
+    route: new Uint8Array(16).fill(4), inbound: new Direction(new Uint8Array(32).fill(8), DIR_S),
+  });
+  const sentIds = (channel: MockChannel, key: number, route: Uint8Array): string[] => {
+    const opener = new Direction(new Uint8Array(32).fill(key), DIR_C);
+    return channel.fwd().map((frame) => (JSON.parse(new TextDecoder().decode(opener.open(route, frame.payload))) as { id: string }).id);
+  };
+  const answer = (channel: MockChannel, inbound: Direction, route: Uint8Array, id: string, result: unknown): void => {
+    channel.deliver({
+      version: 1, typ: Typ.FWD, flags: 0, routeId: route,
+      payload: inbound.seal(route, new TextEncoder().encode(JSON.stringify({ v: 1, id, ok: true, result }))),
+    });
+  };
+
+  test("are answered on the new route once, keeping their deadline, and are never sent again", async () => {
+    const { c2s, s2c, route } = keys();
+    const relayChannel = new MockChannel("relay");
+    const relay = openTransport(relayChannel, c2s, s2c, route);
+    const startedAt = performance.now();
+    const read = relay.rpc("Snapshot", {}, 150).catch((caught) => caught as ProtocolError);
+    const mutation = trackMutationDelivery((markSent) => relay.rpc("SendText", { pane_id: "w0:p1", text: "x" }, 8_000, markSent));
+    const [readId, mutationId] = sentIds(relayChannel, 7, route);
+
+    const carried = relay.carryOut();
+    relay.close("transport_upgrade");
+    const next = direct();
+    const directChannel = new MockChannel("p2p");
+    const moved = new SessionTransport(directChannel, next.route, next.c2s, next.s2c, () => {}, [], carried);
+    answer(directChannel, next.inbound, next.route, mutationId!, { applied: true });
+    expect(await mutation).toEqual({ applied: true });
+    // A second answer for the same request settles nothing.
+    answer(directChannel, next.inbound, next.route, mutationId!, { applied: false });
+
+    const error = await read;
+    expect(error.code).toBe("timeout");
+    expect(performance.now() - startedAt).toBeLessThan(1_000);
+    expect(readId).toBeDefined();
+    expect(relayChannel.fwd()).toHaveLength(2);
+    expect(directChannel.fwd()).toEqual([]);
+    moved.close();
+  });
+
+  test("leave a bulk write that never got send budget to fail with the relay, and keep the bulk count", async () => {
+    const { c2s, s2c, route } = keys();
+    const relayChannel = new MockChannel("relay");
+    const relay = openTransport(relayChannel, c2s, s2c, route);
+    const writes = Array.from({ length: 3 }, (_, index) => relay.rpc("WorkspaceUploadWrite", { index }).catch((caught) => caught as ProtocolError));
+    for (let turn = 0; turn < 50 && relayChannel.fwd().length < 3; turn++) await Promise.resolve();
+    expect(relayChannel.fwd()).toHaveLength(3);
+    // Admitted, still on the bulk tail: not on the wire yet.
+    const unsent = relay.rpc("WorkspaceUploadWrite", { index: 3 }).catch((caught) => caught as ProtocolError);
+
+    const carried = relay.carryOut();
+    relay.close("transport_upgrade");
+    expect((await unsent).code).toBe("closed");
+    expect(relayChannel.fwd()).toHaveLength(3);
+    const next = direct();
+    const moved = new SessionTransport(new MockChannel("p2p"), next.route, next.c2s, next.s2c, () => {}, [], carried);
+    // Three carried writes plus this one fill the four bulk slots.
+    void moved.rpc("WorkspaceUploadWrite", { index: 4 }).catch(() => undefined);
+    const over = await moved.rpc("WorkspaceUploadWrite", { index: 5 }).catch((caught) => caught as ProtocolError);
+    expect(over.code).toBe("backpressure");
+    moved.close();
+    for (const write of await Promise.all(writes)) expect(write.code).toBe("closed");
+  });
+
+  test("keep the closer of a media Open that timed out before the move", async () => {
+    const { c2s, s2c, route } = keys();
+    const relayChannel = new MockChannel("relay");
+    const relay = openTransport(relayChannel, c2s, s2c, route);
+    const closed: string[] = [];
+    const open = relay.rpc("WorkspaceMediaOpen", { pane_id: "w0:p1", path: "a.bin" }, 20, undefined, (result) => {
+      closed.push((result as { handle: string }).handle);
+    });
+    expect(((await open.catch((caught) => caught)) as ProtocolError).code).toBe("timeout");
+    const [id] = sentIds(relayChannel, 7, route);
+
+    const carried = relay.carryOut();
+    relay.close("transport_upgrade");
+    const next = direct();
+    const directChannel = new MockChannel("p2p");
+    const moved = new SessionTransport(directChannel, next.route, next.c2s, next.s2c, () => {}, [], carried);
+    const handle = "media_" + "b".repeat(32);
+    answer(directChannel, next.inbound, next.route, id!, { handle });
+    expect(closed).toEqual([handle]);
+    moved.close();
+  });
+});
+
 describe("late media callback table is bounded", () => {
   test("stays at/under the cap under a timeout storm and clears on stop", async () => {
     const { c2s, s2c, route } = keys();

@@ -13,12 +13,13 @@ curl -fsSL https://pairfob.com/install.sh | sh
 
 The same command on a second computer. Then pair it from the phone: **Settings → Switch computer → Add a computer**. Do not set `PAIRFOB_JOIN_TOKEN`.
 
+Pairfob does not install or sign in to AI agents. Install and sign in to your chosen agent on the computer before using it, or choose Terminal after pairing to work without an agent.
 
 ## Herdr checks and installation
 
 Before replacing Pairfob, enrolling, or installing its service, the installer checks Herdr. It reuses a ready server, starts an installed server when needed, and waits for its API. If Herdr is missing, it automatically installs the latest stable release into `~/.local/bin/herdr`, verifies SHA-256 and records its source. Existing installations are preserved.
 
-For unattended installation, explicitly allow the missing dependency:
+For unattended installation, use the following command; missing Herdr is still installed automatically:
 
 ```sh
 curl -fsSL https://pairfob.com/install.sh | sh -s -- --non-interactive
@@ -32,7 +33,7 @@ Later, run `pairfob setup` to check and start Herdr, or `pairfob setup --install
 
 1. Downloads the `pairfob` binary for this OS
 2. Verifies the checksum and refuses to overwrite on mismatch
-3. Checks Herdr, optionally installs it with consent, starts it if needed, and verifies its API
+3. Checks Herdr, automatically installs the latest stable release if missing, starts it if needed, and verifies its API
 4. Enrolls
 5. Unless `--no-service`, installs a **user-level** login service
 

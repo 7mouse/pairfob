@@ -14,9 +14,10 @@ description: 电脑装好 pairfob（缺少 Herdr 时一并安装），配对一�
 | 需要 | 说明 |
 | --- | --- |
 | 一台 macOS 或 Linux 电脑 | `pairfob` 跑在这里，agent 也跑在这里 |
-| [Herdr](https://herdr.dev) 0.8 或更高 | Pairfob 不自带 agent，也不代替 Herdr |
+| [Herdr](https://herdr.dev) 0.8 或更高 | 缺少时由安装脚本自动补装最新稳定版 |
+| AI Agent（可选） | 在电脑上另行安装并登录；不装 Agent 也可以使用终端 |
 | `curl` | 安装脚本用来下载 |
-| 另一台设备的浏览器 | 手机、平板，或另一台电脑都可以 |
+| 浏览器 | 手机、平板、另一台电脑或本机浏览器均可；无需 Pairfob 账号 |
 
 ## 1. 确认电脑的使用条件
 

@@ -1,10 +1,11 @@
+import { preparedPushConfig, rememberPushConfig, subscriptionMatches } from "./push-config";
 export { selectNetworkMode } from "./network-preference";
 import { currentScreen, goToScreen } from "../../app/navigation-store";
 import { liveSession } from "../computers/catalog-store";
 import { openPaneId } from "../session/session-store";
 import { commitView } from "../../app/host";
 import {
-  applyDeviceList, beginSettingsRead, endSettingsRead, pushConfigError, pushEnabled, setDevicesError,
+  applyDeviceList, beginSettingsRead, endSettingsRead, pushConfigError, setDevicesError,
   setPushConfigError, setPushEnabled, setPushSubscribed, settingsRequestIsCurrent,
 } from "../connection/runtime-store";
 import { showError, showStatus } from "../../app/notices-store";
@@ -74,15 +75,15 @@ export function leaveSettings(): void {
   commitView();
 }
 
-function supportsWebPush(): boolean {
+export function supportsWebPush(): boolean {
   return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
 }
 
-async function hasLocalPushSubscription(): Promise<boolean> {
-  if (!supportsWebPush()) return false;
+async function localPushSubscription(): Promise<PushSubscription | null> {
+  if (!supportsWebPush()) return null;
   const registration = await navigator.serviceWorker.getRegistration();
-  if (!registration) return false;
-  return (await registration.pushManager.getSubscription()) !== null;
+  if (!registration) return null;
+  return registration.pushManager.getSubscription();
 }
 
 export async function refreshSettings(): Promise<void> {
@@ -98,7 +99,7 @@ export async function refreshSettings(): Promise<void> {
   const [devices, config, subscription] = await Promise.allSettled([
     session.listDevices(),
     session.getConfig(),
-    hasLocalPushSubscription(),
+    localPushSubscription(),
   ]);
   if (!settingsReadStillOwned(request, session)) return;
   if (devices.status === "fulfilled") {
@@ -112,6 +113,7 @@ export async function refreshSettings(): Promise<void> {
     if (!settingsReadStillOwned(request, session)) return;
     try {
       parseRuntimeOperationsConfig(config.value);
+      rememberPushConfig(session, config.value);
       setPushEnabled(config.value.push_enabled === true);
     } catch {
       markDaemonConfigIncompatible();
@@ -127,7 +129,7 @@ export async function refreshSettings(): Promise<void> {
   }
   if (!settingsReadStillOwned(request, session)) return;
   if (subscription.status === "fulfilled") {
-    setPushSubscribed(subscription.value);
+    setPushSubscribed(subscription.value !== null && subscriptionMatches(subscription.value, preparedPushConfig(session)?.vapid_public ?? ""));
   } else {
     setPushSubscribed(null);
     if (!settingsReadStillOwned(request, session)) return;
@@ -144,44 +146,44 @@ function vapidKey(value: string): ArrayBuffer {
   return Uint8Array.from(raw, (char) => char.charCodeAt(0)).buffer as ArrayBuffer;
 }
 
-export async function enablePush(): Promise<void> {
+export async function enablePush(): Promise<boolean> {
   const session = liveSession();
   if (!session || !supportsWebPush()) {
     showError(t("err.pushUnsupported"));
-    return;
+    return false;
   }
   try {
-    const config = await session.getConfig();
-    if (!sessionStillOwned(session)) return;
-    parseRuntimeOperationsConfig(config);
-    setPushEnabled(config.push_enabled === true);
-    if (!sessionStillOwned(session)) return;
-    if (!pushEnabled()) throw new Error(t("err.pushComputerOff"));
-    if (typeof config.vapid_public !== "string" || !config.vapid_public) throw new Error(t("err.pushNotReady"));
-    const permission = await Notification.requestPermission();
-    if (!sessionStillOwned(session)) return;
+    const config = preparedPushConfig(session);
+    if (!config) throw new Error(t("err.pushNotReady"));
+    if (!config.push_enabled) throw new Error(t("err.pushComputerOff"));
+    if (!config.vapid_public) throw new Error(t("err.pushNotReady"));
+    const permission = Notification.permission === "granted" ? "granted" : await Notification.requestPermission();
+    if (!sessionStillOwned(session)) return false;
     if (permission !== "granted") throw new Error(t("err.pushPermission"));
     const registration = await navigator.serviceWorker.ready;
-    if (!sessionStillOwned(session)) return;
+    if (!sessionStillOwned(session)) return false;
     const existing = await registration.pushManager.getSubscription();
-    if (!sessionStillOwned(session)) return;
+    if (!sessionStillOwned(session)) return false;
+    if (existing && !subscriptionMatches(existing, config.vapid_public)) throw new Error(t("push.otherComputer"));
     const subscription =
       existing ||
       (await registration.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: vapidKey(config.vapid_public),
       }));
-    if (!sessionStillOwned(session)) return;
+    if (!sessionStillOwned(session)) return false;
     await session.pushSubscribe(subscription.toJSON());
-    if (!sessionStillOwned(session)) return;
+    if (!sessionStillOwned(session)) return false;
     setPushSubscribed(true);
-    if (!sessionStillOwned(session)) return;
+    if (!sessionStillOwned(session)) return false;
     await refreshSettings();
-    if (!sessionStillOwned(session)) return;
+    if (!sessionStillOwned(session)) return false;
     haptic(10);
     showStatus(t("push.enabled"));
+    return true;
   } catch (error) {
-    if (!sessionStillOwned(session)) return;
+    if (!sessionStillOwned(session)) return false;
     await reportMutationError(session, error);
+    return false;
   }
 }

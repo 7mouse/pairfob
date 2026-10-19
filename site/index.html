@@ -144,7 +144,7 @@
               <h1 data-i18n="hero.title" data-i18n-html>Agents that run on your computer,<br />continued from your phone.</h1>
               <ul class="ticks">
                 <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick1">Runs in the browser, no app to install</span></li>
-                <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick2">No account</span></li>
+                <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick2">No Pairfob account</span></li>
                 <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick3">End-to-end encrypted</span></li>
               </ul>
             </div>
@@ -292,7 +292,7 @@
               <div class="step-body">
                 <p class="where"><span class="n">1</span><svg><use href="#i-laptop" /></svg><span data-i18n="where.pc">On the computer</span></p>
                 <h3 data-i18n="s1.h">Install pairfob</h3>
-                <p data-i18n="s1.p" data-i18n-html>Needs <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> 0.8+ to run your coding agents. If missing, the installer automatically installs the latest stable release. macOS and Linux.</p>
+                <p data-i18n="s1.p" data-i18n-html>On macOS or Linux, the installer installs Pairfob and adds the latest stable <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> if it is missing. Install and sign in to your AI agent separately, or use Terminal after pairing.</p>
               </div>
             </li>
             <li class="step">
@@ -330,7 +330,7 @@
                     <code>https://pairfob.com/pair</code>
                     <button type="button" class="copy cta-desk" data-copy="https://pairfob.com/pair" data-i18n="start.copy">Copy</button>
                   </div>
-                  <p class="hint" data-i18n="s3.hint">Open it on your phone. Don't open it on this computer.</p>
+                  <p class="hint" data-i18n="s3.hint">Scan on your phone, or enter the pairing code in a browser on this computer.</p>
                 </div>
                 <div class="step-open cta-phone"><a class="btn btn-dark" href="/pair" data-i18n="s3.open">Open Pairfob and scan</a></div>
               </div>
@@ -392,7 +392,7 @@
             <div class="extras">
               <div><i><svg><use href="#i-hosts" /></svg></i><b data-i18n="x1.b">One device, several computers</b><span data-i18n="x1">Work and home machines; switch in Settings.</span></div>
               <div><i><svg><use href="#i-bell" /></svg></i><b data-i18n="x2.b">A push when it needs you</b><span data-i18n="x2">Optional. Tap the notification to land in that session.</span></div>
-              <div><i><svg><use href="#i-plus" /></svg></i><b data-i18n="x3.b">Start sessions from the phone</b><span data-i18n="x3">Pick a workspace and an agent, and go.</span></div>
+              <div><i><svg><use href="#i-plus" /></svg></i><b data-i18n="x3.b">Start sessions from the phone</b><span data-i18n="x3">Choose a workspace and an agent you have installed and signed in to, or choose Terminal.</span></div>
               <div><i><svg><use href="#i-branch" /></svg></i><b data-i18n="x4.b">Switch Git worktrees</b><span data-i18n="x4">List, create, open. Paths outside the allowed roots are refused.</span></div>
             </div>
           </div>
@@ -451,7 +451,7 @@
             <div><b data-i18n="g1.b">Encrypted either way</b><span data-i18n="g1">Direct or relayed, the content is end-to-end encrypted.</span></div>
             <div><b data-i18n="g2.b">No open ports</b><span data-i18n="g2">No VPN, no Tailscale, no router changes.</span></div>
             <div><b data-i18n="g3.b">Enter on the computer</b><span data-i18n="g3">Pairing is approved in the computer's terminal, so a photo of your QR code isn't enough.</span></div>
-            <div><b data-i18n="g4.b">No account · open source</b><span data-i18n="g4">No email login. Apache-2.0, with the code on GitHub.</span></div>
+            <div><b data-i18n="g4.b">No Pairfob account · open source</b><span data-i18n="g4">No email login. Apache-2.0, with the code on GitHub.</span></div>
           </div>
         </div>
       </section>
@@ -496,6 +496,7 @@
         <p data-i18n="foot.blurb">Pairfob · the phone surface for Herdr. The computer that runs Herdr has to be macOS or Linux for now.</p>
         <nav class="foot-nav" data-i18n-aria="foot.aria" aria-label="Footer">
           <a href="/doc/" data-locale-href="doc" data-i18n="nav.doc">Docs</a>
+          <a href="/doc/privacy" data-locale-href="privacy" data-i18n="nav.privacy">Privacy</a>
           <a href="/doc/faq" data-locale-href="faq" data-i18n="nav.faq">FAQ</a>
           <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer" data-i18n="nav.feedback">Feedback</a>
           <a href="https://github.com/arronKler/pairfob" target="_blank" rel="noreferrer">GitHub</a>
@@ -522,7 +523,7 @@
       }
     </script>
 
-    <script src="/home-i18n.js?v=71"></script>
+    <script src="/home-i18n.js?v=72"></script>
     <script src="/site.js?v=49"></script>
     <script src="/home-motion.js?v=1"></script>
   </body>

@@ -71,7 +71,7 @@ export function installEnvironment(): void {
     getUserMedia: async () => { throw new DOMException("QA camera permission denied", "NotAllowedError"); },
     enumerateDevices: async () => [],
   } });
-  if ("Notification" in window) Object.defineProperty(Notification, "requestPermission", { configurable: true, value: async () => "denied" });
+  if ("Notification" in window) Object.defineProperty(Notification, "requestPermission", { configurable: true, value: async () => { record("lifecycle", "Notification.requestPermission"); return "denied"; } });
   const NativeSocket = window.WebSocket;
   window.WebSocket = new Proxy(NativeSocket, {
     construct(target, args) {

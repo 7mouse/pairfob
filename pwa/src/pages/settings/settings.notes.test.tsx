@@ -202,7 +202,7 @@ describe("settings notes and inline steps (actual App)", () => {
     expect(document.querySelector("dialog[open]")).toBeNull();
     expect(buttonLabelled("怎么开启").getAttribute("aria-expanded")).toBe("true");
     const steps = [...app.querySelectorAll(".notification-item .command-line code")].map((el) => el.textContent);
-    expect(steps).toEqual(["PAIRFOB_PUSH=1\nPAIRFOB_VAPID_SUBJECT=mailto:you@example.com", "pairfob service restart"]);
+    expect(steps).toEqual(["PAIRFOB_PUSH=1 pairfob service install"]);
     // They fold open under the row, and fold shut out of reach before they go.
     const fold = item.querySelector<HTMLElement>(".fold")!;
     expect(fold.classList.contains("is-shut")).toBe(false);

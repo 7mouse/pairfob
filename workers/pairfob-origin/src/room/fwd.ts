@@ -35,6 +35,7 @@ export function fwdWireFromClient(
     }
   }
   forwardWire(daemon, rid, wire);
+  if (att.kind === "established") room.deps.activity?.(room.now());
 }
 
 async function advanceAndForward(
@@ -62,11 +63,13 @@ function forwardWire(destination: RoomSocket, routeId: Uint8Array, wire: Uint8Ar
 
 export function fwdWireFromDaemon(room: RoomCore, ws: RoomSocket, wire: Uint8Array): void {
   if (room.daemon !== ws) return;
-  const client = room.findByRoute(routeHexAt(wire, 8));
+  const route = routeHexAt(wire, 8);
+  const client = room.findByRoute(route);
   if (!client) return;
   room.noteFwd(wire.length - HEADER_SIZE);
   try {
     client.send(wire);
+    if (room.routeIsEstablished(route)) room.deps.activity?.(room.now());
   } catch {
     room.closeBind(client, "unbound", "client send failed");
   }

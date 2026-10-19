@@ -51,6 +51,7 @@ const enSidebar: DefaultTheme.Sidebar = [
       { text: "Get started", link: "/start" },
       { text: "Install", link: "/install" },
       { text: "FAQ", link: "/faq" },
+    { text: "Privacy", link: "/privacy" },
       { text: "Use cases", link: "/use-cases" },
     ],
   },
@@ -90,6 +91,7 @@ const zhSidebar: DefaultTheme.Sidebar = [
       { text: "开始使用", link: "/zh/start" },
       { text: "安装", link: "/zh/install" },
       { text: "常见问题", link: "/zh/faq" },
+    { text: "隐私说明", link: "/zh/privacy" },
       { text: "使用场景", link: "/zh/use-cases" },
     ],
   },
@@ -131,6 +133,7 @@ export const zhTheme: DefaultTheme.Config = {
     { text: "使用", link: "/zh/app" },
     { text: "设计", link: "/zh/model" },
     { text: "常见问题", link: "/zh/faq" },
+    { text: "隐私说明", link: "/zh/privacy" },
   ],
   docFooter: { prev: "上一篇", next: "下一篇" },
   darkModeSwitchLabel: "外观",
@@ -143,7 +146,7 @@ export const zhTheme: DefaultTheme.Config = {
   socialLinks: [{ icon: "github", link: "https://github.com/arronKler/pairfob" }],
   footer: {
     message:
-      '密钥只在你的电脑和已配对设备上。pairfob.com 只转发密文。 · <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">反馈问题</a>',
+      '密钥只在你的电脑和已配对设备上。pairfob.com 转发加密内容并记录连接元数据。 · <a href="/doc/zh/privacy">隐私说明</a> · <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">反馈问题</a>',
     copyright: "Pairfob · Herdr 的手机端 · Apache-2.0",
   },
   notFound: {
@@ -164,6 +167,7 @@ export const enTheme: DefaultTheme.Config = {
     { text: "Use", link: "/app" },
     { text: "Design", link: "/model" },
     { text: "FAQ", link: "/faq" },
+    { text: "Privacy", link: "/privacy" },
   ],
   docFooter: { prev: "Previous", next: "Next" },
   darkModeSwitchLabel: "Appearance",
@@ -176,7 +180,7 @@ export const enTheme: DefaultTheme.Config = {
   socialLinks: [{ icon: "github", link: "https://github.com/arronKler/pairfob" }],
   footer: {
     message:
-      'Keys stay on your computer and paired devices. pairfob.com forwards ciphertext only. · <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">Report an issue</a>',
+      'Keys stay on your computer and paired devices. pairfob.com relays encrypted content and records connection metadata. · <a href="/doc/privacy">Privacy</a> · <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">Report an issue</a>',
     copyright: "Pairfob · the phone surface for Herdr · Apache-2.0",
   },
   notFound: {

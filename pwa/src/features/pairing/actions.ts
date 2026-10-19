@@ -25,6 +25,7 @@ import { pairOverWS, ProtocolError, type PairInput } from "../../lib/protocol/cl
 import { friendlyDeviceLabel, pairErrorField, shouldForgetPairFragment, type PairErrorField, type PairStepKey } from "../../lib/ui-model";
 import { saveCredential } from "../../lib/credentials";
 import { track } from "../../lib/telemetry";
+import { offerNotifications } from "../settings/notification-onboarding";
 import { pairCodeProblem, type ConnectNotice, type ConnectViewInput } from "./model";
 import {
   claimPairingAttempt, claimPairingTransport, clearPairingTransport, pairingPageOwner, pairingTransportAbortFor,
@@ -219,6 +220,7 @@ export async function beginPairing(rawCode: string): Promise<void> {
     if (work !== currentWork()) return;
     await saveCredential(pair);
     if (work !== currentWork()) return;
+    offerNotifications(pair.daemonId);
     const { resumeComputer } = await import("../computers/actions");
     if (work !== currentWork()) return;
     batch(() => {

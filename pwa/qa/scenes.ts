@@ -1,3 +1,5 @@
+import { offerNotifications } from "../src/features/settings/notification-onboarding";
+import { rememberPushConfig } from "../src/features/settings/push-config";
 import { modelTrace } from "./model-traces";
 import { PREVIEW_TRACE } from "./preview-files";
 import { isDesk } from "../src/app/viewport";
@@ -83,6 +85,7 @@ export const scenes: FixtureScene[] = [
   { name: "computers-one", description: "One computer offline retry" },
   { name: "computers-many", description: "Saved computer picker" },
   { name: "home-empty", description: "No session yet" },
+  { name: "home-notifications", description: "Post-pair notification invitation; permission is locally denied" },
   { name: "home-populated", description: "Flat session list" },
   { name: "attention-rich", description: "Rich task readiness and completion facts" },
   { name: "attention-rich-updated", description: "Runtime occupant replacement and newer completion sequence" },
@@ -314,7 +317,7 @@ export function resetFixtureBaseline(session: FixtureSession): void {
   resetHerdPresentationChoices();
   for (let index = localStorage.length - 1; index >= 0; index--) {
     const key = localStorage.key(index) ?? "";
-    if (key.startsWith(PANE_ACTIVATED_KEY) || key.startsWith(PANE_TOUCHED_KEY)) localStorage.removeItem(key);
+    if (key.startsWith("pairfob_notification_prompt:") || key.startsWith(PANE_ACTIVATED_KEY) || key.startsWith(PANE_TOUCHED_KEY)) localStorage.removeItem(key);
   }
   clearWorkspacePendingReveal();
   clearAgentTraceCache();
@@ -400,6 +403,11 @@ export function resetFixtureBaseline(session: FixtureSession): void {
 
 export async function applyScene(name: string, session: FixtureSession): Promise<void> {
   if (!scenes.some((scene) => scene.name === name)) throw new Error(`Unknown QA scene: ${name}`);
+  if (name === "home-notifications") {
+    rememberPushConfig(session.live, { push_enabled: true, vapid_public: "AA" });
+    setPushEnabled(true);
+    offerNotifications(data.computers()[0].daemonId);
+  }
   if (name === "boot" || name === "resuming") { setPhase(name); return; }
   if (name === "boot-assets") { setPhase("boot"); setBootBlocked("assets"); return; }
   if (name.startsWith("resuming-slow")) {

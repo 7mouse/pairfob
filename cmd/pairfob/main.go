@@ -128,7 +128,7 @@ func runDaemon(store *state.Store, sock string) error {
 	}
 	runtimeConfig := daemon.RuntimeConfig{
 		MuxProtocol: plan.Protocol,
-		PushEnabled: getenv("PAIRFOB_PUSH", "") == "1",
+		PushEnabled: getenv("PAIRFOB_PUSH", "1") == "1",
 		AutoAdmit:   getenv("PAIRFOB_DEV_AUTO_ADMIT", "") == "1",
 	}
 	if plan.Origin != "" {

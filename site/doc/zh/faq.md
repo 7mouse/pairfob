@@ -11,7 +11,9 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 ## Pairfob 能单独跑 agent 吗？
 
-不能。它是 [Herdr](https://herdr.dev) 的手机端。电脑上要装 Herdr 0.8 或更高；`pairfob` 会在启动时自动拉起 Herdr。自动启动失败时列表会显示 Herdr 离线，手动运行 `herdr` 后会自动恢复。
+不能。它是 [Herdr](https://herdr.dev) 的手机端。电脑需要 Herdr 0.8 或更高；缺少时，Pairfob 安装脚本会自动补装最新稳定版。`pairfob` 会在启动时自动拉起 Herdr。自动启动失败时列表会显示 Herdr 离线，手动运行 `herdr` 后会自动恢复。
+
+AI Agent 需要在电脑上另行安装并登录，Pairfob 不会安装 Agent 或配置其账号。配对后也可以选择终端，无需 Agent。使用 Pairfob 无需注册账号；Agent 自身的登录要求仍然适用。
 
 ## 这是远程桌面吗？
 
@@ -102,7 +104,7 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 ## 通知为什么开不了？
 
-默认关。先在电脑上打开推送，再 `pairfob service restart`。然后到手机设置里订阅。见 [通知](/zh/push)。
+电脑端默认开启发送能力。请在手机 **设置 → 通知** 中授权并订阅。iPhone 和 iPad 需先添加到主屏幕并从那里打开。如果电脑端曾被关闭，运行 `PAIRFOB_PUSH=1 pairfob service install`。见 [通知](/zh/push)。
 
 ## 可以给同事也扫这个码吗？
 

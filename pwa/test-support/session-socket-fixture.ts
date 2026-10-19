@@ -22,6 +22,8 @@ export type SocketScript = {
   failOps?: string[];
   /** Answer TransportCommit as a computer that moved the session would. */
   answerCommit?: boolean;
+  /** Requests the computer is still working on: recorded, not answered here. */
+  slowOps?: string[];
 };
 const secret = new Uint8Array(32).fill(7);
 const pk = ed25519.getPublicKey(secret);
@@ -45,7 +47,7 @@ export class SessionSocket extends EventTarget {
   blocked: HoldStage | null = null;
   frames: Frame[] = [];
   operations: string[] = [];
-  requests: Array<{ op: string; params: Record<string, unknown> }> = [];
+  requests: Array<{ id: string; op: string; params: Record<string, unknown> }> = [];
   /** A path that died silently: frames arrive nowhere and nothing comes back. */
   silent = false;
   readonly serial = SessionSocket.instances.length + 1;
@@ -78,6 +80,11 @@ export class SessionSocket extends EventTarget {
     if (this.held && !this.released) this.behind.push(frame);
     else this.deliver(frame);
   }
+  /** Answer, on this socket, a recorded request the computer was still working on. */
+  answer(id: string, result: unknown): void {
+    const payload = this.out.seal(this.route, new TextEncoder().encode(JSON.stringify({ v: 1, id, ok: true, result })));
+    this.reply("none", { version: 1, typ: Typ.FWD, flags: 0, routeId: this.route, payload });
+  }
   releaseLate(): void {
     if (!this.held) return;
     this.released = true;
@@ -109,10 +116,11 @@ export class SessionSocket extends EventTarget {
     if (!this.boundSent) { if (this.script.bindLate === "refuse") this.reject("unbound"); return; }
     if (this.established) {
       const req = JSON.parse(new TextDecoder().decode(this.recv.open(this.route, frame.payload)));
-      this.operations.push(req.op); this.requests.push({ op: req.op, params: req.params });
+      this.operations.push(req.op); this.requests.push({ id: req.id, op: req.op, params: req.params });
       SessionSocket.log.push(`${this.serial}:${req.op}`);
       // A computer that does not take requests sent ahead of SESSION_ESTABLISHED.
       if (this.script.dropAhead && !this.establishedSent) return;
+      if (this.script.slowOps?.includes(req.op)) return;
       const answer = this.script.failOps?.includes(req.op)
         ? { v: 1, id: req.id, ok: false, error: { code: "herdr_offline", message: "fixture" } }
         : req.op === "TransportCommit" && this.script.answerCommit

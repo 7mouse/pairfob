@@ -13,6 +13,7 @@
     "nav.what": "能做什么",
     "nav.safe": "安全吗",
     "nav.faq": "常见问题",
+    "nav.privacy": "隐私说明",
     "nav.doc": "文档",
     "nav.github": "GitHub 上的源码",
     "nav.feedback": "反馈",
@@ -25,7 +26,7 @@
     "hero.chip2": "开源 · 免费",
     "hero.title": "电脑上跑的 Agent，<br />手机随时接着操作。",
     "hero.tick1": "浏览器打开就能用，不装 App",
-    "hero.tick2": "不用注册",
+    "hero.tick2": "无需 Pairfob 账号",
     "hero.tick3": "端到端加密",
     "hero.sub":
       "Codex、Claude 在电脑上跑着，你<b>离开座位也不用停</b>：在手机上看进度、回它一句、替它按下确认。手机和电脑是<b>同一个终端</b>，不是远程桌面。",
@@ -68,12 +69,12 @@
     "s1.term4": "缺什么，它会告诉你",
     "s1.h": "安装 pairfob",
     "s1.p":
-      '需要 <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> 0.8+ 来跑 coding agent。没装时，安装脚本会自动安装最新稳定版。支持 macOS 和 Linux。',
+      '支持 macOS 和 Linux。安装脚本会安装 Pairfob，缺少 <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> 时自动补装最新稳定版。AI Agent 需另行安装并登录，也可以在配对后直接使用终端。',
     "s2.h": "运行 <code>pairfob pair</code>",
     "s2.p": "终端里出现二维码。先别关，留着给手机扫。",
     "s3.h": "打开 pairfob.com/pair 扫码",
     "s3.p": "扫完，电脑终端出现 <code>Press Enter to pair</code>，回电脑按一下 Enter 就配好了。",
-    "s3.hint": "在手机上打开，不要在这台电脑打开。",
+    "s3.hint": "手机打开后扫码，也可以在本机浏览器输入配对码。",
     "s3.open": "打开 Pairfob 扫码",
     "after1.b": "之后每一次",
     after1: "手机打开 <code>pairfob.com/pair</code> 或主屏幕图标，就是电脑上那几个会话。",
@@ -113,7 +114,7 @@
     "x2.b": "等你时推送提醒",
     x2: "可选开启，点通知直达那个会话。",
     "x3.b": "在手机上新建会话",
-    x3: "选工作区、选 Agent，就开跑。",
+    x3: "选择工作区和已安装并登录的 Agent，或者选择终端。",
     "x4.b": "切 Git worktree",
     x4: "列出、新建、打开，越界路径直接拒绝。",
     "what.fine": "能用哪些，由电脑上当时的 Herdr 决定；它不支持的操作不会出现在界面上，也不会假装成功。",
@@ -157,7 +158,7 @@
     g2: "不用 VPN、不用 Tailscale、不用改路由器。",
     "g3.b": "必须电脑按 Enter",
     g3: "配对要在电脑终端确认，别人拍到二维码也配不上。",
-    "g4.b": "不用账号 · 开源",
+    "g4.b": "无需 Pairfob 账号 · 开源",
     g4: "没有邮箱登录；Apache-2.0，代码在 GitHub。",
 
     "faq.ask": "还有疑问？",
@@ -197,6 +198,7 @@
     "nav.what": "What it does",
     "nav.safe": "Security",
     "nav.faq": "FAQ",
+    "nav.privacy": "Privacy",
     "nav.doc": "Docs",
     "nav.github": "Source on GitHub",
     "nav.feedback": "Feedback",
@@ -209,7 +211,7 @@
     "hero.chip2": "Open source · Free",
     "hero.title": "Agents that run on your computer,<br />continued from your phone.",
     "hero.tick1": "Runs in the browser, no app to install",
-    "hero.tick2": "No account",
+    "hero.tick2": "No Pairfob account",
     "hero.tick3": "End-to-end encrypted",
     "hero.sub":
       "Codex and Claude keep running on your computer, and <b>leaving your desk doesn't stop the work</b>: check progress, reply, and confirm from your phone. Phone and computer share <b>the same terminal</b>. It is not a remote desktop.",
@@ -253,13 +255,13 @@
     "s1.term4": "tells you what is still missing",
     "s1.h": "Install pairfob",
     "s1.p":
-      'Needs <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> 0.8+ to run your coding agents. If missing, the installer automatically installs the latest stable release. macOS and Linux.',
+      'On macOS or Linux, the installer installs Pairfob and adds the latest stable <a href="https://herdr.dev" target="_blank" rel="noreferrer">Herdr</a> if it is missing. Install and sign in to your AI agent separately, or use Terminal after pairing.',
     "s2.h": "Run <code>pairfob pair</code>",
     "s2.p": "A QR code appears in the terminal. Leave it there for the phone.",
     "s3.h": "Open pairfob.com/pair and scan",
     "s3.p":
       "After the scan, the terminal shows <code>Press Enter to pair</code>. Press Enter on the computer and you're paired.",
-    "s3.hint": "Open it on your phone. Don't open it on this computer.",
+    "s3.hint": "Scan on your phone, or enter the pairing code in a browser on this computer.",
     "s3.open": "Open Pairfob and scan",
     "after1.b": "Every time after",
     after1: "Open <code>pairfob.com/pair</code> or the Home Screen icon and you're in your computer's sessions.",
@@ -301,7 +303,7 @@
     "x2.b": "A push when it needs you",
     x2: "Optional. Tap the notification to land in that session.",
     "x3.b": "Start sessions from the phone",
-    x3: "Pick a workspace and an agent, and go.",
+    x3: "Choose a workspace and an agent you have installed and signed in to, or choose Terminal.",
     "x4.b": "Switch Git worktrees",
     x4: "List, create, open. Paths outside the allowed roots are refused.",
     "what.fine":
@@ -346,7 +348,7 @@
     g2: "No VPN, no Tailscale, no router changes.",
     "g3.b": "Enter on the computer",
     g3: "Pairing is approved in the computer's terminal, so a photo of your QR code isn't enough.",
-    "g4.b": "No account · open source",
+    "g4.b": "No Pairfob account · open source",
     g4: "No email login. Apache-2.0, with the code on GitHub.",
 
     "faq.ask": "Still have questions?",
@@ -437,6 +439,7 @@
     const docHref = lang === "en" ? "/doc/" : "/doc/zh/";
     document.querySelectorAll("[data-locale-href=doc]").forEach((el) => el.setAttribute("href", docHref));
     const faqHref = lang === "en" ? "/doc/faq" : "/doc/zh/faq";
+    document.querySelectorAll("[data-locale-href=privacy]").forEach((el) => el.setAttribute("href", lang === "zh" ? "/doc/zh/privacy" : "/doc/privacy"));
     document.querySelectorAll("[data-locale-href=faq]").forEach((el) => el.setAttribute("href", faqHref));
 
     document.querySelectorAll(".lang-btn").forEach((btn) => {

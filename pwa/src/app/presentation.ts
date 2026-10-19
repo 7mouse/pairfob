@@ -7,6 +7,7 @@ import type { LayoutMode } from "./layout";
 export type ConnectedPresentation = {
   pageFor(layout: ShellLayout, frame: FrameSnapshot): ReactNode;
   TabBar(props: { mode: LayoutMode }): ReactNode;
+  NotificationPrompt?: () => ReactNode;
   presentHerdView(): unknown;
   prepareSessionPaint(): SessionScroll;
   prepareFullTerminal(): void;

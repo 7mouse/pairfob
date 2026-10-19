@@ -33,10 +33,10 @@ description: 安装、登记、路径根、推送。不要设 PAIRFOB_JOIN_TOKEN
 
 | 变量 | 说明 |
 | --- | --- |
-| `PAIRFOB_PUSH` | `1` 才打开。默认关 |
-| `PAIRFOB_VAPID_SUBJECT` | 你控制的 `mailto:` 或 `https:` 地址 |
+| `PAIRFOB_PUSH` | 默认 `1`（开启），`0` 关闭 |
+| `PAIRFOB_VAPID_SUBJECT` | 可选：你控制的 `mailto:` 或 `https:` 地址，默认 `https://pairfob.com` |
 
-用户服务不会自动继承你当前终端的环境。要让服务看到它们，必须写进服务配置后再 `pairfob service restart`。见 [通知](/zh/push)。
+用 `PAIRFOB_PUSH=0 pairfob service install` 保存关闭设置（`1` 开启）。重装保留已有推送设置，普通重启不会导入当前终端的环境变量。见 [通知](/zh/push)。
 
 ## 保持关掉
 

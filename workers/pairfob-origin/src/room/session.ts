@@ -118,6 +118,7 @@ export async function handleSessionEstablished(room: RoomCore, ws: RoomSocket, f
   room.writeAtt(client, att);
   room.store.upsertBind({ route_id: att.route_id, kind: "established", created_at: att.created_ms, pair_ref: "" });
   room.noteBind("established");
+  room.deps.activity?.(room.now());
   await clearKindRef(room.store, "resume_15s", att.route_id);
   client.send(encode(frame));
 }

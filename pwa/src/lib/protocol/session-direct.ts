@@ -1,7 +1,6 @@
 import { parseNetworkMode, type NetworkMode } from "../network-mode.ts";
 import { recordConnectionDiagnostic } from "./connection-diagnostics.ts";
 import {
-  DIRECT_COMMIT_IDLE_MS,
   DIRECT_HEALTH_PING_MS,
   FOREGROUND_RECOVERY_MS,
   RELAY_WARMUP_DELAY_MS,
@@ -10,7 +9,6 @@ import {
 } from "./direct-retry-policy.ts";
 import {
   DirectError,
-  asDirectError,
   directFailureDiagnostic,
   type DirectFailureDiagnostic,
   type DirectICEGathering,
@@ -357,19 +355,13 @@ export class DirectSessionDriver {
       candidate = await prepareDirectSession(relay, this.host.pair, muxProtocolFromRelayURL(this.host.relayWS), controller.signal,
         () => this.host.spendHello());
       const iceGathering = candidate.iceGathering;
-      // Reads a screen issues as it connects can outlast the drain below, which
-      // holds new requests back: let them finish while requests still flow.
-      await relay.idleWithin(DIRECT_COMMIT_IDLE_MS, controller.signal).catch(() => false);
-      if (controller.signal.aborted || this.host.stopped || this.host.getTransport() !== relay || !this.host.networkAvailable) {
+      if (this.host.stopped || this.host.getTransport() !== relay || !this.host.networkAvailable) {
         throw new DirectError("cancelled", "P2P 直连尝试已取消");
       }
+      // New requests wait for the switch; those already out are answered on
+      // the direct route once the computer has moved the session.
       switchLease = this.host.beginSwitch();
       this.commitAttempt = commit;
-      try {
-        await relay.waitIdle();
-      } catch (error) {
-        throw asDirectError(error, "commit", "等待在途请求完成超时");
-      }
       const direct = await commitDirectSession(relay, candidate, (event) => this.host.emit(event), commit.abandon.signal);
       candidate = null;
       // The candidate answered first: the relay prepared beside it is not needed.
@@ -386,7 +378,9 @@ export class DirectSessionDriver {
       this.host.emit({ type: "latency", rttMs: direct.rttMs, transport: "p2p" });
       this.host.observe({ result: "connected", extra: iceGathering });
       this.clearDirectRetry();
-      relay.close("transport_upgrade");
+      // If the commit reply was lost, direct Ping still proves the move but
+      // requests left on relay may already have run. Never report them refused.
+      relay.close("transport_upgrade", new ProtocolError("disconnected", "连接已切换，请求结果未知"));
     } catch (error) {
       const diagnostic = directFailureDiagnostic(error);
       recordConnectionDiagnostic({

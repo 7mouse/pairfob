@@ -20,6 +20,7 @@ export interface UpgradeFail {
 interface RouteTarget {
   socket: RoomSocket;
   routeId: Uint8Array;
+  established: boolean;
 }
 
 export class RoomCore {
@@ -87,7 +88,7 @@ export class RoomCore {
     const previous = this.att(ws);
     if (previous?.route_id) this.routes.delete(previous.route_id);
     ws.serializeAttachment(att);
-    if (att.route_id) this.rememberRoute(att.route_id, ws);
+    if (att.route_id) this.rememberRoute(att.route_id, ws, att.kind);
   }
 
   deleteBind(routeId: string): void {
@@ -101,7 +102,7 @@ export class RoomCore {
     for (const ws of this.sockets()) {
       const a = this.att(ws);
       if (isRegisteredDaemon(a)) daemons.push(ws);
-      if (a?.route_id) this.rememberRoute(a.route_id, ws);
+      if (a?.route_id) this.rememberRoute(a.route_id, ws, a.kind);
     }
     this.daemon = this.retainNewestDaemon(daemons);
   }
@@ -384,8 +385,12 @@ export class RoomCore {
     return this.routes.get(hex)?.routeId ?? hexToRoute(hex);
   }
 
-  private rememberRoute(hex: string, ws: RoomSocket): void {
-    this.routes.set(hex, { socket: ws, routeId: hexToRoute(hex) });
+  routeIsEstablished(hex: string): boolean {
+    return this.routes.get(hex)?.established === true;
+  }
+
+  private rememberRoute(hex: string, ws: RoomSocket, kind: Attachment["kind"]): void {
+    this.routes.set(hex, { socket: ws, routeId: hexToRoute(hex), established: kind === "established" });
   }
 
   onClose(ws: RoomSocket, reason = "closed"): void {

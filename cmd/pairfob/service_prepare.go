@@ -28,6 +28,11 @@ func canonicalInstallTarget(path string) (string, error) {
 // Called by both the verified installer candidate and service install, before
 // replacing a binary or service definition. State and pairing files stay put.
 func prepareServiceInstall(layout serviceLayout) error {
+	// Validate retained preferences before stopping the service or replacing
+	// its binary. An unreadable definition must leave the running setup alone.
+	if _, err := serviceBodyPreservingPush(layout); err != nil {
+		return err
+	}
 	sock, err := admin.SocketPathIn(layout.StateDir)
 	if err != nil {
 		return err

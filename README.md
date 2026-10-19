@@ -16,8 +16,8 @@ end-to-end encrypted.
 
 ## Quick start
 
-Use a macOS or Linux computer with Herdr 0.8 or newer. If Herdr is missing,
-the installer automatically installs the latest stable release. Keep this computer awake and online
+Use a macOS or Linux computer. The installer installs Pairfob and automatically
+adds the latest stable Herdr if it is missing. Keep this computer awake and online
 while using Pairfob from your phone.
 
 ```sh
@@ -26,8 +26,11 @@ pairfob pair
 ```
 
 On the phone, open [pairfob.com/pair](https://pairfob.com/pair) and scan, then
-press Enter once on the computer to admit it. Add it to your Home Screen and you
-are done. Full walkthrough: [Get started](https://pairfob.com/doc/start).
+press Enter once on the computer to admit it. You can then create a Terminal
+session. To use an AI agent, install and sign in to that agent on the computer
+first; Pairfob does not install agents or configure their accounts. The phone
+only needs a browser, and no Pairfob account is required. Adding it to your Home
+Screen is optional. Full walkthrough: [Get started](https://pairfob.com/doc/start).
 
 Already living in Herdr? `herdr plugin install arronKler/pairfob` adds
 **Pairfob: Pair a device** to Herdr's action menu and installs the same verified
@@ -81,6 +84,7 @@ vulnerabilities privately via [SECURITY.md](SECURITY.md).
 | --- | --- |
 | Computer | macOS or Linux (Windows is not supported) |
 | Herdr | 0.8 or newer; the installer installs the latest stable release if missing |
+| AI agent (optional) | Install and sign in separately on the computer; Terminal works without an agent |
 | Herdr plugin | Herdr 0.8.2 or newer |
 | Close a workspace from the phone | Herdr 0.9.0 or newer |
 | Phone / tablet | A current mobile browser; installable as a PWA |

@@ -11,7 +11,9 @@ No. There is no email login. The computer enrolls when you run the installer. De
 
 ## Can Pairfob run agents by itself?
 
-No. It is the phone surface for [Herdr](https://herdr.dev). The computer needs Herdr 0.8 or newer installed. `pairfob` starts Herdr when needed. If automatic startup fails, the list shows Herdr offline and recovers after you run `herdr` manually.
+No. It is the phone surface for [Herdr](https://herdr.dev). The computer needs Herdr 0.8 or newer; the Pairfob installer automatically adds the latest stable release if it is missing. `pairfob` starts Herdr when needed. If automatic startup fails, the list shows Herdr offline and recovers after you run `herdr` manually.
+
+Install and sign in to AI agents separately on the computer; Pairfob does not install agents or configure their accounts. After pairing, you can also choose Terminal without an agent. Pairfob needs no account; your agent may still require its own login.
 
 ## Is this remote desktop?
 
@@ -102,7 +104,7 @@ Do not tap again. Look at the frame or refresh the list. Pairfob does not retry 
 
 ## Notifications will not turn on.
 
-They are off by default. Enable push on the computer, then `pairfob service restart`. Subscribe in **Settings → Notifications**. See [Notifications](/push).
+Computer-side sending is on by default. Subscribe in **Settings → Notifications**. On iPhone and iPad, first add Pairfob to the Home Screen and open it there. If sending was disabled on the computer, run `PAIRFOB_PUSH=1 pairfob service install`. See [Notifications](/push).
 
 ## Can I let a coworker scan this code?
 
