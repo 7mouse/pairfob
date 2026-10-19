@@ -115,6 +115,12 @@ test("a blocked agent raises the needs-you card with what it waits to run", () =
   expect(exits).toBe(1);
 });
 
+test("an agent that stops to ask before any step shows only the needs-you card", () => {
+  act(() => renderReact(<AgentStream items={[{ type: "user", text: "ship it" }]} working waiting empty={empty} />));
+  expect(appRoot().querySelector(".work-card")).toBeNull();
+  expect(appRoot().querySelector(".needs-card")).not.toBeNull();
+});
+
 test("a lost connection freezes the live card instead of spinning", () => {
   act(() => renderReact(<AgentStream items={items.slice(0, 3)} working stale empty={empty} />));
   const card = appRoot().querySelector(".work-card")!;

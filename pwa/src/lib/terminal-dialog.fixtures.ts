@@ -55,3 +55,50 @@ export const CODEX_APPROVAL_SCREEN = [
   "",
   "  Press enter to confirm or esc to cancel"
 ].join("\n");
+
+/**
+ * Screens captured from Grok Build 1.0.62 in tmux, ask_user_question, 2026-10-20.
+ * The highlight is a background colour only, so text shows no cursor; the █
+ * column is Grok's scrollbar. Pressing an option's digit answers it.
+ */
+export const GROK_QUESTION_SCREEN = [
+  "   ◆ Waiting on answers for Which color?                                        7.6s ⇣21.6k [stop]",
+  "",
+  "  ┃",
+  "  ┃  Which color?",
+  "  ┃",
+  "  ┃",
+  "  ┃  1 (○) Red    A warm primary color.                                                          █",
+  "  ┃  2 (○) Green  A cool primary color.                                                          █",
+  "  ┃  3 (○) Blue   A calm primary color.                                                          █",
+  "  ┃  z (○) Type your answer here",
+  "  ┃",
+  "  ┃  ↑/↓ navigate · y copy                                                        Enter:submit",
+  "  ┃",
+  "",
+  "  Tab:next answer  │  Esc:scrollback  │  Shift+x:dismiss",
+  ""
+].join("\n");
+
+/** The first of two questions in one call, 50 columns wide: the highlighted option's description wraps. */
+export const GROK_NARROW_SCREEN = [
+  "     ◆ Ask 2 questions",
+  "",
+  "   ◆ Waiting on answers for…   13s ⇣22.1k [stop]",
+  "",
+  "  ┃",
+  "  ┃  Which color?",
+  "  ┃",
+  "  ┃",
+  "  ┃  1 (○) Red    A warm primary hue often     █",
+  "  ┃               used for alerts, emphasis,   █",
+  "  ┃               and strong attention.        █",
+  "  ┃  2 (○) Green  A cool natural hue often…    █",
+  "  ┃  3 (○) Blue   A cool primary hue often…    █",
+  "  ┃  z (○) Type your answer here",
+  "  ┃",
+  "  ┃  [1/2] ↑/↓ navigate · ←/→ q Enter:select py",
+  "  ┃",
+  "",
+  "  Tab:next answer  │  Esc:scrollback  │  Shift+x"
+].join("\n");

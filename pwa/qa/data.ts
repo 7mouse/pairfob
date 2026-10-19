@@ -13,7 +13,7 @@ import {
   type WorkspaceMediaOpen,
 } from "../src/lib/protocol/workspace-media";
 import { FIXED_NOW } from "./environment";
-import { CODEX_APPROVAL_SCREEN } from "../src/lib/terminal-dialog.fixtures";
+import { CODEX_APPROVAL_SCREEN, GROK_QUESTION_SCREEN } from "../src/lib/terminal-dialog.fixtures";
 import { WIDE_PNG, WIDE_PNG_HEIGHT, WIDE_PNG_PATH, WIDE_PNG_SHA, WIDE_PNG_WIDTH } from "./wide-image";
 
 export const REVISION = "a".repeat(64);
@@ -149,6 +149,14 @@ export function needsYouTrace(): AgentTraceItem[] {
     { type: "user", text: "Create an empty file named hello.txt in this folder with the shell command touch hello.txt" },
     { type: "tool", name: "exec_command", label: "touch hello.txt", toolState: "running", detailRef: "qa-needs-touch" },
   ];
+}
+
+/** A real Grok question (captured from Grok Build 1.0.62): no cursor in the text, the digit answers. */
+export const GROK_NEEDS_YOU_SCREEN = GROK_QUESTION_SCREEN;
+
+/** Grok stopped to ask before taking any step. */
+export function grokNeedsYouTrace(): AgentTraceItem[] {
+  return [{ type: "user", text: "Ask me which color to use, then wait." }];
 }
 
 /** Opt-in trace markers (proto/agent-trace-markers.md) around ordinary turns. */

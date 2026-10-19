@@ -205,7 +205,8 @@ function TraceTurn({ turn, state, anchor, kept, onCopy, onTerminal, onAnswered, 
   }
   if (state.partial) outcome.detail = [t("work.partial"), outcome.detail].filter(Boolean).join(" · ");
   const models = turnModels(turn.items);
-  const card = models !== undefined || entries.length > 0 || interrupted || (live && !state.pending);
+  // A turn that stopped to ask before any step has nothing to show but the needs-you card below it.
+  const card = models !== undefined || entries.length > 0 || interrupted || (live && !state.pending && !waiting);
   // The agent stopped to ask while this turn was on screen: its card is raised, not just drawn.
   const asked = useTurned(live && waiting);
   return <>

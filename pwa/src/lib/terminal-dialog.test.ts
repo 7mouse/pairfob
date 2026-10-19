@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { dialogKeys, parseTerminalDialog, screenExcerpt } from "./terminal-dialog";
-import { CODEX_APPROVAL_SCREEN, CODEX_TRUST_SCREEN } from "./terminal-dialog.fixtures";
+import { CODEX_APPROVAL_SCREEN, CODEX_TRUST_SCREEN, GROK_NARROW_SCREEN, GROK_QUESTION_SCREEN } from "./terminal-dialog.fixtures";
 
 const claudeBoxed = `
  > clean up the build
@@ -69,6 +69,14 @@ test("a non-list prompt falls back to the last screen lines without borders", ()
   expect(screenExcerpt("╭────╮\n│ Trust this folder? │\n│ (y/n) │\n╰────╯\n", 3)).toEqual(["Trust this folder?", "(y/n)"]);
 });
 
+test("a scrollbar thumb at the right edge is not screen content", () => {
+  const thumb = " ".repeat(51) + "█";
+  const screen = [thumb, thumb, "", thumb, " You hit your weekly limit." + " ".repeat(20) + "█", " 2 Try Again"].join("\n");
+  expect(screenExcerpt(screen)).toEqual([" You hit your weekly limit.", " 2 Try Again"]);
+  // A bar drawn as part of the text stays.
+  expect(screenExcerpt("progress ████")).toEqual(["progress ████"]);
+});
+
 test("a numbered list in the agent's prose above another prompt is not a dialog", () => {
   const prose = "⏺ Here is the plan:\n  1. Refactor\n  2. Add tests\n  3. Ship it\n\nProceed? (y/n)\n";
   expect(parseTerminalDialog(prose)).toBeNull();
@@ -100,4 +108,40 @@ test("real Codex screens: the folder-trust prompt and a command approval", () =>
   expect(approval.options.map((option) => option.number)).toEqual([1, 2, 3]);
   // Verified on the live TUI: two downs and enter chose "No" and cancelled the command.
   expect(dialogKeys(approval, 3)).toEqual(["down", "down", "enter"]);
+});
+
+test("real Grok screens: radio options are answered by their digit", () => {
+  const dialog = parseTerminalDialog(GROK_QUESTION_SCREEN)!;
+  expect(dialog.question).toBe("Which color?");
+  expect(dialog.context).toEqual([]);
+  expect(dialog.direct).toBeTrue();
+  expect(dialog.options.map((option) => [option.number, option.label, option.selected])).toEqual([
+    [1, "Red", false], [2, "Green", false], [3, "Blue", false],
+  ]);
+  expect(GROK_QUESTION_SCREEN.includes(dialog.question)).toBeTrue();
+  // Verified on the live TUI: "3" answered Blue without moving the highlight first.
+  expect(dialogKeys(dialog, 3)).toEqual(["3"]);
+  // Narrow, the highlighted option's description wraps under its label and a scrollbar runs down the side.
+  const narrow = parseTerminalDialog(GROK_NARROW_SCREEN)!;
+  expect(narrow.options.map((option) => option.label)).toEqual(["Red", "Green", "Blue"]);
+  expect(narrow.question).toBe("Which color?");
+});
+
+test("Grok's weekly-limit prompt offers its two choices", () => {
+  const screen = [
+    "  ┃",
+    "  ┃  You hit your weekly limit.",
+    "  ┃  1 (○) Buy more credits  Purchase credits to keep using Grok Build",
+    "  ┃  2 (○) Try Again         Resubmit the last prompt once you have usage again",
+    "  ┃  ↑/↓ navigate · y copy                    Enter:submit",
+    "  Tab:next answer  │  Esc:scrollback  │",
+  ].join("\n");
+  const dialog = parseTerminalDialog(screen)!;
+  expect(dialog.question).toBe("You hit your weekly limit.");
+  expect(dialog.options.map((option) => option.label)).toEqual(["Buy more credits", "Try Again"]);
+  expect(dialogKeys(dialog, 2)).toEqual(["2"]);
+});
+
+test("a list mixing Grok radios and numbered lines is not a dialog", () => {
+  expect(parseTerminalDialog("Pick one\n› 1. Yes\n  2 (○) No\n")).toBeNull();
 });
