@@ -9,12 +9,17 @@ import (
 	"github.com/pion/webrtc/v4"
 )
 
-// An answer does not wait for ICE gathering to complete: pion waits up to five
-// seconds for a STUN reply that was lost, while the reply from the other
-// interfaces arrived within a fraction of a second. Candidates are not trickled
-// afterwards, so an answer sent without the server-reflexive candidate is only
-// reachable from the computer's own networks: hold the answer until STUN either
-// answers or gives up.
+// An answer does not wait for ICE gathering to complete: pion keeps a STUN
+// binding open for five seconds before it gives up on a lost reply, while the
+// reply from the other interfaces arrives within a fraction of a second.
+// Candidates are not trickled afterwards, so an answer sent without the
+// server-reflexive candidate is only reachable from the computer's own networks.
+//
+// The trade is deliberate and only shows up where STUN stays silent: a host with
+// server-reflexive candidates answers `settle` after the first one as before,
+// while a host without any answers at the hard stop instead of immediately. The
+// alternative — shipping host candidates early — cannot be fixed up later,
+// because the peer never learns the address this computer is reachable at.
 type answerPace struct {
 	// After the first server-reflexive candidate, for the other interfaces' replies.
 	settle time.Duration
