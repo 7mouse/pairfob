@@ -61,13 +61,13 @@ export default defineConfig({
     root: {
       label: "English",
       lang: "en",
-      description: "The Herdr session on your computer, continued on your phone or another device.",
+      description: "Control the coding agents on your computer from your phone or another device.",
       themeConfig: enTheme,
     },
     zh: {
       label: "中文",
       lang: "zh-CN",
-      description: "电脑上的 Herdr 会话，接到手机或其他设备上接着操作。",
+      description: "在手机或其他设备上操控电脑里的编程 Agent。",
       themeConfig: zhTheme,
     },
   },

@@ -1,12 +1,12 @@
 ---
 title: What it is
-description: Pairfob continues the Herdr agents already running on your computer, on your phone or another device.
+description: Control the coding agents on your computer from your phone or another device.
 pageClass: pf-intro
 ---
 
 # What it is
 
-<p class="pf-lede">You run Codex, Claude, or Grok on the computer with <a href="https://herdr.dev">Herdr</a>. After pairing once, a phone, tablet, or another computer opens Pairfob and attaches to <strong>the same live sessions</strong>.</p>
+<p class="pf-lede">Control the coding agents on your computer from your phone. Codex, Claude, and Grok keep running on the computer. After pairing once, a phone, tablet, or another computer opens Pairfob and attaches to <strong>the same live sessions</strong>. Sessions run in <a href="https://herdr.dev">Herdr</a>.</p>
 
 <IntroPath></IntroPath>
 
@@ -73,7 +73,7 @@ A bit more: [The same screen](/model).
 
 ## Who it is for
 
-You want to run coding agents in Herdr on a macOS or Linux computer and:
+You want to control the coding agents on a macOS or Linux computer from your phone and:
 
 - Keep typing, confirm in the terminal, read diffs, and open worktrees from the phone after you leave the desk
 - Sit back down with nothing to merge

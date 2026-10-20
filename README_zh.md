@@ -6,8 +6,8 @@
 
 [English](README.md) | **简体中文**
 
-**把 [Herdr](https://herdr.dev) 里的 Agent 带到手机上。** Codex、Claude、Grok
-等 Agent 继续在你的电脑上跑；配对一次后，手机、平板或另一台电脑打开的是
+**在手机上操控电脑里的编程 Agent。** Codex、Claude、Grok
+等继续在电脑上跑；配对一次后，手机、平板或另一台电脑打开的是
 **同一批活着的会话**，不是副本。电脑只往外连，不开入站端口、不需要 VPN，
 会话端到端加密。
 
@@ -105,6 +105,8 @@ pairfob --outbound WSS---------->  same room  --opaque FWD-->  phone
           \-- WebRTC DataChannel after authenticated setup --/
 pairfob --loopback-------------->  Herdr
 ```
+
+会话在 [Herdr](https://herdr.dev) 里运行；安装脚本会帮你装好。
 
 手机读取渲染好的终端画面，把按键发回 PTY；它本身不是终端模拟器。
 `pairfob.com` 是本项目的官方实例。协议规格在 [`proto/`](proto/)，包括

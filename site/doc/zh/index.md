@@ -1,12 +1,12 @@
 ---
 title: 这是什么
-description: Pairfob 把电脑上 Herdr 里已经在跑的 agent，接到手机或其他设备上接着操作。
+description: 在手机或其他设备上操控电脑里的编程 Agent。
 pageClass: pf-intro
 ---
 
 # 这是什么
 
-<p class="pf-lede">你在电脑上用 <a href="https://herdr.dev">Herdr</a> 跑 Codex、Claude、Grok。配对一次之后，手机、平板或另一台电脑打开 Pairfob，接上的是<strong>同一批真实会话</strong>。</p>
+<p class="pf-lede">在手机上操控电脑里的编程 Agent。Codex、Claude、Grok 继续在电脑上跑。配对一次之后，手机、平板或另一台电脑打开 Pairfob，接上的是<strong>同一批真实会话</strong>。会话在 <a href="https://herdr.dev">Herdr</a> 里运行。</p>
 
 <IntroPath></IntroPath>
 
@@ -73,7 +73,7 @@ pageClass: pf-intro
 
 ## 适合谁
 
-希望在 macOS 或 Linux 电脑上用 Herdr 运行 coding agent，并且：
+希望在手机上操控 macOS 或 Linux 电脑里的编程 Agent，并且：
 
 - 离开工位时用手机接着写、在终端里确认、看 diff、开 worktree
 - 坐回来什么都不用同步

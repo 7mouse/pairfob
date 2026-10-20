@@ -1,6 +1,6 @@
 ---
 title: Use cases
-description: "Control Claude Code, Codex and Grok in Herdr from your phone: approvals, diffs, uploads, several computers, and when Pairfob is not a fit."
+description: "Control Claude Code, Codex and Grok on your computer from your phone: approvals, diffs, uploads, several computers, and when Pairfob is not a fit."
 head:
   - - script
     - type: application/ld+json
