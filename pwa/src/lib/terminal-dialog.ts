@@ -1,12 +1,14 @@
 /**
- * A numbered choice an agent shows in its terminal while it waits on the reader
- * (Claude Code and Codex approvals, AskUserQuestion lists, Grok questions).
- * Pure: parses the visible pane text the daemon also hashes for its guarded send.
+ * A choice an agent shows in its terminal while it waits on the reader
+ * (Claude Code and Codex approvals, AskUserQuestion lists, Grok questions,
+ * Pi extension dialogs). Pure: parses the visible pane text the daemon also
+ * hashes for its guarded send.
  *
  * Only a list that is the live prompt counts: it sits at the bottom of the
  * screen (below it only blank lines, rules or key hints) and either one option
- * carries the selection marker, or every option wears Grok's radio "(○)". A
- * numbered list in the agent's prose does neither.
+ * carries the selection marker, every option wears Grok's radio "(○)", or Pi's
+ * cursor row holds the "→" marker. A numbered list in the agent's prose does
+ * neither.
  */
 export type DialogOption = { number: number; label: string; selected: boolean };
 export type TerminalDialog = {
@@ -20,6 +22,8 @@ export type TerminalDialog = {
    * alone, so the text cannot say where arrows would start from.
    */
   direct: boolean;
+  /** The screen shows the numbers, so the phone may show them as identities. Pi shows none. */
+  numbered: boolean;
 };
 
 /** Box borders Claude Code draws around a prompt. */
@@ -33,6 +37,11 @@ const OPTION = /^(?:([❯›>▸▶])\s*)?(\d{1,2})[.)]\s+(.+?)\s*$/u;
 const RADIO_OPTION = /^(\d)\s+\([○●]\)\s+(.+?)\s*$/u;
 /** Grok's free-text row under its options ("z (○) Type your answer here"); not offered here. */
 const RADIO_FREE_TEXT = /^[a-z]\s+\([○●]\)\s/u;
+/** Pi: "→ Label" holds the cursor; the other rows are indented under it, with no digits. */
+const PI_SELECTED = /^\s*→\s+(\S.*?)\s*$/u;
+const PI_PLAIN = /^\s{2,}(\S.*?)\s*$/u;
+/** A wrapped label continues on the following line, indented by the row padding only. */
+const PI_WRAP = /^\s\S/u;
 /** Key hints a TUI prints under its list ("Press enter to confirm or esc to cancel"). */
 const HINT = /\b(esc|enter|cancel|confirm|navigate|select|tab)\b|[↑↓]/iu;
 const MAX_HINT_LINES = 3;
@@ -55,7 +64,12 @@ function option(trimmed: string): Parsed | null {
   return match ? { number: Number(match[2]), label: match[3], selected: Boolean(match[1]), radio: false } : null;
 }
 
-/** Index of the last option line, if everything below it is blank, a rule or a key hint. */
+export function parseTerminalDialog(text: string): TerminalDialog | null {
+  const lines = text.split(/\r?\n/).map(inner);
+  return numberedDialog(lines) ?? piDialog(lines);
+}
+
+/** Index of the last numbered option line, if everything below it is blank, a rule or a key hint. */
 function bottomOption(lines: string[]): number {
   let hints = 0;
   for (let index = lines.length - 1; index >= 0; index -= 1) {
@@ -67,8 +81,26 @@ function bottomOption(lines: string[]): number {
   return -1;
 }
 
-export function parseTerminalDialog(text: string): TerminalDialog | null {
-  const lines = text.split(/\r?\n/).map(inner);
+/** Index of the last Pi option row (or the wrapped line under it), under the same bottom rules. */
+function bottomPiOption(lines: string[]): number {
+  let hints = 0;
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    const line = lines[index];
+    const trimmed = line.trim();
+    if (PI_SELECTED.test(line) || PI_PLAIN.test(line)) return hints > 0 ? index : -1;
+    if (!trimmed || RULE.test(trimmed)) continue;
+    // A hint under the list is not a wrapped label; its words are checked first.
+    if (HINT.test(trimmed)) {
+      if (++hints > MAX_HINT_LINES) return -1;
+      continue;
+    }
+    if (PI_WRAP.test(line)) return hints > 0 ? index : -1;
+    return -1;
+  }
+  return -1;
+}
+
+function numberedDialog(lines: string[]): TerminalDialog | null {
   const end = bottomOption(lines);
   if (end < 0) return null;
   // Walk up through the option run. Indented lines between options continue the
@@ -92,6 +124,42 @@ export function parseTerminalDialog(text: string): TerminalDialog | null {
   const direct = found[0].radio;
   if (found.some((entry) => entry.radio !== direct)) return null;
   if (!direct && found.filter((entry) => entry.selected).length !== 1) return null;
+  return dialogFor(lines, top, found.map(({ number, label, selected }) => ({ number, label, selected })), direct, true);
+}
+
+function piDialog(lines: string[]): TerminalDialog | null {
+  const end = bottomPiOption(lines);
+  if (end < 0) return null;
+  // Walk up: a labelled row, then the wrapped lines that continue it sit below
+  // it, so they are collected first and joined back to the row above.
+  const rows: DialogOption[] = [];
+  let wrapped: string[] = [];
+  let top = end;
+  for (let index = end; index >= 0; index -= 1) {
+    const line = lines[index];
+    const selected = PI_SELECTED.exec(line);
+    const plain = selected ? null : PI_PLAIN.exec(line);
+    if (selected || plain) {
+      rows.push({ number: 0, label: [selected ? selected[1] : plain![1], ...wrapped].join(" ").trim(), selected: Boolean(selected) });
+      wrapped = [];
+      top = index;
+      continue;
+    }
+    if (PI_WRAP.test(line)) {
+      wrapped.unshift(line.trim());
+      continue;
+    }
+    break;
+  }
+  if (wrapped.length) return null;
+  if (rows.length < 2 || rows.filter((row) => row.selected).length !== 1) return null;
+  rows.reverse();
+  return dialogFor(lines, top, rows.map((row, index) => ({ ...row, number: index + 1 })), false, false, true);
+}
+
+// stopAtRule: Pi's dialog is drawn between borders (any text above them is the transcript),
+// so the rule ends its context. Claude and Codex keep gathering across their own boxes.
+function dialogFor(lines: string[], top: number, options: DialogOption[], direct: boolean, numbered: boolean, stopAtRule = false): TerminalDialog {
   // Prompts space their lines out (Codex: question, blank, reason, blank, command),
   // so context counts non-empty lines rather than screen rows.
   const above: string[] = [];
@@ -99,11 +167,15 @@ export function parseTerminalDialog(text: string): TerminalDialog | null {
     const trimmed = lines[index].trim();
     // A transcript entry above the prompt ends it.
     if (ENTRY.test(trimmed)) break;
-    if (trimmed && !RULE.test(trimmed)) above.unshift(trimmed);
+    if (!trimmed) continue;
+    if (RULE.test(trimmed)) {
+      if (stopAtRule) break;
+      continue;
+    }
+    above.unshift(trimmed);
   }
   const question = above.pop() ?? "";
-  const options = found.map(({ number, label, selected }) => ({ number, label, selected }));
-  return { question, context: above, options, direct };
+  return { question, context: above, options, direct, numbered };
 }
 
 /** The daemon's SendKeys cap (internal/daemon maxKeys). */

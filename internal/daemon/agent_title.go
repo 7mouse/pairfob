@@ -11,13 +11,15 @@ import (
 
 // tokens.task is existing display metadata. Keep the raw OSC and user label
 // intact; all phone surfaces can share this derived name without a new RPC field.
+// Codex and Pi name themselves in their own session store; other agents keep
+// whatever the runtime supplied.
 func (e *Engine) decorateAgentTitle(pane *runtime.Pane) {
-	if pane.Agent != "codex" || pane.AgentSession == nil || e.Journal == nil {
+	if (pane.Agent != "codex" && pane.Agent != "pi") || pane.AgentSession == nil || e.Journal == nil {
 		return
 	}
 	title := e.Journal.ReadTitle(journalRef(pane.AgentSession))
 	name := title.Name
-	if name == "" {
+	if name == "" && pane.Agent == "codex" {
 		name = codexTerminalTask(pane.TerminalTitle, pane.Cwd)
 	}
 	if name == "" {

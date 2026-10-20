@@ -9,7 +9,7 @@ import type { LiveSession } from "../../../lib/protocol/client";
 import { attachLiveSession } from "../../computers/catalog-store";
 import { selectPane } from "../session-store";
 import { NeedsYouCard } from "./needs-you";
-import { GROK_QUESTION_SCREEN } from "../../../lib/terminal-dialog.fixtures";
+import { GROK_QUESTION_SCREEN, PI_SELECTOR_SCREEN } from "../../../lib/terminal-dialog.fixtures";
 
 const SCREEN = "  Would you like to run the following command?\n\n  $ rm -rf dist\n\n› 1. Yes, proceed (y)\n  2. Yes, and don't ask again (a)\n  3. No (esc)\n";
 const HASH = "a".repeat(64);
@@ -58,6 +58,20 @@ test("a Grok question is answered with the option's digit, whatever row is highl
   await act(async () => { button(t("needs.send")).click(); await Promise.resolve(); });
   await drain();
   expect(sent).toEqual([{ keys: ["3"], extra: { intent: "dialog", expected_prompt: "Which color?", expected_signature: HASH } }]);
+});
+
+test("a Pi selector is answered by moving the cursor and confirming, without numbers", async () => {
+  const sent: Sent[] = [];
+  session(async (keys, extra) => { sent.push({ keys, extra }); return { ok: true }; }, PI_SELECTOR_SCREEN);
+  act(() => renderReact(<NeedsYouCard ask={null} />));
+  await drain();
+  expect(appRoot().querySelector(".needs-question")?.textContent).toBe("Allow dangerous command?");
+  expect([...appRoot().querySelectorAll(".needs-option")].map((node) => node.textContent)).toEqual(["Allow", "Block"]);
+  expect(appRoot().querySelectorAll(".needs-option-number")).toHaveLength(0);
+  act(() => button("Block").click());
+  await act(async () => { button(t("needs.send")).click(); await Promise.resolve(); });
+  await drain();
+  expect(sent).toEqual([{ keys: ["down", "enter"], extra: { intent: "dialog", expected_prompt: "Allow dangerous command?", expected_signature: HASH } }]);
 });
 
 test("a changed prompt is read again and never resent on its own", async () => {

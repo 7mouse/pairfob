@@ -139,7 +139,7 @@ func looksLikeMachineTitle(text string, event HerdPush) bool {
 }
 
 func pushSubject(event HerdPush) string {
-	for _, raw := range []string{event.PaneLabel, event.TerminalTitle, visiblePushTabLabel(event.TabLabel)} {
+	for _, raw := range []string{event.PaneLabel, event.TaskTitle, event.TerminalTitle, visiblePushTabLabel(event.TabLabel)} {
 		cleaned := cleanOscTitle(raw, event.Agent)
 		if cleaned != "" && !looksLikeMachineTitle(cleaned, event) {
 			return cleaned

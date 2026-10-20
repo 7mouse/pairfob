@@ -203,7 +203,7 @@ export type HistoryPage = {
 export type AgentTraceType = "user" | "thinking" | "tool" | "assistant" | "command" | AgentTraceMarker;
 /** Textless timeline markers, returned only when the client opts in (proto/agent-trace-markers.md). */
 export type AgentTraceMarker = "compaction" | "interrupt";
-export type AgentTraceModel = { model: string; effort?: string; source: "codex_context" | "claude_message" };
+export type AgentTraceModel = { model: string; effort?: string; source: "codex_context" | "claude_message" | "pi_message" };
 export type AgentTraceItem = {
   /** Undefined: old daemon. Empty: extension available, no record-local evidence. */
   models?: readonly AgentTraceModel[];

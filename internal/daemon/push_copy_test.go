@@ -75,6 +75,24 @@ func TestPushNotificationCopyIgnoresMachineAndPathTitles(t *testing.T) {
 	}
 }
 
+func TestPushNotificationCopyPrefersDerivedTaskTitle(t *testing.T) {
+	title, body := pushNotificationCopy(HerdPush{
+		Agent: "pi", WorkspaceLabel: "pairfob", Cwd: "/tmp/work",
+		TaskTitle: "修复 Pi 会话标题", TerminalTitle: "π - work", Kind: PushDone,
+	})
+	if title != "Pairfob · 本轮结束" || body != "pi · 修复 Pi 会话标题 · pairfob · work" {
+		t.Fatalf("title=%q body=%q", title, body)
+	}
+	// A manual pane label stays the user's own name.
+	_, body = pushNotificationCopy(HerdPush{
+		Agent: "pi", WorkspaceLabel: "pairfob", Cwd: "/tmp/work",
+		PaneLabel: "我的 Pi 任务", TaskTitle: "修复 Pi 会话标题", Kind: PushDone,
+	})
+	if body != "pi · 我的 Pi 任务 · pairfob · work" {
+		t.Fatalf("pane label body=%q", body)
+	}
+}
+
 func TestPushNotificationCopyUsesTabWhenNoTask(t *testing.T) {
 	title, body := pushNotificationCopy(HerdPush{
 		Agent: "pi", WorkspaceLabel: "pairfob", Cwd: "/tmp/pairfob",

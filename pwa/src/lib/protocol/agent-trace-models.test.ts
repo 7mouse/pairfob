@@ -8,7 +8,10 @@ const model = { model: "gpt-5", effort: "high", source: "codex_context" };
 const page = (models: unknown = [model]) => ({ items: [{ type: "assistant", text: "done", models }], next_cursor: null, truncated: false });
 
 test("model extension validates evidence without relaxing legacy summary validation", () => {
+  const pi = { model: "deepseek-v4.1-flash", effort: "max", source: "pi_message" };
   expect(parseAgentTraceModelSummary(page()).items[0].models).toEqual([model]);
+  expect(parseAgentTraceModelSummary(page([pi])).items[0].models).toEqual([pi]);
+  expect(parseAgentTraceModelSummary(page([{ model: pi.model, source: "pi_message" }])).items[0].models).toEqual([{ model: pi.model, source: "pi_message" }]);
   expect(() => parseAgentTraceSummaryPage(page())).toThrow();
   for (const models of [null, [], [null], [{ ...model, extra: true }], [{ ...model, source: "guess" }],
     [{ ...model, model: "bad\nmodel" }], [{ ...model, effort: "" }], [{ ...model, source: "claude_message" }]]) {

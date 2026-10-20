@@ -13,7 +13,7 @@ import {
   type WorkspaceMediaOpen,
 } from "../src/lib/protocol/workspace-media";
 import { FIXED_NOW } from "./environment";
-import { CODEX_APPROVAL_SCREEN, GROK_QUESTION_SCREEN } from "../src/lib/terminal-dialog.fixtures";
+import { CODEX_APPROVAL_SCREEN, GROK_QUESTION_SCREEN, PI_SELECTOR_SCREEN } from "../src/lib/terminal-dialog.fixtures";
 import { WIDE_PNG, WIDE_PNG_HEIGHT, WIDE_PNG_PATH, WIDE_PNG_SHA, WIDE_PNG_WIDTH } from "./wide-image";
 
 export const REVISION = "a".repeat(64);
@@ -157,6 +157,14 @@ export const GROK_NEEDS_YOU_SCREEN = GROK_QUESTION_SCREEN;
 /** Grok stopped to ask before taking any step. */
 export function grokNeedsYouTrace(): AgentTraceItem[] {
   return [{ type: "user", text: "Ask me which color to use, then wait." }];
+}
+
+/** A real Pi extension dialog (captured from Pi 1.3.0): the cursor row is "→", the arrows answer it. */
+export const PI_NEEDS_YOU_SCREEN = PI_SELECTOR_SCREEN;
+
+/** Pi stopped on an extension dialog. */
+export function piNeedsYouTrace(): AgentTraceItem[] {
+  return [{ type: "user", text: "Ask before running the dangerous command, then wait." }];
 }
 
 /** Opt-in trace markers (proto/agent-trace-markers.md) around ordinary turns. */

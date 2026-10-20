@@ -2,6 +2,8 @@ import { parseAgentTraceSummaryPage, type AgentTraceModel, type AgentTracePage }
 import { ProtocolError } from "./errors";
 
 const TOKEN = /^[A-Za-z0-9][A-Za-z0-9._:/-]{0,127}$/;
+/** Evidence sources; Claude records no effort, Codex and Pi record one. */
+const SOURCES = new Set(["codex_context", "claude_message", "pi_message"]);
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -21,7 +23,7 @@ export function parseAgentTraceModelSummary(value: unknown): AgentTracePage {
         if (!record(model) || Object.keys(model).some(key => !["model", "effort", "source"].includes(key))
           || typeof model.model !== "string" || !TOKEN.test(model.model)
           || ("effort" in model && (typeof model.effort !== "string" || !TOKEN.test(model.effort)))
-          || (model.source !== "codex_context" && model.source !== "claude_message")
+          || !SOURCES.has(String(model.source))
           || (model.source === "claude_message" && "effort" in model)) bad();
         list.push(model as AgentTraceModel);
       }

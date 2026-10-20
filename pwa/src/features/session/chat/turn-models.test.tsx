@@ -46,6 +46,12 @@ test("old daemon, missing metadata and Claude's absent effort stay distinct", ()
     working={false} empty={empty} />));
   expect(appRoot().querySelector(".work-detail")?.textContent).toBe("claude-opus-4-1");
   expect(appRoot().querySelector(".work-models")?.textContent).toContain(`Thinking effort${t("work.notRecorded")}`);
+  const pi: AgentTraceModel = { model: "deepseek-v4.1-flash", effort: "max", source: "pi_message" };
+  act(() => renderReact(<AgentStream items={[{ type: "user", text: "go" }, { type: "assistant", text: "answer", models: [pi] }]}
+    working={false} empty={empty} />));
+  expect(appRoot().querySelector(".work-detail")?.textContent).toBe("deepseek-v4.1-flash · max");
+  expect(appRoot().querySelector(".work-models")?.textContent).toContain(`Thinking effortmax`);
+  expect(appRoot().querySelector(".work-models")?.textContent).toContain(t("work.modelPi"));
 });
 
 test("one turn keeps all distinct recorded configurations and metadata updates change the stream signature", () => {

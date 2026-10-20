@@ -215,9 +215,18 @@ function cleanOscTitle(text: string, agent: AgentCard): string {
 function usefulTerminalTitle(agent: AgentCard): string {
   const raw = agent.terminalTitle?.trim() ?? "";
   if (!raw) return "";
-  const text = cleanOscTitle(agent.agent.trim().toLowerCase() === "codex" ? cleanCodexTitle(raw, agent) : raw, agent);
+  const kind = agent.agent.trim().toLowerCase();
+  const text = cleanOscTitle(kind === "codex" ? cleanCodexTitle(raw, agent) : kind === "pi" ? cleanPiTitle(raw, agent) : raw, agent);
   if (!text || looksLikeMachineTitle(text, agent)) return "";
   return text.length > 256 ? text.slice(0, 256) : text;
+}
+
+/** Pi's OSC title is "π - <name> - <cwd>", "π - <cwd>", or just the marker. */
+function cleanPiTitle(raw: string, agent: AgentCard): string {
+  const parts = raw.replace(/\s*[-–—]\s*$/, "").split(/\s+[-–—]\s+/).map(part => part.trim());
+  if (parts.shift() !== "π") return raw;
+  if (parts.length > 1 && (same(parts.at(-1)!, cwdName(agent.cwd)) || same(parts.at(-1)!, cwdName(agent.workspaceCwd || "")))) parts.pop();
+  return parts.join(" - ").trim();
 }
 
 /** Codex OSC fields include activity and project context, not just the task name. */
@@ -243,8 +252,11 @@ function whoLabel(agent: AgentCard): string {
   return agent.agent.trim() || t("title.terminal");
 }
 
+/** Agents whose daemon-derived session title lands in tokens.task. */
+const NATIVE_TITLE_AGENTS = new Set(["codex", "pi"]);
+
 function taskTitle(agent: AgentCard): string {
-  const task = agent.agent === "codex" ? agent.tokens?.task?.trim() : "";
+  const task = NATIVE_TITLE_AGENTS.has(agent.agent.trim().toLowerCase()) ? agent.tokens?.task?.trim() : "";
   return task || usefulTerminalTitle(agent);
 }
 
@@ -255,8 +267,8 @@ export function agentTitle(agent: AgentCard, group: ListGroup = "flat"): string 
     const conversation = conversationLabel(agent);
     if (conversation) return conversation;
   }
-  // The daemon resolves this from the bound Codex session, including a stable
-  // first-request excerpt while native automatic naming is unavailable.
+  // The daemon resolves this from the bound Codex or Pi session, including a
+  // stable first-request excerpt while native automatic naming is unavailable.
   const hint = taskTitle(agent);
   if (hint) return hint;
   return whoLabel(agent);

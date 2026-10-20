@@ -150,7 +150,7 @@ export function NeedsYouCard({ ask, raised = false, onTerminal, onAnswered }: {
         {dialog.options.map((option) => <Button key={option.number} aria-pressed={choice === option.number}
           className={`needs-option${choice === option.number ? " is-chosen" : ""}`}
           onClick={() => { setChoice(option.number); setNote(null); }}>
-          <span className="needs-option-number">{option.number}</span><span>{option.label}</span>
+          {dialog.numbered && <span className="needs-option-number">{option.number}</span>}<span>{option.label}</span>
         </Button>)}
       </fieldset>
     </> : <>

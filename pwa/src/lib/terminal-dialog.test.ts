@@ -1,6 +1,6 @@
 import { expect, test } from "bun:test";
 import { dialogKeys, parseTerminalDialog, screenExcerpt } from "./terminal-dialog";
-import { CODEX_APPROVAL_SCREEN, CODEX_TRUST_SCREEN, GROK_NARROW_SCREEN, GROK_QUESTION_SCREEN } from "./terminal-dialog.fixtures";
+import { CODEX_APPROVAL_SCREEN, CODEX_TRUST_SCREEN, GROK_NARROW_SCREEN, GROK_QUESTION_SCREEN, PI_SELECTOR_NARROW_SCREEN, PI_SELECTOR_SCREEN } from "./terminal-dialog.fixtures";
 
 const claudeBoxed = `
  > clean up the build
@@ -144,4 +144,38 @@ test("Grok's weekly-limit prompt offers its two choices", () => {
 
 test("a list mixing Grok radios and numbered lines is not a dialog", () => {
   expect(parseTerminalDialog("Pick one\n› 1. Yes\n  2 (○) No\n")).toBeNull();
+});
+
+test("real Pi screens: a select dialog is answered with arrows and enter", () => {
+  const dialog = parseTerminalDialog(PI_SELECTOR_SCREEN)!;
+  expect(dialog.question).toBe("Allow dangerous command?");
+  // Pi's dialog is drawn between borders: no transcript line above them is context.
+  expect(dialog.context).toEqual([]);
+  expect(dialog.direct).toBeFalse();
+  expect(dialog.numbered).toBeFalse();
+  expect(dialog.options.map((option) => [option.number, option.label, option.selected])).toEqual([
+    [1, "Allow", true], [2, "Block", false],
+  ]);
+  // Verified on the live TUI: one down and enter chose Block; enter alone chose Allow.
+  expect(dialogKeys(dialog, 2)).toEqual(["down", "enter"]);
+  expect(dialogKeys(dialog, 1)).toEqual(["enter"]);
+});
+
+test("Pi labels wrapped over several lines keep their rows and the marker", () => {
+  const dialog = parseTerminalDialog(PI_SELECTOR_NARROW_SCREEN)!;
+  expect(dialog.question).toBe("Allow dangerous command?");
+  expect(dialog.context).toEqual([]);
+  expect(dialog.options.map((option) => [option.label, option.selected])).toEqual([
+    ["Allow once and remember this command for the rest of the session", true],
+    ["Block and tell the agent what to do differently", false],
+  ]);
+  expect(dialogKeys(dialog, 2)).toEqual(["down", "enter"]);
+});
+
+test("an arrow list in the agent's prose is not a dialog", () => {
+  expect(parseTerminalDialog("Here is the plan:\n→ one\n   two\nThen we continue.\n")).toBeNull();
+  // Pi's selector always prints its key hints under the list.
+  expect(parseTerminalDialog("→ only one\n   and another\n")).toBeNull();
+  expect(parseTerminalDialog("Choose:\n→ Allow\n   Block\n")).toBeNull();
+  expect(parseTerminalDialog("Choose:\n→ Allow\n→ Block\n\n  ↑↓ navigate  enter select  esc cancel\n")).toBeNull();
 });

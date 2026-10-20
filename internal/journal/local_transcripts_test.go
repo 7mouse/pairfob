@@ -68,7 +68,7 @@ func TestLocalTranscriptsShowNoInjectedContext(t *testing.T) {
 		if err != nil {
 			continue
 		}
-		for _, ev := range piEvents(session) {
+		for _, ev := range piEvents(session, false) {
 			if turnHead(ev.Type) {
 				reportInjected(t, "pi", path, ev)
 			}

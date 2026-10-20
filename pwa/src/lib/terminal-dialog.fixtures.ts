@@ -102,3 +102,42 @@ export const GROK_NARROW_SCREEN = [
   "",
   "  Tab:next answer  │  Esc:scrollback  │  Shift+x"
 ].join("\n");
+
+/**
+ * Captured from Pi 1.3.0 in tmux (100×30): an extension select dialog. The
+ * cursor row is "→", the rows carry no digits, and ↑↓/enter/escape answer it.
+ */
+export const PI_SELECTOR_SCREEN = [
+  " Pi can explain its own features and look up its docs. Ask it how to use or extend Pi.",
+  "",
+  "────────────────────────────────────────────────────────────────────────────────────────────────────",
+  "",
+  " Allow dangerous command?",
+  "",
+  " → Allow",
+  "   Block",
+  "",
+  " ↑↓ navigate  enter select  escape/ctrl+c cancel",
+  "",
+  "────────────────────────────────────────────────────────────────────────────────────────────────────",
+].join("\n");
+
+/** The same dialog at 48 columns: both labels wrap under their first line. */
+export const PI_SELECTOR_NARROW_SCREEN = [
+  " Pi can explain its own features and look up",
+  " its docs. Ask it how to use or extend Pi.",
+  "",
+  "────────────────────────────────────────────────",
+  "",
+  " Allow dangerous command?",
+  "",
+  " → Allow once and remember this command for the",
+  " rest of the session",
+  "   Block and tell the agent what to do",
+  " differently",
+  "",
+  " ↑↓ navigate  enter select  escape/ctrl+c",
+  " cancel",
+  "",
+  "────────────────────────────────────────────────",
+].join("\n");

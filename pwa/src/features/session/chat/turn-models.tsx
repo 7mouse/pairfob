@@ -18,6 +18,8 @@ export function modelSummary(models: AgentTraceModel[] | undefined): string {
   return [models[0].model, models[0].effort].filter(Boolean).join(" · ");
 }
 
+const MODEL_SOURCE_KEYS = { codex_context: "work.modelCodex", claude_message: "work.modelClaude", pi_message: "work.modelPi" } as const;
+
 export function TurnModelDetails({ models }: { models: AgentTraceModel[] }) {
   return <div className="work-models" aria-label={t("work.modelDetails")}>
     {!models.length ? <p>{t("work.modelMissing")}</p> : models.map((model, index) => <div key={index} className="work-model-record">
@@ -25,7 +27,7 @@ export function TurnModelDetails({ models }: { models: AgentTraceModel[] }) {
         <div><dt>{t("work.model")}</dt><dd>{model.model}</dd></div>
         <div><dt>Thinking effort</dt><dd>{model.effort || t("work.notRecorded")}</dd></div>
       </dl>
-      <p>{t(model.source === "codex_context" ? "work.modelCodex" : "work.modelClaude")}</p>
+      <p>{t(MODEL_SOURCE_KEYS[model.source])}</p>
     </div>)}
   </div>;
 }

@@ -32,28 +32,37 @@ var codexStateFile = regexp.MustCompile(`^state_([0-9]+)\.sqlite$`)
 
 // ReadTitle never discovers a session by cwd or recency. Missing metadata stays
 // empty. The short bounded cache also lets a name generated later replace the
-// prompt excerpt without reading SQLite on every terminal frame.
+// prompt excerpt without reading the native store on every terminal frame.
 func (r *Reader) ReadTitle(ref Ref) Title {
-	if ref.Agent != "codex" || !r.Supports(ref) {
+	if !r.Supports(ref) {
 		return Title{}
 	}
+	switch ref.Agent {
+	case "codex":
+		return r.cachedTitle(r.CodexRoot, ref, r.codexTitle)
+	case "pi":
+		return r.cachedTitle(r.PiRoot, ref, r.piTitle)
+	default:
+		return Title{}
+	}
+}
+
+// cachedTitle serializes reads of one provider behind an exact-binding cache.
+// A locked/unavailable store is not a rename: keep display-only metadata from
+// this exact binding, but let successful reads clear a removed name.
+func (r *Reader) cachedTitle(root string, ref Ref, read func(Ref) (Title, bool)) Title {
 	now := time.Now()
 	if r.now != nil {
 		now = r.now()
 	}
 	r.titleMu.Lock()
 	defer r.titleMu.Unlock()
-	key := r.CodexRoot + "\x00" + refFingerprint(ref)
+	key := root + "\x00" + refFingerprint(ref)
 	entry, cached := r.titleCache[key]
 	if cached && now.Sub(entry.at) < 2*time.Second {
 		return entry.value
 	}
-	title, stored := r.codexStoredTitle(ref.Value)
-	if title.Prompt == "" {
-		title.Prompt = r.codexFirstPrompt(ref)
-	}
-	// A locked/unavailable database is not a rename. Keep display-only metadata
-	// from this exact binding, but let successful reads clear a removed name.
+	title, stored := read(ref)
 	if !stored && cached {
 		title.Name = entry.value.Name
 		if title.Prompt == "" {
@@ -65,6 +74,48 @@ func (r *Reader) ReadTitle(ref Ref) Title {
 	}
 	r.titleCache[key] = titleCacheEntry{at: now, value: title}
 	return title
+}
+
+func (r *Reader) codexTitle(ref Ref) (Title, bool) {
+	title, stored := r.codexStoredTitle(ref.Value)
+	if title.Prompt == "" {
+		title.Prompt = r.codexFirstPrompt(ref)
+	}
+	return title, stored
+}
+
+// piTitle reads the name `/name` stored and, failing that, the first request on
+// the active branch. Pi resolves the current name from the newest session_info
+// in file order, including an explicit clear, not from the active branch.
+func (r *Reader) piTitle(ref Ref) (Title, bool) {
+	session, err := r.loadPiSession(ref, false)
+	if err != nil {
+		return Title{}, false
+	}
+	title := Title{Prompt: piFirstPrompt(session)}
+	for i := len(session.order) - 1; i >= 0; i-- {
+		if entry := session.entries[session.order[i]]; entry.Type == "session_info" {
+			title.Name = titleText(entry.Name, 256)
+			break
+		}
+	}
+	return title, true
+}
+
+func piFirstPrompt(session *piSession) string {
+	for _, entry := range session.branch {
+		if entry.Type != "message" {
+			continue
+		}
+		var message piMessage
+		if json.Unmarshal(entry.Message, &message) != nil || message.Role != "user" {
+			continue
+		}
+		if prompt := promptTitle(piUserText(message.Content)); prompt != "" {
+			return prompt
+		}
+	}
+	return ""
 }
 
 func (r *Reader) codexStoredTitle(id string) (Title, bool) {

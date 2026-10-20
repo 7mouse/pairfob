@@ -177,6 +177,7 @@ export const scenes: FixtureScene[] = [
   { name: "chat-markers", description: "Slash command chip, context compaction divider and interrupted turn" },
   { name: "chat-needs-you", description: "Agent waiting on a terminal approval answered from the chat" },
   { name: "chat-needs-you-grok", description: "Grok asking a question before any step, answered by the option's digit" },
+  { name: "chat-needs-you-pi", description: "Pi pausing on an extension dialog, answered by arrow keys from the phone" },
   { name: "chat-cursor", description: "A recorded Cursor session: steps end without a result, no times" },
   { name: "chat-hermes", description: "A recorded Hermes session: thinking, shell results and a failed command" },
   { name: "chat-opencode", description: "A recorded opencode session: thinking, tools and a failed command" },
@@ -212,6 +213,7 @@ const TERMINAL_SCREENS: Record<string, NonNullable<SessionSource["terminalScreen
 export function sceneSource(name: string): SessionSource {
   if (name === "chat-needs-you") return { snapshot: blockedFocusedSnapshot, paneText: () => data.NEEDS_YOU_SCREEN };
   if (name === "chat-needs-you-grok") return { snapshot: blockedGrokSnapshot, paneText: () => data.GROK_NEEDS_YOU_SCREEN };
+  if (name === "chat-needs-you-pi") return { snapshot: blockedPiSnapshot, paneText: () => data.PI_NEEDS_YOU_SCREEN };
   if (name === "home-update") return { build: OUTDATED_BUILD };
   if (name === "home-herd-sessions") return { herdSessions: [{ name: null, running: true }, { name: "release", running: true }, { name: "scratch", running: false }] };
   // One pane, read both ways: changing view by hand shows the same screen in the other.
@@ -307,6 +309,7 @@ export function applyExtraSessions(extra: number): void {
 }
 const blockedFocusedSnapshot = () => focusedSnapshot("blocked");
 const blockedGrokSnapshot = () => focusedSnapshot("blocked", "grok");
+const blockedPiSnapshot = () => focusedSnapshot("blocked", "pi");
 
 /**
  * Return every domain to the QA fixture baseline. Idempotent and subscription-
@@ -625,9 +628,9 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     if (name === "chat-loading") { setTraceLoadState("loading"); setTraceBusy(true); }
     if (name === "chat-error") { setTraceLoadState("error"); setTraceNote(t("chat.detailFailed")); }
     if (name === "chat-older") applyTrace({ agentTraceNext: "qa:older", agentTraceTruncated: true });
-    if (name === "chat-needs-you" || name === "chat-needs-you-grok") {
-      replaceAgentsFromSnapshot(name === "chat-needs-you" ? blockedFocusedSnapshot() : blockedGrokSnapshot());
-      const trace = name === "chat-needs-you" ? data.needsYouTrace() : data.grokNeedsYouTrace();
+    if (name === "chat-needs-you" || name === "chat-needs-you-grok" || name === "chat-needs-you-pi") {
+      replaceAgentsFromSnapshot(name === "chat-needs-you" ? blockedFocusedSnapshot() : name === "chat-needs-you-grok" ? blockedGrokSnapshot() : blockedPiSnapshot());
+      const trace = name === "chat-needs-you" ? data.needsYouTrace() : name === "chat-needs-you-grok" ? data.grokNeedsYouTrace() : data.piNeedsYouTrace();
       session.setTrace(trace);
       applyTrace({ agentTraceItems: trace, agentTraceTail: trace.length, agentTraceLoadState: "ready", agentTraceSig: JSON.stringify(trace) });
     }

@@ -37,6 +37,10 @@ test("provider menus are explicit and unknown agents never inherit another provi
   expect(codex).toContain("/status");
   expect(codex).not.toContain("/loop");
   expect(codex).not.toContain("/usage");
+  const pi = slashCommandsForAgent("pi");
+  expect(pi.map(item => item.label)).toEqual(["/compact", "/model", "/name", "/new", "/resume", "/session", "/thinking", "/tree"]);
+  expect(pi.filter(item => item.token.endsWith(" ")).map(item => item.label)).toEqual(["/model", "/name", "/thinking"]);
+  expect(pi.map(item => item.label)).not.toContain("/goal");
   expect(slashCommandsForAgent("shell")).toEqual([]);
   expect(slashCommandsForAgent("")).toEqual([]);
 });

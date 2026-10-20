@@ -30,6 +30,9 @@ export function slashCommandsForAgent(agent: string): SlashCommand[] {
     case "codex":
       return tokens(["/new", "/compact", "/model", "/status", "/goal ", "/diff", "/review", "/resume",
         "/fork", "/mention ", "/plan", "/skills"]);
+    case "pi":
+      // Pi's own commands (dist/core/slash-commands.js); arguments take a trailing space.
+      return tokens(["/compact", "/model ", "/name ", "/new", "/resume", "/session", "/thinking ", "/tree"]);
     default:
       return [];
   }

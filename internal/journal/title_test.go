@@ -166,6 +166,61 @@ func TestTitleDropsCodexImageReferenceButKeepsItsRequest(t *testing.T) {
 	}
 }
 
+func TestTitlePiUsesSessionNameAndFirstRequest(t *testing.T) {
+	reader, ref, path := piFixture(t,
+		msg("user0001", nil, "user", []any{
+			map[string]any{"type": "image", "data": "SECRET_BASE64", "mimeType": "image/png"},
+			map[string]any{"type": "text", "text": "<file name=\"/tmp/notes.txt\">\nsecret notes\n</file>\n<file name=\"/tmp/check.png\"></file>\n/Users/test/repo/.pairfob/attachments/abc/a.jpg 检查 Pi 会话标题"},
+		}),
+		msg("asst0001", "user0001", "assistant", []any{map[string]any{"type": "text", "text": "ok"}}),
+		msg("user0002", "asst0001", "user", "继续"),
+	)
+	now := time.Unix(100, 0)
+	reader.now = func() time.Time { return now }
+	if got := reader.ReadTitle(ref); got.Name != "" || got.Prompt != "检查 Pi 会话标题" {
+		t.Fatalf("prompt title=%+v", got)
+	}
+	// A name set later replaces the excerpt without losing it.
+	appendPiRecord(t, path, map[string]any{"type": "session_info", "id": "name0001", "parentId": "user0002", "name": "修复 Pi 标题"})
+	now = now.Add(3 * time.Second)
+	if got := reader.ReadTitle(ref); got.Name != "修复 Pi 标题" || got.Prompt != "检查 Pi 会话标题" {
+		t.Fatalf("stored name=%+v", got)
+	}
+	// The newest session_info wins, including the explicit clear.
+	appendPiRecord(t, path, map[string]any{"type": "session_info", "id": "name0002", "parentId": "name0001", "name": ""})
+	now = now.Add(3 * time.Second)
+	if got := reader.ReadTitle(ref); got.Name != "" || got.Prompt != "检查 Pi 会话标题" {
+		t.Fatalf("cleared name=%+v", got)
+	}
+}
+
+func TestTitlePiUsesActiveBranchAndStaysInItsProviderRoot(t *testing.T) {
+	reader, _, _ := piFixture(t,
+		msg("old00001", nil, "user", "Abandoned first request"),
+		msg("asst0001", "old00001", "assistant", []any{map[string]any{"type": "text", "text": "old"}}),
+		msg("user0002", nil, "user", "Continuing after reset"),
+	)
+	ref := Ref{Source: "herdr:pi", Agent: "pi", Kind: "id", Value: "session01"}
+	if got := reader.ReadTitle(ref); got.Name != "" || got.Prompt != "Continuing after reset" {
+		t.Fatalf("active branch=%+v", got)
+	}
+	if got := (&Reader{PiRoot: t.TempDir()}).ReadTitle(ref); got != (Title{}) {
+		t.Fatalf("another provider root borrowed title: %+v", got)
+	}
+}
+
+func appendPiRecord(t *testing.T, path string, record map[string]any) {
+	t.Helper()
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_APPEND, 0600)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer file.Close()
+	if _, err := file.Write(piLine(record)); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func TestLocalTranscriptsCodexTitle(t *testing.T) {
 	if os.Getenv("PAIRFOB_SCAN_LOCAL_TRANSCRIPTS") != "1" || os.Getenv("CODEX_THREAD_ID") == "" {
 		t.Skip("requires an explicit local scan inside a Codex session")
@@ -175,6 +230,22 @@ func TestLocalTranscriptsCodexTitle(t *testing.T) {
 	got := r.ReadTitle(ref)
 	if got == (Title{}) {
 		t.Fatal("current Codex session has neither native name nor a readable request")
+	}
+	if strings.Contains(got.Prompt, ".pairfob/attachments/") || strings.HasPrefix(got.Prompt, "<") || strings.HasPrefix(got.Prompt, "# AGENTS.md") {
+		t.Fatal("title contains attachment or injected context")
+	}
+	t.Logf("current session: native name present=%t, prompt excerpt length=%d", got.Name != "", len([]rune(got.Prompt)))
+}
+
+func TestLocalTranscriptsPiTitle(t *testing.T) {
+	if os.Getenv("PAIRFOB_SCAN_LOCAL_TRANSCRIPTS") != "1" || os.Getenv("PI_SESSION_FILE") == "" {
+		t.Skip("requires an explicit local scan inside a Pi session")
+	}
+	r := NewDefault()
+	ref := Ref{Source: "herdr:pi", Agent: "pi", Kind: "path", Value: os.Getenv("PI_SESSION_FILE")}
+	got := r.ReadTitle(ref)
+	if got.Prompt == "" {
+		t.Fatal("current Pi session has no readable request")
 	}
 	if strings.Contains(got.Prompt, ".pairfob/attachments/") || strings.HasPrefix(got.Prompt, "<") || strings.HasPrefix(got.Prompt, "# AGENTS.md") {
 		t.Fatal("title contains attachment or injected context")

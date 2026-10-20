@@ -79,6 +79,123 @@ func TestPiTraceSelectsLatestBranchAndPreservesToolState(t *testing.T) {
 	}
 }
 
+func TestPiChatDropsAttachmentWrappersAndShowsUserBash(t *testing.T) {
+	reader, ref, _ := piFixture(t,
+		msg("user0001", nil, "user", []any{
+			map[string]any{"type": "image", "data": "SECRET_BASE64", "mimeType": "image/png"},
+			map[string]any{"type": "text", "text": "<file name=\"/tmp/notes.txt\">\nsecret notes\n</file>\n<file name=\"/tmp/check.png\"></file>\n检查这个布局"},
+		}),
+		msg("asst0001", "user0001", "assistant", []any{map[string]any{"type": "text", "text": "ok"}}),
+		map[string]any{"type": "message", "id": "bash0001", "parentId": "asst0001", "message": map[string]any{"role": "bashExecution", "command": "git status --short", "output": "M a.go", "exitCode": 0}},
+		msg("user0002", "bash0001", "user", "继续"),
+		msg("user0003", "user0002", "user", "<skill name=\"lark-calendar\" location=\"/Users/x/.agents/skills/lark-calendar/SKILL.md\">\nReferences are relative to /Users/x/.agents/skills/lark-calendar.\n\n# calendar\n\nsecret skill body\n</skill>"),
+		msg("user0004", "user0003", "user", "<skill name=\"vision\" location=\"/Users/x/vision/SKILL.md\">\nReferences are relative to /Users/x/vision.\n\nbody\n</skill>\n\n看看这张图\n\n[Image: original 2481x1245, displayed at 2000x1004. Multiply coordinates by 1.24 to map to original image.]\n[Image: original 800x600, displayed at 800x600. Multiply coordinates by 1.00 to map to original image.]"),
+		msg("user0005", "user0004", "user", "只看文字\n\n[Image: original 100x100, displayed at 100x100. Multiply coordinates by 1.00 to map to original image.]"),
+		msg("user0006", "user0005", "user", "\n\n[Image: original 100x100, displayed at 100x100. Multiply coordinates by 1.00 to map to original image.]"),
+	)
+	page, err := reader.ReadTraceWith(ref, nil, 20, TraceOptions{Markers: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, item := range page.Items {
+		got = append(got, item.Type+":"+item.Text)
+	}
+	want := []string{
+		"user:检查这个布局", "assistant:ok", "command:! git status --short", "user:继续",
+		"user:/skill:lark-calendar", "user:/skill:vision 看看这张图", "user:只看文字",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("trace got=%v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("trace got=%v want=%v", got, want)
+		}
+	}
+	// Without markers a user command is still the user's own prompt, and no
+	// generated wrapper or instruction body reaches the phone.
+	legacy, err := reader.ReadTrace(ref, nil, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range legacy.Items {
+		if contains(item.Text, "<file name=") || contains(item.Text, "<skill name=") ||
+			contains(item.Text, "[Image: original") || contains(item.Text, "secret skill body") || contains(item.Text, "SECRET_BASE64") {
+			t.Fatalf("wrapper or payload leaked: %q", item.Text)
+		}
+	}
+	history, err := reader.Read(ref, nil, 20)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history.Messages) != 6 || history.Messages[0].Text != "检查这个布局" || history.Messages[0].Role != "user" ||
+		history.Messages[3].Text != "/skill:lark-calendar" || history.Messages[4].Text != "/skill:vision 看看这张图" || history.Messages[5].Text != "只看文字" {
+		t.Fatalf("history=%#v", history.Messages)
+	}
+}
+
+func TestPiModelObservationsAndTerminalErrors(t *testing.T) {
+	reader, ref, _ := piFixture(t,
+		msg("user0001", nil, "user", "go"),
+		map[string]any{"type": "message", "id": "asst0001", "parentId": "user0001", "message": map[string]any{
+			"role": "assistant", "model": "deepseek-v4.1-flash", "thinkingLevel": "max", "stopReason": "toolUse",
+			"content": []any{map[string]any{"type": "text", "text": "working"}, map[string]any{"type": "toolCall", "id": "call-one", "name": "Read", "arguments": map[string]any{"path": "a"}}},
+		}},
+		// A retried request: the later record supersedes this error.
+		map[string]any{"type": "message", "id": "asst0002", "parentId": "asst0001", "message": map[string]any{
+			"role": "assistant", "model": "deepseek-v4.1-flash", "thinkingLevel": "max", "stopReason": "error", "errorMessage": "Request timed out.", "content": []any{},
+		}},
+		map[string]any{"type": "message", "id": "asst0003", "parentId": "asst0002", "message": map[string]any{
+			"role": "assistant", "model": "deepseek-v4.1-flash", "thinkingLevel": "low", "stopReason": "stop",
+			"content": []any{map[string]any{"type": "text", "text": "done"}},
+		}},
+		msg("user0002", "asst0003", "user", "again"),
+		// A terminal failure: nothing supersedes it before the next prompt.
+		map[string]any{"type": "message", "id": "asst0004", "parentId": "user0002", "message": map[string]any{
+			"role": "assistant", "model": "claude-sonnet-4", "stopReason": "error", "errorMessage": "Authentication failed", "content": []any{},
+		}},
+	)
+	page, err := reader.ReadTraceWith(ref, nil, 50, TraceOptions{Models: true, Labels: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got []string
+	for _, item := range page.Items {
+		models := ""
+		for _, model := range item.Models {
+			models += "|" + model.Model + "/" + model.Effort + "/" + model.Source
+		}
+		got = append(got, item.Type+":"+item.Text+item.Name+models)
+	}
+	want := []string{
+		"user:go",
+		"assistant:working|deepseek-v4.1-flash/max/pi_message",
+		"tool:Read|deepseek-v4.1-flash/max/pi_message",
+		"assistant:done|deepseek-v4.1-flash/low/pi_message",
+		"user:again",
+		"assistant:Authentication failed|claude-sonnet-4//pi_message",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("trace got=%v", got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("trace got=%v want=%v", got, want)
+		}
+	}
+	// The legacy view stays frozen: no models without the opt-in.
+	legacy, err := reader.ReadTrace(ref, nil, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, item := range legacy.Items {
+		if len(item.Models) != 0 {
+			t.Fatalf("legacy view leaked models: %#v", item)
+		}
+	}
+}
+
 func TestPiCustomVisibilityPartialAppendAndPagination(t *testing.T) {
 	reader, ref, path := piFixture(t,
 		map[string]any{"type": "custom_message", "id": "custom01", "parentId": nil, "display": false, "content": "hidden"},

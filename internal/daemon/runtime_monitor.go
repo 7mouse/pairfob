@@ -388,7 +388,7 @@ func pushKindForObservation(previous, current string, sequenceAdvanced bool) (Pu
 func herdPushForPane(pane runtime.Pane, workspaceLabel, tabLabel string, kind PushKind) HerdPush {
 	return HerdPush{
 		HerdID: pane.PaneID, Agent: pane.Agent, WorkspaceLabel: workspaceLabel, Cwd: pane.Cwd,
-		PaneLabel: optionalText(pane.Label), TerminalTitle: pane.TerminalTitle, TabLabel: tabLabel,
+		PaneLabel: optionalText(pane.Label), TaskTitle: pane.Tokens["task"], TerminalTitle: pane.TerminalTitle, TabLabel: tabLabel,
 		Kind: kind, AgentInstanceID: pane.AgentInstanceID, StateChangeSeq: copyUint64(pane.StateChangeSeq),
 		TaskEvidence: pane.TaskEvidence,
 	}

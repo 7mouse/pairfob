@@ -66,6 +66,12 @@ func toolLabel(name, input string) string {
 		if label := labelText(firstString(fields, labelQueryKeys)); label != "" {
 			return label
 		}
+	case "codemode":
+		// Pi runs a JavaScript snippet that calls the ordinary tools, like
+		// Codex's exec; the label is the first call it makes.
+		if label := labelText(codeModeLabel(stringValue(fields["code"]))); label != "" {
+			return label
+		}
 	}
 	for _, key := range labelCommandKeys {
 		if label := labelText(commandLine(fields[key])); label != "" {

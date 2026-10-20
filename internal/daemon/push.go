@@ -83,9 +83,12 @@ type HerdPush struct {
 	WorkspaceLabel string
 	Cwd            string
 	PaneLabel      string
-	TerminalTitle  string
-	TabLabel       string
-	Kind           PushKind
+	// TaskTitle is the display title the runtime monitor derives from the bound
+	// agent session (tokens.task). It is display-only, like TerminalTitle.
+	TaskTitle     string
+	TerminalTitle string
+	TabLabel      string
+	Kind          PushKind
 	// Observation identity participates only in local delivery deduplication;
 	// these values are never included in the Web Push payload.
 	AgentInstanceID string

@@ -16,14 +16,16 @@ default. Sources:
 | --- | --- | --- |
 | `codex_context` | rollout `turn_context.payload.model` / `.effort` | requested configuration recorded for this turn, not proof of provider routing |
 | `claude_message` | accepted assistant record's `message.model` | message model; no effort field is supplied |
+| `pi_message` | accepted assistant record's `message.model` / `message.thinkingLevel` | message model and recorded thinking level |
 
 Codex context belongs to one forward scan. Task start/end/abort and invalid or
 oversized records clear it; conflicting task IDs reject it. In older logs
 without task boundaries another visible user or a user after a response clears it. A
 context immediately before the first user can describe that user's response.
-Tail windows with no context stay unknown. Claude observations belong only to
-the message supplying them. Sidechain and synthetic records remain filtered
-by the normal transcript parser. Other agents currently supply no observations.
+Tail windows with no context stay unknown. Claude and Pi observations belong
+only to the message supplying them. Sidechain and synthetic records remain
+filtered by the normal transcript parser. Cursor, Grok, Hermes and opencode
+currently supply no observations.
 
 No model is copied from pane tokens, session defaults, a model name in prose,
 or a later turn. Tool output does not overwrite the call's observations.
