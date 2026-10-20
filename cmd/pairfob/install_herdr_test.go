@@ -102,7 +102,7 @@ esac
 				if tc.doctorFails && strings.Contains(string(out), "Scan or type") {
 					t.Fatalf("pairing offered while unhealthy: %s", out)
 				}
-				if !tc.doctorFails && !strings.Contains(string(out), "Pairfob and Herdr are ready.") {
+				if !tc.doctorFails && !strings.Contains(string(out), "Pairfob is ready.") {
 					t.Fatalf("out=%s", out)
 				}
 			}

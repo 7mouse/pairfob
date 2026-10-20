@@ -4,7 +4,7 @@
   const zh = {
     title: "Pairfob — 手机接着操作电脑上的 AI Agent 会话",
     description:
-      "在手机上接着操作电脑里正在跑的 AI 编码 Agent。Pairfob 是 Herdr 的手机端，Codex、Claude、Grok 的会话两端同步，端到端加密，不用 VPN、不开公网端口。",
+      "在手机上操控电脑里的编程 Agent：批命令、看 diff、开新会话。开源，不用装 App，端到端加密。",
     "og.image.alt": "Pairfob：电脑和手机上是同一份 Agent 会话列表",
     skip: "跳到正文",
     "brand.aria": "Pairfob 首页",
@@ -22,7 +22,7 @@
     "cta.open": "打开 Pairfob",
     "start.copy": "复制",
 
-    "hero.chip": "Herdr 的手机端",
+    "hero.chip": "编程 Agent 的手机遥控器",
     "hero.chip2": "开源 · 免费",
     "hero.title": "电脑上跑的 Agent，<br />手机随时接着操作。",
     "hero.tick1": "浏览器打开就能用，不装 App",
@@ -49,7 +49,7 @@
     beat4: "手机点 Enter，两边一起继续",
     "anim.pause": "暂停动画",
     "anim.play": "播放动画",
-    "logos.lead": "<b>Herdr</b> 是电脑上跑 coding agent 的本机程序，里面跑的都能接：",
+    "logos.lead": "支持你已经在用的 Agent：",
 
     "how.ask": "怎么用？",
     "how.h2": "电脑上装一次，手机扫一次码。",
@@ -182,14 +182,14 @@
     "close.p": "在 macOS 或 Linux 电脑终端里运行：",
     "close.then": "然后运行 <b>pairfob pair</b>，用手机打开 <b>pairfob.com/pair</b> 扫码。",
     "close.phone": "已经在电脑上装好了？",
-    "foot.blurb": "Pairfob · Herdr 的手机端。跑 Herdr 的那台电脑目前要是 macOS 或 Linux。",
+    "foot.blurb": "Pairfob · 在手机上操控电脑里的 Agent。基于 Herdr 构建。电脑目前需要是 macOS 或 Linux。",
     "foot.aria": "页脚",
   };
 
   const en = {
     title: "Pairfob — continue the AI agent session on your computer from your phone",
     description:
-      "Continue the coding agents already running on your computer from your phone. Pairfob is the phone surface for Herdr: Codex, Claude, and Grok stay one session on both sides, end-to-end encrypted, no VPN and no inbound ports.",
+      "Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app, end-to-end encrypted.",
     "og.image.alt": "Pairfob: the same agent list on computer and phone",
     skip: "Skip to content",
     "brand.aria": "Pairfob home",
@@ -207,7 +207,7 @@
     "cta.open": "Open Pairfob",
     "start.copy": "Copy",
 
-    "hero.chip": "The phone surface for Herdr",
+    "hero.chip": "Phone remote for coding agents",
     "hero.chip2": "Open source · Free",
     "hero.title": "Agents that run on your computer,<br />continued from your phone.",
     "hero.tick1": "Runs in the browser, no app to install",
@@ -234,7 +234,7 @@
     beat4: "Tap Enter on the phone and both sides carry on",
     "anim.pause": "Pause animation",
     "anim.play": "Play animation",
-    "logos.lead": "<b>Herdr</b> runs coding agents on your computer. Pairfob picks up any of them:",
+    "logos.lead": "Works with the agents you already use:",
 
     "how.ask": "How does it work?",
     "how.h2": "Install once on the computer, scan once with the phone.",
@@ -373,7 +373,7 @@
     "close.p": "Run this in a terminal on your macOS or Linux computer:",
     "close.then": "Then run <b>pairfob pair</b> and scan with your phone at <b>pairfob.com/pair</b>.",
     "close.phone": "Already set up on your computer?",
-    "foot.blurb": "Pairfob · the phone surface for Herdr. The computer that runs Herdr has to be macOS or Linux for now.",
+    "foot.blurb": "Pairfob · control the agents on your computer from your phone. Built on Herdr. The computer has to be macOS or Linux for now.",
     "foot.aria": "Footer",
   };
 
@@ -453,8 +453,11 @@
       try {
         const data = JSON.parse(ld.textContent);
         data.url = url;
-        data.description = desc;
-        data.softwareRequirements = lang === "en" ? "Herdr 0.8 or newer" : "Herdr 0.8 或更高版本";
+        data.description =
+          lang === "en"
+            ? "Control the coding agents on your computer from your phone. Approve commands, review diffs, start sessions. End-to-end encrypted; Herdr is installed automatically as the session runtime."
+            : "在手机上操控电脑里的编程 Agent。批命令、看 diff、开新会话。端到端加密；Herdr 作为会话运行时自动安装。";
+        data.softwareRequirements = lang === "en" ? "Herdr 0.8 or newer, installed automatically" : "Herdr 0.8 或更高版本，安装时自动安装";
         ld.textContent = JSON.stringify(data);
       } catch {
         /* leave original */

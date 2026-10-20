@@ -11,7 +11,7 @@ No. There is no email login. The computer enrolls when you run the installer. De
 
 ## Can Pairfob run agents by itself?
 
-No. It is the phone surface for [Herdr](https://herdr.dev). The computer needs Herdr 0.8 or newer; the Pairfob installer automatically adds the latest stable release if it is missing. `pairfob` starts Herdr when needed. If automatic startup fails, the list shows Herdr offline and recovers after you run `herdr` manually.
+No. It is a phone remote for the coding agents on your computer. Sessions run in [Herdr](https://herdr.dev). The computer needs Herdr 0.8 or newer; the Pairfob installer automatically adds the latest stable release if it is missing. `pairfob` starts Herdr when needed. If automatic startup fails, the list shows Herdr offline and recovers after you run `herdr` manually.
 
 Install and sign in to AI agents separately on the computer; Pairfob does not install agents or configure their accounts. After pairing, you can also choose Terminal without an agent. Pairfob needs no account; your agent may still require its own login.
 
@@ -93,6 +93,10 @@ Check the network and `pairfob doctor`. If this network has enrolled too many co
 ## The list is empty.
 
 In order: `pairfob doctor` — does the Herdr line say `ready`? **Herdr isn't running on the computer** means Herdr is closed; **No sessions on … yet** with a create hint means you are connected but there is no session yet. Did pairing finish (not still on the pairing page)?
+
+## Why doesn't the Claude Code I started in a terminal show up on the phone?
+
+Pairfob only shows sessions running in Herdr. Start one from the phone, or run `herdr` on the computer and then open the agent, and it shows up.
 
 ## Why is there no New / Split / Worktree?
 

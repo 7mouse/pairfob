@@ -1,6 +1,6 @@
 # Pairfob
 
-> Pairfob is a free, open-source (Apache-2.0) phone and browser surface for Herdr: it lets you continue the coding-agent sessions (Claude Code, Codex CLI, Grok and other agents running in Herdr) that are already running on your macOS or Linux computer from your phone's browser. Pair once by QR code; no phone app, no Pairfob account, no VPN, no inbound ports. Sessions are end-to-end encrypted (direct WebRTC when possible, otherwise through the pairfob.com relay, which cannot read content).
+> Pairfob is a free, open-source (Apache-2.0) phone and browser remote for the coding agents (Claude Code, Codex CLI, Grok and others) running on your macOS or Linux computer. Sessions run in Herdr, which the installer sets up automatically. Pair once by QR code; no phone app, no Pairfob account, no VPN, no inbound ports. Sessions are end-to-end encrypted (direct WebRTC when possible, otherwise through the pairfob.com relay, which cannot read content).
 
 Key facts:
 - Host: macOS or Linux with Herdr 0.8+ (the installer automatically installs the latest stable Herdr if missing); the Herdr plugin route and agent inspection need Herdr 0.8.2+. Windows hosts: not supported.

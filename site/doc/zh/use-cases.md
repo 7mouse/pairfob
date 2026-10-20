@@ -1,6 +1,6 @@
 ---
 title: 使用场景
-description: "用手机控制 Herdr 里的 Claude Code、Codex 和 Grok：审批、diff、上传、多台电脑，以及什么时候不适合。"
+description: "在手机上操控电脑里的 Claude Code、Codex 和 Grok：审批、diff、上传、多台电脑，以及什么时候不适合。"
 head:
   - - script
     - type: application/ld+json
