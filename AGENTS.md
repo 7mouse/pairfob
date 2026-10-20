@@ -80,6 +80,7 @@ from the original module so imports do not churn.
 | `internal/journal` | agent transcript adapters (Claude Code, Codex, Grok, Pi, Cursor, Hermes, opencode) |
 | `internal/state` `admin` `audit` | durable identity and devices, local operator socket, security audit log |
 | `internal/phone` | Go phone client for daemon end-to-end tests only |
+| `internal/termux` | Termux detection, CA bundle, resolver; every entry point is a no-op off Termux |
 | `pwa/src/app` | boot, lifecycle, layout, width tier and input mode; `main.ts` only calls `startApplication` |
 | `pwa/src/pages` | per-route bridges between application state and features |
 | `pwa/src/features/<domain>` | screens and flows; import rules in `src/architecture-boundaries.test.ts` and `features/layer-boundaries.test.ts` |
@@ -119,6 +120,11 @@ package can express that duty.
   failures fail closed.
 - The product loop is not a terminal emulator: read the rendered pane, send
   keys back to the PTY.
+- Termux is a side path. Android denies apps the NETLINK_ROUTE interface table,
+  hardlinks and `/` itself, so Termux gets its own build (`GOOS=android`,
+  `pairfob-android-arm64`) and the smallest possible hooks behind
+  `termux.Enabled()`. Anything else must not change behaviour on macOS or
+  systemd Linux; `scripts/verify.sh` and `internal/termux` tests pin that.
 
 ## PWA: one app, three surfaces
 
