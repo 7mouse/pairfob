@@ -6,7 +6,7 @@
 
 **English** | [简体中文](README_zh.md)
 
-**Your [Herdr](https://herdr.dev) agents, on your phone.** Codex, Claude, Grok
+**Control the coding agents on your computer from your phone.** Codex, Claude, Grok
 and the rest keep running on your computer; after pairing once, a phone, tablet
 or another computer opens **the same live sessions**, not copies. The computer
 dials out, so there are no inbound ports and no VPN, and the session is
@@ -118,6 +118,8 @@ pairfob --outbound WSS---------->  same room  --opaque FWD-->  phone
           \-- WebRTC DataChannel after authenticated setup --/
 pairfob --loopback-------------->  Herdr
 ```
+
+Sessions run in [Herdr](https://herdr.dev); the installer sets it up for you.
 
 The phone reads the rendered pane and sends keys back to the PTY; it is not a
 terminal emulator of its own. `pairfob.com` is the project's official instance.

@@ -208,7 +208,7 @@ if [ "$NO_SERVICE" -eq 0 ]; then
   "$dest" service install
   if [ "$SKIP_HERDR_CHECK" -eq 0 ]; then
     "$dest" doctor || { echo "Setup incomplete: run pairfob doctor." >&2; exit 1; }
-    echo "Pairfob and Herdr are ready."
+    echo "Pairfob is ready."
   else
     echo "Pairfob is running; Herdr readiness was not checked."
   fi
@@ -249,3 +249,4 @@ if [ -n "${HERDR_SOCKET_PATH:-}" ]; then
 fi
 echo "Local terminal: ${herdr_command}"
 echo "Runtime updates: ${pairfob_command} setup --update-herdr"
+echo "Heads up: your phone sees sessions started from the phone or inside \`herdr\`. A \`claude\` you open in another terminal won't show up."

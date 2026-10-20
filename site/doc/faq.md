@@ -94,6 +94,10 @@ Check the network and `pairfob doctor`. If this network has enrolled too many co
 
 In order: `pairfob doctor` — does the Herdr line say `ready`? **Herdr isn't running on the computer** means Herdr is closed; **No sessions on … yet** with a create hint means you are connected but there is no session yet. Did pairing finish (not still on the pairing page)?
 
+## Why doesn't the Claude Code I started in a terminal show up on the phone?
+
+Pairfob only shows sessions running in Herdr. Start one from the phone, or run `herdr` on the computer and then open the agent, and it shows up.
+
 ## Why is there no New / Split / Worktree?
 
 The live Herdr does not support that yet. Upgrade and **restart the running Herdr**, not only install another CLI binary. With no agent kinds listed, **New**, **New tab**, and **Split** still open a terminal pane.
