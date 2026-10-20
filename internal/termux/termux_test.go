@@ -112,3 +112,22 @@ func TestResolverForPrefersGo(t *testing.T) {
 		t.Fatalf("%+v", r)
 	}
 }
+
+// Configure runs on every start, so a host that is not Termux must keep the
+// resolver and the certificate path it already had.
+func TestConfigureLeavesTheHostAloneOutsideTermux(t *testing.T) {
+	t.Setenv("PREFIX", t.TempDir())
+	t.Setenv("TERMUX_VERSION", "")
+	t.Setenv("SSL_CERT_FILE", "")
+	previous := net.DefaultResolver
+	t.Cleanup(func() { net.DefaultResolver = previous })
+
+	Configure()
+
+	if net.DefaultResolver != previous {
+		t.Fatal("resolver replaced outside Termux")
+	}
+	if got := os.Getenv("SSL_CERT_FILE"); got != "" {
+		t.Fatalf("SSL_CERT_FILE = %q outside Termux", got)
+	}
+}
