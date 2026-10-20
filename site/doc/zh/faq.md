@@ -11,7 +11,7 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 ## Pairfob 能单独跑 agent 吗？
 
-不能。它是 [Herdr](https://herdr.dev) 的手机端。电脑需要 Herdr 0.8 或更高；缺少时，Pairfob 安装脚本会自动补装最新稳定版。`pairfob` 会在启动时自动拉起 Herdr。自动启动失败时列表会显示 Herdr 离线，手动运行 `herdr` 后会自动恢复。
+不能。它是编程 Agent 的手机遥控器，在手机上操控电脑里的编程 Agent。会话在 [Herdr](https://herdr.dev) 里运行。电脑需要 Herdr 0.8 或更高；缺少时，Pairfob 安装脚本会自动补装最新稳定版。`pairfob` 会在启动时自动拉起 Herdr。自动启动失败时列表会显示 Herdr 离线，手动运行 `herdr` 后会自动恢复。
 
 AI Agent 需要在电脑上另行安装并登录，Pairfob 不会安装 Agent 或配置其账号。配对后也可以选择终端，无需 Agent。使用 Pairfob 无需注册账号；Agent 自身的登录要求仍然适用。
 

@@ -147,7 +147,7 @@ export const zhTheme: DefaultTheme.Config = {
   footer: {
     message:
       '密钥只在你的电脑和已配对设备上。pairfob.com 转发加密内容并记录连接元数据。 · <a href="/doc/zh/privacy">隐私说明</a> · <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">反馈问题</a>',
-    copyright: "Pairfob · Herdr 的手机端 · Apache-2.0",
+    copyright: "Pairfob · 编程 Agent 的手机遥控器 · Apache-2.0",
   },
   notFound: {
     title: "没有这一页",
@@ -181,7 +181,7 @@ export const enTheme: DefaultTheme.Config = {
   footer: {
     message:
       'Keys stay on your computer and paired devices. pairfob.com relays encrypted content and records connection metadata. · <a href="/doc/privacy">Privacy</a> · <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">Report an issue</a>',
-    copyright: "Pairfob · the phone surface for Herdr · Apache-2.0",
+    copyright: "Pairfob · Phone remote for coding agents · Apache-2.0",
   },
   notFound: {
     title: "Page not found",
