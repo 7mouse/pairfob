@@ -11,8 +11,13 @@ const DIRECT_NEGOTIATION_MS = 8_000;
  * address is already enough to offer; this long lets a second interface add its own.
  */
 export const DIRECT_ICE_SETTLE_MS = 300;
-/** STUN has asked four times by now. Local addresses still connect when the computer can be reached. */
-export const DIRECT_ICE_LOCAL_MS = 3_000;
+/**
+ * Pion holds a lost STUN binding for five seconds before it gives up, and the
+ * daemon now answers only after that. Wait as long here, or an offer goes out
+ * with local addresses alone and the computer never learns where to reach us.
+ * Local addresses still connect when the computer is on the same network.
+ */
+export const DIRECT_ICE_LOCAL_MS = 6_000;
 export const MAX_SDP_BYTES = 64 * 1024;
 const DATA_CHANNEL_LABEL = "pairfob";
 const DATA_CHANNEL_PROTOCOL = "pairfob.v1";
