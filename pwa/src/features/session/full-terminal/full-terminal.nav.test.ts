@@ -384,13 +384,13 @@ describe("complete-terminal remembers its mode per pane", () => {
   test("compose and live input switch in place without losing an unsent draft", () => {
     bootFullTerminal();
     expect(app.querySelector(".full-terminal-compose-input")).toBeTruthy();
-    expect((app.querySelector(".full-terminal-kb")) === null).toBeTrue();
+    expect((app.querySelector(".full-terminal-live-field")) === null).toBeTrue();
     act(() => setFullTerminalComposeLive(true));
     expect(composeLive()).toBe(true);
     expect(paneComposeLive("p1")).toBe(true);
     expect(composeDraft()).toBe(DRAFT);
     expect((app.querySelector(".full-terminal-compose-input")) === null).toBeTrue();
-    expect(app.querySelector(".full-terminal-kb")).toBeTruthy();
+    expect(app.querySelector(".full-terminal-live-field")).toBeTruthy();
     act(() => setFullTerminalComposeLive(false));
     expect(composeLive()).toBe(false);
     expect(paneComposeLive("p1")).toBe(false);

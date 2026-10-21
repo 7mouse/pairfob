@@ -262,41 +262,6 @@ $field-hint: #757575;
 
 .send-kind-force:active:not(:disabled) { background: #b8322a; }
 
-/* Full-terminal live input: attachments go out through 组字, one tap away. */
-.full-terminal-live-actions { gap: var(--space-2); }
-
-.full-terminal-live-send {
-  flex: 0 0 auto;
-  min-height: 46px;
-  padding: 0 16px;
-  border-radius: 13px;
-  background: var(--accent);
-  color: var(--accent-ink);
-  font-size: var(--text-lead);
-  font-weight: 660;
-}
-
-.full-terminal-live-send:active { background: var(--accent-deep); }
-
-/*
-  停止 beside a live terminal's field keeps its place in the row whether or not
-  there is anything to stop (full-terminal-stop.tsx): arriving, it would take
-  its width from the field and move 按键 under the pointer. Away, it is clear
-  and cannot be pressed (the slot is `inert` as well); it fades in where it
-  already stands, and leaves at an exit's pace.
-*/
-.full-terminal-live-stop-slot {
-  flex: 0 0 auto;
-  display: flex;
-  transition: opacity var(--dur-2) var(--ease);
-}
-
-.full-terminal-live-stop-slot.is-away {
-  opacity: 0;
-  pointer-events: none;
-  transition-duration: var(--dur-1);
-}
-
 /* --- Blocked attachments: a small popover above the send button ---------------------- */
 
 .send-issue {
@@ -452,13 +417,11 @@ $field-hint: #757575;
 
 .dock-mode-hint span { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
 
-/* Where a live terminal's keys go, drawn in the compose field's place. The row
-   stands off the pad above by the compose form's own margin, so the tag riding
-   the field's top edge clears it. */
+/* Where a live terminal's keys go, drawn in the compose field's place and in
+   the compose form's own row (full-terminal-pad.tsx). The row stands off the
+   pad above by that form's margin, so the tag riding the field's top edge
+   clears it, and a mode switch changes no height on the computer. */
 .full-terminal-live-field { align-self: stretch; }
-/* Exactly the compose form's height: a row two pixels taller either side would
-   resize the terminal on the computer every time the mode is switched. */
-.full-terminal-live-actions:has(> .full-terminal-live-field) { margin-top: var(--space-2); padding-block: 0; }
 
 /* The same box as the guided live field beside the list (desk.scss sets that
    one's 15px), so the line in it sits where that field's placeholder does. */
@@ -494,23 +457,6 @@ $field-hint: #757575;
 #app.desk .dock-form.live-pending .compose-field > textarea::placeholder { color: var(--accent); opacity: 0.82; }
 
 .full-terminal-live-focus:focus-visible { outline: 2px solid var(--ok); outline-offset: -2px; }
-
-/* What the keyboard does in a live terminal, on a tablet that has one: said in
-   the row that is already there (desk-pointer.ts), inside its height, so the
-   first key typed never resizes the terminal. The attach button gives it the
-   row's width; two lines at most, and what leads is the way out. */
-.full-terminal-live-hint {
-  flex: 1 1 0;
-  align-self: center;
-  min-width: 0;
-  max-height: 2lh;
-  margin: 0;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: var(--text-caption);
-  line-height: 1.35;
-}
-.attach-btn-labeled:has(+ .full-terminal-live-hint) { flex: 0 0 auto; padding-inline: 16px; }
 
 @media (prefers-reduced-motion: reduce) {
   .dock-keys-btn { transition: none; }

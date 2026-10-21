@@ -180,16 +180,16 @@ describe("independent complete-terminal React review", () => {
       const live = session();
       await act(() => boot(live, true));
       await until(() => getFullTerminalView().stage === "live", "live terminal");
-      const button = app.querySelector<HTMLButtonElement>(".full-terminal-kb")!;
-      await act(() => button.click());
-      expect(button.getAttribute("aria-pressed")).toBe("true");
+      const field = app.querySelector<HTMLButtonElement>(".full-terminal-live-focus")!;
+      await act(() => field.click());
+      expect(field.getAttribute("aria-pressed")).toBe("true");
       expect(app.querySelector(".full-terminal-host")?.classList.contains("kb-on")).toBeTrue();
       await act(() => sendFullTerminalScroll("down", 3, "wheel"));
       expect(live.calls).toContain("scroll");
       expect(app.querySelector(".full-terminal-host")?.classList.contains("kb-off")).toBeTrue();
       expect((app.querySelector(".xterm-helper-textarea") as HTMLTextAreaElement).readOnly).toBeTrue();
-      expect(button.getAttribute("aria-pressed")).toBe("false");
-      expect(button.textContent).toBe("点这里输入");
+      expect(field.getAttribute("aria-pressed")).toBe("false");
+      expect(field.getAttribute("aria-label")).toBe("打开键盘输入");
     } finally {
       restorePointer();
     }

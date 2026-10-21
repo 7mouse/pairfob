@@ -628,7 +628,6 @@ export const zh = {
   "ft.closedReason": "终端已关闭：{reason}",
   "ft.waitRestore": "连接中断，等待恢复…",
   "ft.restored": "连接已恢复，正在重开终端…",
-  "ft.kbType": "点这里输入",
   "ft.kbHide": "收起键盘",
   "ft.kbOpen": "打开键盘输入",
 

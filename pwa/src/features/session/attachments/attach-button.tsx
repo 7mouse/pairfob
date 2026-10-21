@@ -10,14 +10,6 @@ import { attachT } from "./attach-copy";
 import { attachmentsAllowed } from "./attachments-controller";
 import { openAttachmentPicker } from "./attach-picker";
 
-export type AttachButtonProps = {
-  /**
-   * Labeled row variant for surfaces without a compose field (full-terminal
-   * live mode). The default icon button sits inside a batch compose form.
-   */
-  labeled?: boolean;
-};
-
 /**
  * The one attach affordance, mounted in every compose mode (guided, agent
  * chat, full terminal batch and full terminal live). Hidden (never merely
@@ -29,7 +21,7 @@ export type AttachButtonProps = {
  * itself is page-owned (see attach-picker): this button comes and goes with
  * the capability grant, and a selection must outlive it.
  */
-export function AttachButton({ labeled = false }: AttachButtonProps) {
+export function AttachButton() {
   const allowed = useSyncExternalStore(
     (listener) => {
       const unsubs = [
@@ -45,7 +37,7 @@ export function AttachButton({ labeled = false }: AttachButtonProps) {
   if (!allowed) return null;
   return <Button
     type="button"
-    className={labeled ? "attach-btn attach-btn-labeled" : "attach-btn"}
+    className="attach-btn"
     aria-label={attachT("tray.pick")}
     onClick={() => {
       haptic(2);
@@ -53,6 +45,5 @@ export function AttachButton({ labeled = false }: AttachButtonProps) {
     }}
   >
     <Paperclip className="attach-glyph" size={20} aria-hidden="true" />
-    {labeled && <span className="attach-btn-text">{attachT("attach.title")}</span>}
   </Button>;
 }

@@ -8,6 +8,7 @@ import { renderReact, unmountReact } from "../../../../test-support/react-harnes
 import { appRoot } from "../../../app/dom-root";
 import { keysExpanded, padKind, setKeysExpanded, setPadKind } from "../../settings/preferences-store";
 import { composeDraft, setComposeDraft, setComposeFocused, setComposeIME, setComposeLive } from "../compose-store";
+import { emulateTouchDevice } from "../touch-realm";
 const { SLASH_COMMANDS } = await import("../../../lib/slash-commands");
 const { bindXtermKeyboard, notifyFullTerminalKeyboard } = await import("./full-terminal-input");
 const { clearModifiers, pressModifier, releaseModifier } = await import("../keypad/keypad");
@@ -36,10 +37,14 @@ function paint(sendKey: (key: string) => void = () => undefined, sendCompose: (t
   return options;
 }
 
+let restorePointer: (() => void) | null = null;
+
 beforeEach(async () => { await resetBoardTestDOM(); });
 
 afterEach(async () => {
   unmountReact();
+  restorePointer?.();
+  restorePointer = null;
   await act(async () => {
     notifyFullTerminalKeyboard(false);
     clearModifiers();
@@ -115,22 +120,31 @@ describe("React full-terminal pad", () => {
     expect(sent).toEqual([["/clear", false]]);
   });
 
-  test("live keyboard is a named control and updates from notifyFullTerminalKeyboard", async () => {
+  test("the live field is the keyboard's toggle, named and announced", async () => {
+    restorePointer = emulateTouchDevice();
     act(() => { setComposeLive(true); });
     const kb = keyboard();
     const options = { sendKey: () => undefined, sendCompose: () => true, keyboard: kb, hardwareKeyboard: false };
     renderReact(createElement(FullTerminalPad, { options }));
-    const button = appRoot().querySelector(".full-terminal-kb") as HTMLButtonElement;
-    expect(button.textContent).toBe("点这里输入");
-    expect(button.getAttribute("aria-pressed")).toBe("false");
+    const field = appRoot().querySelector<HTMLButtonElement>(".full-terminal-live-focus")!;
+    expect(field.textContent).toBe("实时 · 边打边进终端");
+    expect(field.getAttribute("aria-label")).toBe("打开键盘输入");
+    expect(field.getAttribute("aria-pressed")).toBe("false");
     await act(() => {
-      button.click();
+      field.click();
     });
     expect(kb.isOpen()).toBe(true);
-    expect(button.textContent).toBe("收起键盘");
+    expect(field.getAttribute("aria-label")).toBe("收起键盘");
+    expect(field.getAttribute("aria-pressed")).toBe("true");
+    await act(() => { field.click(); });
+    expect(kb.isOpen()).toBe(false);
+    expect(field.getAttribute("aria-pressed")).toBe("false");
+    // A keyboard closed elsewhere (a scroll, the controller) still reaches the field.
+    await act(() => { kb.open(); notifyFullTerminalKeyboard(true); });
+    expect(field.getAttribute("aria-pressed")).toBe("true");
     await act(() => { kb.close(); notifyFullTerminalKeyboard(false); });
-    expect(button.textContent).toBe("点这里输入");
-    expect((appRoot().querySelector(".full-terminal-compose-form")) === null).toBeTrue();
+    expect(field.getAttribute("aria-label")).toBe("打开键盘输入");
+    expect(appRoot().querySelector(".full-terminal-compose-form")?.classList.contains("full-terminal-live-actions")).toBeTrue();
   });
 
   test.each(["touch", "pen", "mouse"])("%s keyboard tap focuses only when the click completes", async (pointerType) => {
@@ -140,12 +154,13 @@ describe("React full-terminal pad", () => {
     host.append(field);
     document.body.append(host);
     const kb = bindXtermKeyboard(host, false);
+    restorePointer = emulateTouchDevice();
     try {
       setComposeLive(true);
       renderReact(createElement(FullTerminalPad, {
         options: { sendKey: () => undefined, sendCompose: () => true, keyboard: kb, hardwareKeyboard: false },
       }));
-      const button = appRoot().querySelector<HTMLButtonElement>(".full-terminal-kb")!;
+      const button = appRoot().querySelector<HTMLButtonElement>(".full-terminal-live-focus")!;
       const view = document.defaultView!;
       const dispatch = (type: string) => button.dispatchEvent(new view.PointerEvent(type, {
         bubbles: true, cancelable: true, pointerId: 1, pointerType, button: 0, detail: type === "click" ? 1 : 0,

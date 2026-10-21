@@ -166,22 +166,23 @@ describe("the complete terminal's pad on a phone turned on its side", () => {
     expect(pad.lastElementChild?.classList.contains("full-terminal-compose-form")).toBeTrue();
   });
 
-  test("in 实时 the keyboard button stands where the compose field was, not in a row of its own", () => {
+  test("in 实时 the field sits in the bottom row, never in a row of its own", () => {
     setComposeLive(true);
     happy.happyDOM.setWindowSize(LANDSCAPE);
     paint();
     const row = root().querySelector(".full-terminal-live-actions")!;
-    expect(row.querySelector(".full-terminal-kb")).not.toBeNull();
-    expect(root().querySelector(".full-terminal-pad-controls .full-terminal-kb")).toBeNull();
+    expect(row.classList.contains("full-terminal-compose-form")).toBeTrue();
+    expect(row.querySelector(".full-terminal-live-field")).not.toBeNull();
+    expect(root().querySelector(".full-terminal-kb")).toBeNull();
   });
 
-  test("upright the keyboard button keeps its own row above the keys", () => {
+  test("upright it is the same one row, with no keyboard button above the keys", () => {
     setComposeLive(true);
     happy.happyDOM.setWindowSize(PORTRAIT);
     paint();
     expect(root().querySelector(".full-terminal-pad")?.className).toBe("full-terminal-pad");
-    expect(root().querySelector(".full-terminal-pad-controls > .full-terminal-kb")).not.toBeNull();
-    expect(root().querySelector(".full-terminal-live-actions .full-terminal-kb")).toBeNull();
+    expect(root().querySelector(".full-terminal-live-actions .full-terminal-live-field")).not.toBeNull();
+    expect(root().querySelector(".full-terminal-kb")).toBeNull();
   });
 });
 

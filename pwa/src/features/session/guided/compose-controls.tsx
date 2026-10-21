@@ -265,8 +265,6 @@ export type SendButtonProps = {
   /** Long press stops while the pane works and the button is a send button. */
   longPressStops: boolean;
   disabled?: boolean;
-  /** Hold the width of the widest stop step in every kind, where the button only ever stops. */
-  holdWidest?: boolean;
 };
 
 function sendContent(kind: SendKind, percent: number): { label: ReactNode; aria: string } {
@@ -294,7 +292,7 @@ function sendContent(kind: SendKind, percent: number): { label: ReactNode; aria:
  * (`Swap`, which is still when the same kind is drawn again) and the width
  * eases (`useEasedWidth`).
  */
-export function SendButton({ kind, percent, className, onSend, submitsForm = false, stopTarget, longPressStops, disabled = false, holdWidest = false }: SendButtonProps) {
+export function SendButton({ kind, percent, className, onSend, submitsForm = false, stopTarget, longPressStops, disabled = false }: SendButtonProps) {
   const ref = useRef<HTMLButtonElement>(null);
   useSendPointer(ref, longPressStops && kind === "send" && stopTarget ? () => startStop(stopTarget) : undefined);
   useEasedWidth(ref, kind);
@@ -305,7 +303,7 @@ export function SendButton({ kind, percent, className, onSend, submitsForm = fal
   // step, 强制停止: it does not grow under the finger when that step is offered.
   // One wrapper in every kind, so the label is the same node's child throughout
   // and knows a change of kind from a first paint.
-  const reserve = holdWidest || kind === "stopping" || kind === "force";
+  const reserve = kind === "stopping" || kind === "force";
   const content = <span className={reserve ? "send-face send-reserve" : "send-face"} data-widest={reserve ? t("compose2.force") : undefined}>
     <Swap on={kind} className="send-label">{label}</Swap>
   </span>;

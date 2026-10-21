@@ -625,7 +625,6 @@ export const en: { [K in keyof typeof zh]: string } = {
   "ft.closedReason": "Terminal closed: {reason}",
   "ft.waitRestore": "Connection dropped, waiting to restore…",
   "ft.restored": "Connection restored, reopening the terminal…",
-  "ft.kbType": "Tap to type",
   "ft.kbHide": "Hide keyboard",
   "ft.kbOpen": "Open the keyboard",
 

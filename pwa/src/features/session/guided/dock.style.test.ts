@@ -49,10 +49,9 @@ describe("the guided pad fits its scroller", () => {
       // Down to the row's own edge, plus the gap below it that the pad owns.
       expect(area.bottom + inside, selector).toBe(0);
     }
-    // That gap is 8px down to the compose row; 2px where the row of live actions follows.
-    expect(dock).toContain(".pad-pages { --pad-band-below: 2px; }");
-    expect(dock).toMatch(/\.keys-wrap \.pad-pages,\n\.full-terminal-pad\[data-input-mode="compose"\] \.pad-pages \{ --pad-band-below: 8px; \}/);
-    expect(px(rule(attachments, ".full-terminal-live-actions"), "padding")).toBe(2);
+    // That gap is 8px down to the compose row, in the guided dock and in the
+    // complete terminal, whose 组字 and 实时 rows are the same form.
+    expect(dock).toContain(".pad-pages { --pad-band-below: 8px; }");
     // 2 + 28 + 8: all the height a mouse's compact row has between a key and the field.
     expect(above + row + 8).toBe(38);
   });
@@ -87,17 +86,6 @@ describe("the guided pad fits its scroller", () => {
     expect(keysPad + gap).toBe(rows);
     // One row to a page (a phone on its side) has the row's whole height already and keeps its own rules.
     expect(touch).not.toMatch(/\n  \.pad-pages \{/);
-  });
-
-  test("live input in the complete terminal gets the same band: 6px under the row, found above the keys", () => {
-    const touch = coarse(dock);
-    expect(touch).toContain('.full-terminal-pad[data-input-mode="live"] .pad-pages:not(.is-one-row) { --pad-band-below: 8px; margin-bottom: 6px; }');
-    // 6 under the row and the 2 the live actions keep over themselves: the 8 the hit areas reach down.
-    expect(6 + px(rule(attachments, ".full-terminal-live-actions"), "padding")).toBe(8);
-    // Paid for by the pad's top padding (8 to 5) and the gap under the keyboard button (8 to 5).
-    expect(touch).toContain('.full-terminal-pad[data-input-mode="live"]:has(.pad-pages:not(.is-one-row)) { padding-top: 5px; }');
-    expect(touch).toContain('.full-terminal-pad[data-input-mode="live"]:has(.pad-pages:not(.is-one-row)) .full-terminal-kb { margin-bottom: 5px; }');
-    expect((8 - 5) + (8 - 5)).toBe(6);
   });
 
   test("under a finger the tray's buttons and a thumbnail's × are 44px targets, and the tray is no taller", () => {
@@ -314,18 +302,6 @@ describe("the echo of live input in the buffer", () => {
     expect(rule(terminal, ".term-line > span")).toMatch(/flex:\s*0 0 auto;/);
     // The echo's own rule stays about its look; where it ends is the two rules above.
     expect(rule(terminal, ".term-ghost")).not.toMatch(/overflow|flex|width/);
-  });
-});
-
-describe("what a tablet's keyboard is told in a live terminal", () => {
-  test("stands in the attach row, inside its height, and the button gives it the row's width", () => {
-    const hint = rule(compose, ".full-terminal-live-hint");
-    expect(hint).toMatch(/flex:\s*1 1 0;/);
-    expect(hint).toMatch(/max-height:\s*2lh;/);
-    expect(hint).toMatch(/overflow:\s*hidden;/);
-    // Two caption lines are shorter than the 46px button beside them: the row cannot grow.
-    expect(hint).toMatch(/font-size:\s*var\(--text-caption\);/);
-    expect(compose).toContain(".attach-btn-labeled:has(+ .full-terminal-live-hint) { flex: 0 0 auto;");
   });
 });
 

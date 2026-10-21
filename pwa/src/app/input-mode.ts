@@ -21,6 +21,18 @@ export function pointerFine(): boolean {
   return matches(FINE_POINTER);
 }
 
+function subscribePointerFine(listener: () => void): () => void {
+  if (typeof window === "undefined" || typeof window.matchMedia !== "function") return () => undefined;
+  const media = window.matchMedia(FINE_POINTER);
+  media.addEventListener?.("change", listener);
+  return () => media.removeEventListener?.("change", listener);
+}
+
+/** `pointerFine()` for a component whose markup follows it; a tablet gaining or losing a mouse flips it. */
+export function usePointerFine(): boolean {
+  return useSyncExternalStore(subscribePointerFine, pointerFine, () => false);
+}
+
 /** Some pointer on this device is a finger, so targets keep their touch size. */
 export function hasTouch(): boolean {
   return matches("(any-pointer: coarse)");

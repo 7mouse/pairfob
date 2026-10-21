@@ -288,27 +288,6 @@ html.page-zoomed .full-terminal-host .full-terminal-pan {
   }
 }
 
-.full-terminal-kb {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  min-height: 44px;
-  margin: 0 0 8px;
-  padding: 0 14px;
-  border-radius: 13px;
-  color: var(--muted);
-  background: #0a0d12;
-  border: 1px solid var(--line-strong);
-  font-size: var(--text-lead);
-  font-weight: 560;
-}
-
-.full-terminal-kb[aria-pressed="true"] {
-  color: var(--accent);
-  border-color: rgba(110, 168, 254, 0.42);
-}
-
 .full-terminal-compose-form {
   display: flex;
   gap: 8px;
@@ -374,12 +353,6 @@ html.full-terminal-active,
 html.full-terminal-active body {
   -webkit-text-size-adjust: none;
   text-size-adjust: none;
-}
-
-/* A device that types without an on-screen keyboard has nothing to call up. A
-   landscape tablet is wide and still needs this button. */
-@media (hover: hover) and (pointer: fine) {
-  .full-terminal-kb { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {

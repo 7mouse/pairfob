@@ -167,6 +167,22 @@ describe("full terminal live mode attachment entry", () => {
     expect(sent).toEqual([]);
   });
 
+  test("a ready file turns the live row's trailing action into 发送, which hands the message to 组字", async () => {
+    paintPad();
+    await act(async () => {
+      await addPickedFiles(SCOPE, [new File([new Uint8Array(4)], "notes.txt")]);
+      await startUpload(SCOPE, queueSnapshot(KEY)!.items[0].localId);
+    });
+    const send = appRoot().querySelector<HTMLButtonElement>(".full-terminal-live-actions .full-terminal-compose-send")!;
+    expect(send.dataset.sendKind).toBe("send");
+    await act(async () => { send.click(); });
+    // The message goes through the batch path (paths typed live would press Enter
+    // at every newline), and the field that carries it is the one now shown.
+    expect(composeLive()).toBe(false);
+    expect(sent).toEqual([{ kind: "sendCompose", payload: { text: COMMITTED_PATH, enter: true } }]);
+    expect((appRoot().querySelector(".full-terminal-compose-input") as HTMLTextAreaElement) === null).toBeFalse();
+  });
+
   test("returns to a live entry without duplicating the batch button", async () => {
     paintPad();
     await act(async () => {

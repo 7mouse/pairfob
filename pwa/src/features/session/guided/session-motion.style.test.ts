@@ -38,18 +38,6 @@ describe("the send button changing kind", () => {
     expect(rule(".send-btn:active:not(:disabled)")).toMatch(/transition-duration:\s*var\(--dur-1\)/);
     expect(rule(".full-terminal-compose-send:active")).toMatch(/transition-duration:\s*var\(--dur-1\)/);
   });
-
-  test("停止 beside a live terminal's field fades in a slot that keeps its width", () => {
-    const slot = rule(".full-terminal-live-stop-slot");
-    expect(slot).toMatch(/flex:\s*0 0 auto/);
-    expect(slot).toMatch(/transition:\s*opacity var\(--dur-2\) var\(--ease\)/);
-    const away = rule(".full-terminal-live-stop-slot.is-away");
-    expect(away).toMatch(/opacity:\s*0/);
-    // Clear and not pressable, but still laid out: nothing in the row moves.
-    expect(away).toMatch(/pointer-events:\s*none/);
-    expect(away).not.toMatch(/display|width|visibility/);
-    expect(away).toMatch(/transition-duration:\s*var\(--dur-1\)/);
-  });
 });
 
 describe("the dock's two-way switches", () => {

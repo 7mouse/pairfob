@@ -7,6 +7,7 @@ import { resetBoardTestDOM } from "../../../../test-support/dom";
 import { renderReact, unmountReact } from "../../../../test-support/react-harness";
 import { appRoot } from "../../../app/dom-root";
 import { composeDraft, setComposeLive } from "../compose-store";
+import { emulateTouchDevice } from "../touch-realm";
 import { keysExpanded, padKind, setKeysExpanded, setPadKind } from "../../settings/preferences-store";
 
 const kindOption = (label: string) =>
@@ -14,9 +15,13 @@ const kindOption = (label: string) =>
 const { bindXtermKeyboard, encodeTerminalKey, httpUrlsInLine, notifyFullTerminalKeyboard, openTerminalLink, tapAsMouse } = await import("./full-terminal-input.ts");
 const { FullTerminalPad } = await import("./full-terminal-pad.tsx");
 
+let restorePointer: (() => void) | null = null;
+
 beforeEach(resetBoardTestDOM);
 afterEach(async () => {
   unmountReact();
+  restorePointer?.();
+  restorePointer = null;
   notifyFullTerminalKeyboard(false);
   setKeysExpanded(false);
   setPadKind("keys");
@@ -333,6 +338,7 @@ describe("complete-terminal pad chrome", () => {
 
   test("the type field is a named control separate from scroll and pad keys", () => {
     let open = false;
+    restorePointer = emulateTouchDevice();
     setComposeLive(true);
     renderReact(createElement(FullTerminalPad, {
       options: {
@@ -347,13 +353,14 @@ describe("complete-terminal pad chrome", () => {
         hardwareKeyboard: false,
       },
     }));
-    const kb = appRoot().querySelector(".full-terminal-kb") as HTMLButtonElement;
-    expect(kb.textContent).toBe("点这里输入");
-    expect(kb.getAttribute("aria-pressed")).toBe("false");
+    const field = appRoot().querySelector(".full-terminal-live-focus") as HTMLButtonElement;
+    expect(field.textContent).toBe("实时 · 边打边进终端");
+    expect(field.getAttribute("aria-pressed")).toBe("false");
     act(() => {
-      kb.click();
+      field.click();
     });
     expect(open).toBe(true);
-    expect(kb.textContent).toBe("收起键盘");
+    expect(field.getAttribute("aria-label")).toBe("收起键盘");
+    expect(field.getAttribute("aria-pressed")).toBe("true");
   });
 });

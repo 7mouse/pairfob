@@ -129,7 +129,7 @@ describe("UI accessibility guardrails", () => {
   });
 
   test("interactive touch controls keep a 44px target", () => {
-    for (const selector of [".connect-manual", ".pair-paste", ".btn-small", ".key", ".desk .key", ".text-link", ".topbar-create", ".back", ".send-btn", ".menu-item", ".icon-btn", ".card-main", ".operation-field input", ".operation-field select", ".lang-select", ".seg-item", ".dock-form textarea", ".chrome-title", ".row-act", ".switch-item", ".computer-forget", ".computer-add", ".set-nav", ".set-action", ".full-terminal-action", ".full-terminal-scroll-btn", ".full-terminal-state-retry", ".full-terminal-kb", ".work-head", ".work-step", ".work-earlier", ".agent-user-more", ".step-copy", ".agent-older", ".agent-reply-copy", ".slash-cmd"]) {
+    for (const selector of [".connect-manual", ".pair-paste", ".btn-small", ".key", ".desk .key", ".text-link", ".topbar-create", ".back", ".send-btn", ".menu-item", ".icon-btn", ".card-main", ".operation-field input", ".operation-field select", ".lang-select", ".seg-item", ".dock-form textarea", ".chrome-title", ".row-act", ".switch-item", ".computer-forget", ".computer-add", ".set-nav", ".set-action", ".full-terminal-action", ".full-terminal-scroll-btn", ".full-terminal-state-retry", ".work-head", ".work-step", ".work-earlier", ".agent-user-more", ".step-copy", ".agent-older", ".agent-reply-copy", ".slash-cmd"]) {
       const match = rule(selector).match(/min-height:\s*(\d+)px/);
       expect(match, selector).not.toBeNull();
       expect(Number(match?.[1]), selector).toBeGreaterThanOrEqual(44);
@@ -244,9 +244,12 @@ describe("UI accessibility guardrails", () => {
     expect(rule(".rail .card:not(.is-leading) .card-action.is-read")).toContain("visibility: inherit");
   });
 
-  test("the live terminal row is the compose row's height, so a mode switch resizes nothing", () => {
-    expect(rule(".full-terminal-live-actions")).toContain("padding: 2px 0");
-    expect(rule(".full-terminal-live-actions:has(> .full-terminal-live-field)")).toContain("padding-block: 0");
+  test("the live terminal row is the compose row, so a mode switch resizes nothing", () => {
+    // Both rows are the same form (full-terminal-pad.tsx): one margin over the pad.
+    expect(rule(".full-terminal-compose-form")).toMatch(/display:\s*flex/);
+    expect(rule(".full-terminal-compose-form")).toMatch(/margin-top:\s*8px/);
+    expect(css).not.toContain(".full-terminal-live-actions:has(");
+    expect(css).not.toContain(".full-terminal-kb");
   });
 
   test("the cannot-reach page keeps its last step clear of the retry dock", () => {
@@ -642,9 +645,8 @@ describe("UI accessibility guardrails", () => {
       expect(Math.min(5, Math.floor((height - 53 - (fixed + 2 * keyHeight) - 8 - 48) / 21)), String(height)).toBe(rows);
     }
 
-    // The row of live actions and the keyboard button follow the compose row's height.
-    expect(rule(".is-dense .full-terminal-kb")).toMatch(/min-height:\s*46px/);
-    expect(rule(".is-dense .full-terminal-live-actions")).toMatch(/margin-top:\s*6px/);
+    // 组字 and 实时 share the compose row, whose margin is part of the budget above.
+    expect(rule(".is-dense .full-terminal-compose-form")).toMatch(/margin-top:\s*6px/);
   });
 
   test("portrait and desktop retain the vertical in-host rail baseline", () => {

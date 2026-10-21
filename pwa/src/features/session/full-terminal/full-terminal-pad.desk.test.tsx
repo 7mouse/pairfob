@@ -125,7 +125,9 @@ describe("complete-terminal pad driven by a mouse beside the list", () => {
     expect(composeLive()).toBeTrue();
     expect(paneComposeLive("p1")).toBeTrue();
     expect(root().querySelector(".full-terminal-pad")?.getAttribute("data-input-mode")).toBe("live");
-    expect(root().querySelector(".full-terminal-compose-form")).toBeNull();
+    // The live row IS the compose row: same class, so a mode switch changes no height.
+    const row = root().querySelector(".full-terminal-live-actions")!;
+    expect(row.classList.contains("full-terminal-compose-form")).toBeTrue();
     const field = root().querySelector(".full-terminal-live-field");
     expect(field?.classList.contains("is-live")).toBeTrue();
     expect(field?.querySelector(".compose-live-tag")?.textContent).toBe("实时");
@@ -133,7 +135,11 @@ describe("complete-terminal pad driven by a mouse beside the list", () => {
     expect(field?.querySelector(".full-terminal-live-label")?.textContent).toBe("实时 · 边打边进终端");
     expect([...root().querySelectorAll(".dock-mode-hint span")].map((el) => el.textContent))
       .toEqual(["实时：每个键都发到会话，F6 移出", "组字：写完再发，Enter 发送"]);
-    expect(root().querySelector(".full-terminal-live-actions .dock-keys-btn")).not.toBeNull();
+    expect(row.querySelector(".dock-keys-btn")).not.toBeNull();
+    // The guided live row's trailing action, in the same place.
+    expect(row.querySelector(".send-slot > .full-terminal-compose-send")?.getAttribute("data-send-kind")).toBe("enter");
+    // The field itself is the keyboard control: no second button for it.
+    expect(root().querySelector(".full-terminal-kb")).toBeNull();
 
     // The terminal took the keyboard with the mode; the field hands it back after a click elsewhere.
     const before = kb.opened();
@@ -174,65 +180,70 @@ async function withAgent(status: string, run: (setStatus: (next: string) => void
   }
 }
 
-const liveStop = () => root().querySelector<HTMLButtonElement>(".full-terminal-live-actions .full-terminal-live-stop");
-/** The place 停止 keeps in the live row, there to press or away. */
-const stopSlot = () => root().querySelector<HTMLElement>(".full-terminal-live-actions > .full-terminal-live-stop-slot");
-const stopAway = () => stopSlot()?.classList.contains("is-away") === true && stopSlot()?.hasAttribute("inert") === true;
+const liveSend = () => root().querySelector<HTMLButtonElement>(".full-terminal-live-actions .full-terminal-compose-send");
 
-describe("停止 in the mouse-driven dock", () => {
-  test("live input keeps it beside 按键 while the agent works, writing Esc like the compose form's", async () => {
+describe("the live row's trailing action", () => {
+  test("is the stop for a working agent under a mouse, writing Esc like the compose form's", async () => {
     await withAgent("working", (setStatus) => {
       const sent: Array<[string, boolean]> = [];
       paint(DESK, { sendCompose: (text: string, enter: boolean) => { sent.push([text, enter]); return true; } });
-      // 组字: the send button is the stop.
+      // 组字: the compose form's own button is the stop.
       expect(root().querySelector<HTMLButtonElement>(".full-terminal-compose-send")?.dataset.sendKind).toBe("stop");
-      expect(liveStop()).toBeNull();
+      expect(liveSend()).toBeNull();
 
       act(() => modeOption("实时")!.click());
-      const row = [...root().querySelector(".full-terminal-live-actions")!.children].map((el) => el.className.split(" ")[0]);
-      expect(row.slice(-2)).toEqual(["dock-keys-btn", "full-terminal-live-stop-slot"]);
-      expect(stopAway()).toBeFalse();
-      expect(liveStop()?.dataset.sendKind).toBe("stop");
-      expect(liveStop()?.getAttribute("aria-label")).toBe("停止当前任务");
-
-      act(() => liveStop()!.click());
-      expect(sent).toEqual([["\u001b", false]]);
-      expect(liveStop()?.dataset.sendKind).toBe("stopping");
-      expect(liveStop()?.disabled).toBeTrue();
-
-      // Herdr reports the pane left working: the flow ends and the button fades
-      // out of a slot that keeps its place, so 按键 beside it does not move.
-      const slot = stopSlot();
-      act(() => setStatus("idle"));
-      expectSameNode(stopSlot(), slot);
-      expect(stopAway()).toBeTrue();
+      // Field, 按键, one action: the guided dock's row, in that order. (Attach
+      // leads it only where the computer advertises uploads; this fixture does not.)
       expect([...root().querySelector(".full-terminal-live-actions")!.children].map((el) => el.className.split(" ")[0]))
-        .toEqual(row);
+        .toEqual(["compose-field", "dock-keys-btn", "send-slot"]);
+      expect(liveSend()?.dataset.sendKind).toBe("stop");
+      expect(liveSend()?.getAttribute("aria-label")).toBe("停止当前任务");
+
+      act(() => liveSend()!.click());
+      expect(sent).toEqual([["\u001b", false]]);
+      expect(liveSend()?.dataset.sendKind).toBe("stopping");
+      expect(liveSend()?.disabled).toBeTrue();
+
+      // Herdr reports the pane left working: the flow ends in the same button,
+      // which becomes the deliberate Enter for live input.
+      const button = liveSend();
+      act(() => setStatus("idle"));
+      expectSameNode(liveSend(), button);
+      expect(liveSend()?.dataset.sendKind).toBe("enter");
       expect(sent).toHaveLength(1);
 
-      // Working again: the same slot, back in reach.
+      // Working again: the same button offers the stop again.
       act(() => setStatus("working"));
-      expectSameNode(stopSlot(), slot);
-      expect(stopAway()).toBeFalse();
-      expect(liveStop()?.dataset.sendKind).toBe("stop");
+      expectSameNode(liveSend(), button);
+      expect(liveSend()?.dataset.sendKind).toBe("stop");
     });
   });
 
-  test("its slot holds the widest step from the start, so no step of a stop moves the row", async () => {
+  test("Enter is the deliberate Enter, and a finger's working pane still sends it, never a stop", async () => {
+    const sent: Array<[string, boolean]> = [];
+    paint(DESK, { sendCompose: (text: string, enter: boolean) => { sent.push([text, enter]); return true; } });
+    act(() => modeOption("实时")!.click());
+    act(() => liveSend()!.click());
+    expect(sent).toEqual([["", true]]);
+    unmountReact();
+
     await withAgent("working", () => {
+      restorePointer = emulateTouchDevice();
       act(() => { setComposeLive(true); });
-      paint(DESK);
-      expect(liveStop()?.querySelector(".send-reserve")?.getAttribute("data-widest")).toBe("强制停止");
+      const fingerSent: Array<[string, boolean]> = [];
+      paint(PHONE, { hardwareKeyboard: false, sendCompose: (text: string, enter: boolean) => { fingerSent.push([text, enter]); return true; } });
+      expect(liveSend()?.dataset.sendKind).toBe("enter");
+      act(() => liveSend()!.click());
+      expect(fingerSent).toEqual([["", true]]);
     });
   });
 
-  test("an idle agent's is away and out of reach, and a finger's live pad never has one", async () => {
+  test("is Enter for an idle agent and never becomes stop under a finger", async () => {
     await withAgent("idle", () => {
       act(() => { setComposeLive(true); });
       paint(DESK);
       expect(root().querySelector(".full-terminal-live-field")).not.toBeNull();
-      expect(stopSlot()).not.toBeNull();
-      expect(stopAway()).toBeTrue();
+      expect(liveSend()?.dataset.sendKind).toBe("enter");
     });
     unmountReact();
     await withAgent("working", () => {
@@ -240,58 +251,57 @@ describe("停止 in the mouse-driven dock", () => {
       act(() => { setComposeLive(true); });
       paint(DESK, { hardwareKeyboard: false });
       expect(root().querySelector(".full-terminal-live-actions")).not.toBeNull();
-      expect(liveStop()).toBeNull();
+      expect(liveSend()?.dataset.sendKind).toBe("enter");
       unmountReact();
       paint(PHONE, { hardwareKeyboard: false });
-      expect(liveStop()).toBeNull();
+      expect(liveSend()?.dataset.sendKind).toBe("enter");
     });
   });
 });
 
 describe("complete-terminal pad on touch", () => {
-  test("a tablet's wide layout keeps the key row and its keyboard button", () => {
+  test("a tablet's wide layout keeps the key row and the guided dock's one live row", () => {
     restorePointer = emulateTouchDevice();
     act(() => { setComposeLive(true); });
     paint(DESK, { hardwareKeyboard: false });
     expect(keysButton()).toBeNull();
     expect(root().querySelector(".dock-mode")).toBeNull();
-    expect(root().querySelector(".full-terminal-live-field")).toBeNull();
-    expect(root().querySelector(".full-terminal-kb")).not.toBeNull();
+    expect(root().querySelector(".full-terminal-live-field")).not.toBeNull();
+    expect(root().querySelector(".full-terminal-kb")).toBeNull();
     expect(keyLabels()).toEqual(["Esc", "上箭头", "下箭头", "左箭头", "右箭头", "退格", "更多按键"]);
   });
 
-  test("a tablet's keyboard, once proved, is told the way out of live input in the row that is already there", () => {
+  test("a tablet's keyboard, once proved, is told the way out of live input in the field that is already there", () => {
     restorePointer = emulateTouchDevice();
     act(() => { setComposeLive(true); });
     paint(DESK);
-    const hint = () => root().querySelector(".full-terminal-live-actions > .full-terminal-live-hint");
+    const label = () => root().querySelector(".full-terminal-live-label")?.textContent;
     const rows = () => [...root().querySelector(".full-terminal-pad")!.children].map((child) => child.className);
     const attach = root().querySelector(".attach-btn")!;
     const shape = rows();
-    expect(hint()).toBeNull();
+    expect(label()).toBe(t("compose.livePh"));
     act(() => noteKeydown());
-    expect(hint()?.textContent).toBe(t("deskDock.liveKeysPh"));
-    expect(hint()?.textContent).toMatch(/F6/);
+    expect(label()).toBe(t("deskDock.liveKeysPh"));
+    expect(label()).toMatch(/F6/);
     // No row is added for it: a taller pad would resize the terminal on the computer at the first key.
     expect(rows()).toEqual(shape);
     expect(root().querySelector(".dock-mode")).toBeNull();
     expectSameNode(root().querySelector(".attach-btn"), attach);
     // 组字 has its field to say it in.
     act(() => { setComposeLive(false); });
-    expect(hint()).toBeNull();
     expect(root().querySelector<HTMLTextAreaElement>(".full-terminal-compose-input")!.placeholder).toBe(t("deskDock.batchKeysPh"));
   });
 
   test("a mouse has its hint line instead, and a phone that reported a key has neither", () => {
     act(() => { setComposeLive(true); });
     paint(DESK);
-    expect(root().querySelector(".full-terminal-live-hint")).toBeNull();
+    expect(root().querySelector(".full-terminal-live-label")?.textContent).toBe(t("compose.livePh"));
     expect(root().querySelector(".dock-mode-hint")?.textContent).toMatch(/F6/);
     unmountReact();
     restorePointer = emulateTouchDevice();
     act(() => noteKeydown());
     paint(PHONE);
-    expect(root().querySelector(".full-terminal-live-hint")).toBeNull();
+    expect(root().querySelector(".full-terminal-live-label")?.textContent).toBe(t("compose.livePh"));
     expect(root().querySelector(".dock-mode")).toBeNull();
   });
 

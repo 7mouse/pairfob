@@ -10,7 +10,7 @@ import { HerdSkeleton } from "./herd-skeleton";
 import { HerdEmpty } from "./herd-empty";
 import { indexedStyle } from "./indexed";
 import { useRoster } from "./roster";
-import { usePointerFine } from "./use-pointer-fine";
+import { usePointerFine } from "../../../app/input-mode";
 
 /**
  * The sections of one list. Keyed by the list's epoch where it is drawn, so a

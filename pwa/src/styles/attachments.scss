@@ -568,28 +568,3 @@
 @media (any-pointer: coarse) {
   .attach-pop-act { min-height: 44px; }
 }
-
-/* --- Full-terminal live mode (no compose field mounted) ------------------------------- */
-
-.full-terminal-live-actions {
-  flex: 0 0 auto;
-  display: flex;
-  padding: 2px 0;
-}
-
-.attach-btn-labeled {
-  flex: 1 1 auto;
-  width: auto;
-  gap: 9px;
-  font-size: var(--text-lead);
-  font-weight: 600;
-}
-
-.attach-btn-labeled .attach-glyph {
-  width: 20px;
-  height: 20px;
-}
-
-.attach-btn-labeled .attach-btn-text {
-  white-space: nowrap;
-}

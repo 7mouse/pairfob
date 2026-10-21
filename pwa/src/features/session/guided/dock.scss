@@ -227,11 +227,9 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
    the keys' edge (the row's 2px margin) and down to the compose row, and at
    least 44px wide. It can be no taller without taking a strip off a key or off
    the field, so the height is what the layout has, not 44. */
-.pad-pages { --pad-band-below: 2px; }
-/* The gap down to the compose row. Live input in the complete terminal has no
-   such gap (its row of actions follows at 2px), so it keeps the default. */
-.keys-wrap .pad-pages,
-.full-terminal-pad[data-input-mode="compose"] .pad-pages { --pad-band-below: 8px; }
+/* The gap down to the compose row. It is the same row in guided and in the
+   complete terminal, in both input modes (full-terminal-pad.tsx). */
+.pad-pages { --pad-band-below: 8px; }
 
 .pad-kind-option, .pad-text-btn, .pad-page-dot { position: relative; }
 .pad-kind-option::before, .pad-text-btn::before, .pad-page-dot::before {
@@ -306,12 +304,6 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
   .pad-pages:not(.is-one-row) .pad-pagination-start > .pad-text-btn:first-child::before { right: -14px; }
   .pad-pages:not(.is-one-row) .pad-pagination-end > .pad-text-btn:last-child::before { left: -14px; }
 
-  /* Live input in the complete terminal has no gap under the row (its actions
-     follow at 2px), so the band gets one: 6px under the row, found above the
-     keys, where the keyboard button moves 3px up and stands 5px over them. */
-  .full-terminal-pad[data-input-mode="live"]:has(.pad-pages:not(.is-one-row)) { padding-top: 5px; }
-  .full-terminal-pad[data-input-mode="live"]:has(.pad-pages:not(.is-one-row)) .full-terminal-kb { margin-bottom: 5px; }
-  .full-terminal-pad[data-input-mode="live"] .pad-pages:not(.is-one-row) { --pad-band-below: 8px; margin-bottom: 6px; }
 }
 
 .slash-cmd {

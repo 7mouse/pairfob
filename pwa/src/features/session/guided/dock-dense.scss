@@ -66,17 +66,6 @@
    stands there; a page name or 编辑 that does is drawn after it and keeps its own. */
 .is-dense .pad-pages.is-one-row > .pad-page > .key:first-child::before { left: -9px; }
 
-/* Live input in the complete terminal: the keyboard button takes the compose
-   field's place in the bottom row, where a row of its own would cost a line. */
-.is-dense .full-terminal-live-actions { margin-top: 6px; padding: 0; }
-.is-dense .full-terminal-kb {
-  flex: 1 1 0;
-  width: auto;
-  min-width: 0;
-  min-height: 46px;
-  margin: 0;
-}
-
 /* One row to a page (pad-pages.tsx): page name or Edit · keys · dots · switch.
    A container, so what the row can afford follows its own width: beside the
    list on a large phone the dock is a 620px column of a 932px screen. */

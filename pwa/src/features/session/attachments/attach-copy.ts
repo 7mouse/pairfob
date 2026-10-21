@@ -8,7 +8,6 @@ const en = {
   "attach.p2pFailed": "P2P did not connect. Your files are kept; try connecting again.",
   "attach.stage.persistence": "Local save",
 
-  "attach.title": "Attach files",
   "attach.stage.compression": "Compression",
   "attach.stage.hashing": "Hashing",
   "attach.stage.begin": "Begin",
@@ -130,7 +129,6 @@ const zh: Record<AttachCopyKey, string> = {
   "attach.p2pFailed": "P2P 连接未成功，文件已保留，可重新连接。",
   "attach.stage.persistence": "本机保存",
 
-  "attach.title": "附件",
   "attach.stage.compression": "压缩",
   "attach.stage.hashing": "校验",
   "attach.stage.begin": "开始",
