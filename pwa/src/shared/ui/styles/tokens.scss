@@ -123,6 +123,7 @@
   /* A blocked row's own ground, warm so the amber edge reads as a state. */
   --blocked-ground: #1c1a13;
   --blocked-ground-2: #221f16;
+  --blocked-ground-press: #24211a;
   /* A chip or avatar plate that sits on a card, and the head bar that floats
      over a scrolled view. */
   --chip-plate: #1d232d;
@@ -130,6 +131,9 @@
   /* The plate behind a terminal's mark: a green cast, dark on dark. */
   --term-mark-ground: #192019;
   --term-mark-ink: #a9c9b1;
+  /* The seam between panes on the board, and the drop under the stage. */
+  --board-seam: #262d39;
+  --stage-shadow: rgba(0, 0, 0, 0.45);
 }
 
 /*
@@ -183,10 +187,13 @@
   --media-ground: #e9ecf1;
   --blocked-ground: #fdf6e6;
   --blocked-ground-2: #fbf0d9;
+  --blocked-ground-press: #f7eacb;
   --chip-plate: #e6eaf0;
   --chrome-scrim: rgba(255, 255, 255, 0.92);
   --term-mark-ground: #e3f0e6;
   --term-mark-ink: #2f6b41;
+  --board-seam: #c9d0da;
+  --stage-shadow: rgba(18, 22, 29, 0.18);
 
   --shadow-1: 0 8px 20px rgba(18, 22, 29, 0.08);
   --shadow-2: 0 10px 28px rgba(18, 22, 29, 0.12);

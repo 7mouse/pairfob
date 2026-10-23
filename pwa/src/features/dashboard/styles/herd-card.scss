@@ -155,7 +155,7 @@
 .card .pin-mark { flex: none; color: var(--muted); }
 
 .card.is-blocked .card-main { background-color: var(--blocked-ground); box-shadow: inset 3px 0 0 var(--warn); }
-.card.is-blocked .card-main:active { background-color: #24211a; }
+.card.is-blocked .card-main:active { background-color: var(--blocked-ground-press); }
 .card.sel .card-main { background-color: var(--selected-ground); }
 
 /* Trailing / leading swipe actions sit behind the sliding button. */

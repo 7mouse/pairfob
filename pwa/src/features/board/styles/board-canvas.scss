@@ -8,7 +8,6 @@
    ------------------------------------------------------------------------------ */
 
 .board-canvas {
-  --board-seam: #262d39;
   position: relative;
   flex: 1;
   min-height: 0;
@@ -31,7 +30,7 @@
   background: var(--board-seam);
   box-shadow:
     0 0 0 calc(1px * var(--board-control-scale, 1)) var(--board-seam),
-    0 calc(14px * var(--board-control-scale, 1)) calc(40px * var(--board-control-scale, 1)) rgba(0, 0, 0, 0.45);
+    0 calc(14px * var(--board-control-scale, 1)) calc(40px * var(--board-control-scale, 1)) var(--stage-shadow);
 }
 
 .board-pane {
