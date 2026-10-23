@@ -22,9 +22,10 @@
   --error: #ff8080;
   --danger: #d63b31;
   --danger-bright: #ff6b5e;
-  /* The xterm palette stays dark on both sides, so the chrome around the
-     screen keeps its own dark ink: a light page must not put dark text on the
-     terminal's near-black plate. */
+  /* The reading side of a code block, and the ground an inline code sample or
+     the compose field sits on. These follow the page: a light document draws
+     dark text on a light ground. The complete terminal scopes its own dark
+     palette where it needs one (`--term-plate-*` in full-terminal.scss). */
   --term-bg: #0b0e13;
   --term-ink: #dfe5ee;
   --dock-bg: #0d1117;
@@ -155,6 +156,8 @@
   --blocked-ground: #1c1a13;
   --blocked-ground-2: #221f16;
   --blocked-ground-press: #24211a;
+  /* The attention strip's blocked ticket sits a shade under the rail's row. */
+  --blocked-ticket: #1a1812;
   /* A chip or avatar plate that sits on a card, and the head bar that floats
      over a scrolled view. */
   --chip-plate: #1d232d;
@@ -173,6 +176,11 @@
   --veil-strong: rgba(10, 12, 16, 0.8);
   --veil-chrome: rgba(10, 12, 16, 0.9);
   --veil-chrome-2: rgba(10, 12, 16, 0.96);
+  /* Diff and git marks: the same three meanings the status colours carry, in
+     the lighter tints these small glyphs are drawn with on a dark ground. */
+  --mark-modified: #ffc46b;
+  --mark-added: #6fe3a5;
+  --mark-deleted: #ff9a9a;
 }
 
 /*
@@ -198,6 +206,9 @@
   --error: #c0392b;
   --danger: #b32b20;
   --danger-bright: #d63b31;
+  /* A code block and the compose field follow the page: dark ink on paper. */
+  --term-bg: #ffffff;
+  --term-ink: #1b222c;
   --dock-bg: #ffffff;
 
   /* The same weights, with the alphas a paper surface needs to read. */
@@ -253,6 +264,7 @@
   --blocked-ground: #fdf6e6;
   --blocked-ground-2: #fbf0d9;
   --blocked-ground-press: #f7eacb;
+  --blocked-ticket: #fdf6e6;
   --chip-plate: #e6eaf0;
   --chrome-scrim: rgba(255, 255, 255, 0.88);
   --chrome-scrim-2: rgba(255, 255, 255, 0.92);
@@ -265,6 +277,10 @@
   --veil-strong: rgba(255, 255, 255, 0.85);
   --veil-chrome: rgba(245, 246, 248, 0.9);
   --veil-chrome-2: rgba(245, 246, 248, 0.96);
+  /* On paper the same meanings take the darker tint a small glyph needs. */
+  --mark-modified: #8a5a00;
+  --mark-added: #1a7a4a;
+  --mark-deleted: #b03a3a;
 
   --shadow-1: 0 8px 20px rgba(18, 22, 29, 0.08);
   --shadow-2: 0 10px 28px rgba(18, 22, 29, 0.12);

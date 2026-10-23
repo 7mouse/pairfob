@@ -246,10 +246,10 @@
   font: 750 0.68rem/1 var(--mono);
   flex: none;
 }
-.workspace-git-mark.mark-modified { background: rgba(255, 178, 36, 0.13); color: #ffc46b; }
+.workspace-git-mark.mark-modified { background: rgba(255, 178, 36, 0.13); color: var(--mark-modified); }
 .workspace-git-mark.mark-added,
-.workspace-git-mark.mark-untracked { background: rgba(70, 214, 140, 0.13); color: #6fe3a5; }
-.workspace-git-mark.mark-deleted { background: rgba(255, 128, 128, 0.13); color: #ff9a9a; }
+.workspace-git-mark.mark-untracked { background: rgba(70, 214, 140, 0.13); color: var(--mark-added); }
+.workspace-git-mark.mark-deleted { background: rgba(255, 128, 128, 0.13); color: var(--mark-deleted); }
 .workspace-git-mark.mark-renamed,
 .workspace-git-mark.mark-copied,
 .workspace-git-mark.mark-type { background: var(--accent-14); color: #8fb8ff; }
@@ -259,7 +259,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  color: #ffc46b;
+  color: var(--mark-modified);
   font: 650 0.68rem/1 var(--mono);
   flex: none;
 }
@@ -418,7 +418,7 @@
 .workspace-change-age::before,
 .workspace-turn-mark::before { content: " · "; color: var(--muted); }
 .workspace-change-age.is-recent,
-.workspace-turn-mark { color: #ffc46b; }
+.workspace-turn-mark { color: var(--mark-modified); }
 
 .workspace-section-count { color: var(--muted); font-family: var(--mono); font-size: 0.67rem; font-weight: 600; flex: none; }
 .workspace-search-note { margin: 0; padding: 8px 10px 10px; color: var(--muted); font-size: var(--text-caption); line-height: 1.45; }

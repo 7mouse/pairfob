@@ -1,12 +1,25 @@
 /* Herdr's live ANSI controller. The guided mobile pane remains the default. */
 
+/*
+  The screen is dark on both sides of the theme: xterm's own palette does not
+  follow the page, and neither does the chrome around it, because the error
+  panel and the scroll buttons sit on near-black plates. These two values are
+  scoped here rather than declared on :root, where they also serve code blocks
+  and the compose field — those follow the page, and a light document draws
+  their ink dark on paper.
+*/
 .full-terminal-root {
+  --term-ink: #dfe5ee;
+  /* The plate the screen and its overlays are painted on. */
+  --term-plate: #090c10;
+  /* A field cut into the terminal is dark like the plate it sits on. */
+  --sink: #141a22;
   position: relative;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
-  background: #090c10;
+  background: var(--term-plate);
 }
 
 .full-terminal-chrome {
@@ -111,7 +124,7 @@
   overflow: hidden;
   isolation: isolate;
   contain: paint;
-  background: #090c10;
+  background: var(--term-plate);
   touch-action: none;
 }
 
@@ -126,7 +139,7 @@
   gap: 14px;
   padding: 28px;
   color: var(--term-ink);
-  background: #090c10;
+  background: var(--term-plate);
   text-align: center;
 }
 
@@ -374,7 +387,7 @@ html.full-terminal-active body {
    whole mount, taller than the rows, so outrank that rule rather than tie it. */
 .full-terminal-host .xterm .xterm-viewport {
   overflow: hidden;
-  background-color: #090c10;
+  background-color: var(--term-plate);
   overscroll-behavior: none;
 }
 

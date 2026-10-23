@@ -220,7 +220,7 @@
   inset: -5px -1px;
 }
 
-.attn-ticket.is-blocked { border-color: rgba(255, 178, 36, 0.4); background: #1a1812; }
+.attn-ticket.is-blocked { border-color: rgba(255, 178, 36, 0.4); background: var(--blocked-ticket); }
 
 /* A ticket joins and leaves a strip already on screen by width, fading as it
    goes, so the tickets after it slide along instead of jumping a place. It

@@ -61,7 +61,7 @@
   flex: none;
 }
 .workspace-chip[aria-pressed="true"] { border-color: var(--accent-55); background: var(--accent-9); color: var(--accent); }
-.workspace-chip.is-change { border-color: rgba(255, 178, 36, 0.4); color: #ffc46b; }
+.workspace-chip.is-change { border-color: rgba(255, 178, 36, 0.4); color: var(--mark-modified); }
 .workspace-chip .workspace-git-mark { min-width: 18px; height: 18px; }
 .workspace-chip:active { background: var(--surface-2); }
 
@@ -312,10 +312,10 @@ button.diff-line-number {
 .diff-line-text { padding: 0 12px 0 2px; white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; }
 .diff-add { background: rgba(70, 214, 140, 0.1); }
 .diff-add .diff-line-number,
-.diff-add .diff-line-sign { color: #6fe3a5; }
+.diff-add .diff-line-sign { color: var(--mark-added); }
 .diff-delete { background: rgba(255, 128, 128, 0.1); }
 .diff-delete .diff-line-number,
-.diff-delete .diff-line-sign { color: #ff9a9a; }
+.diff-delete .diff-line-sign { color: var(--mark-deleted); }
 
 .workspace-diff-line.diff-noteable { cursor: pointer; }
 /* The pencil that says a line takes a note. Under a finger it stands, faint, on
