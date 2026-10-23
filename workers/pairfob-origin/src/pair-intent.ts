@@ -1,7 +1,8 @@
 import { PROTOCOL, TICKET_MS } from "./constants.ts";
+import { appCorsHeaders, requireAllowedBrowserOrigin } from "./app-origin.ts";
 import { indexName, normalizeLoc } from "./crockford.ts";
 import type { Env } from "./env.ts";
-import { buildOf, clientIP, errorJson, jsonResponse, noStore, readJSON, requireSameHostBrowserOrigin, unpairedJson } from "./http.ts";
+import { buildOf, clientIP, errorJson, jsonResponse, noStore, readJSON, unpairedJson } from "./http.ts";
 import { allowIntentIP } from "./limits.ts";
 import { observeError, observeIntent } from "./metrics.ts";
 
@@ -19,9 +20,9 @@ async function padMiss(env: Env, started: number): Promise<void> {
 
 export async function handlePairIntent(req: Request, env: Env, now = Date.now()): Promise<Response> {
   const build = buildOf(env);
-  const store = noStore();
+  const store = noStore(appCorsHeaders(req, env));
   if (req.method !== "POST") return errorJson(build, 405, "bad_token", store);
-  if (!requireSameHostBrowserOrigin(req)) return errorJson(build, 403, "forbidden", store);
+  if (!requireAllowedBrowserOrigin(req, env)) return errorJson(build, 403, "forbidden", store);
 
   const ip = clientIP(req);
   if (!allowIntentIP(ip, now)) {

@@ -56,7 +56,14 @@ done
 # Release callers can supply a frozen snapshot of the currently hosted assets;
 # local repeat packs otherwise retain the previous packed build.
 asset_staging="$(mktemp -d)"
-trap 'rm -rf "$asset_staging"' EXIT
+legacy_stage="$(mktemp -d)"
+trap 'rm -rf "$asset_staging" "$legacy_stage"' EXIT
+# The legacy Android channel is not rebuilt from source. Preserve whatever the
+# live pack already carries so an ordinary relay pack does not strand builds
+# from before beta.9.
+if [[ -d "$DEST/dl/android/beta" ]]; then
+  cp -R "$DEST/dl/android/beta" "$legacy_stage/"
+fi
 bun "$ROOT/scripts/retain-pwa-assets.ts" "${PAIRFOB_PREVIOUS_ASSETS:-$DEST}" "$PWA" "$asset_staging"
 rm -rf "$DEST"
 mkdir -p "$DEST/css" "$DEST/pair"
@@ -101,7 +108,13 @@ if [[ "${PAIRFOB_PACK_DL:-}" == "1" ]]; then
   . "$ROOT/scripts/ship-guard.sh"
   pairfob_require_release_dir "$ROOT/dist/dl"
   mkdir -p "$DEST/dl"
-  cp "$ROOT/dist/dl/"* "$DEST/dl/"
+  # Only the daemon release files belong on the relay's /dl. The Android
+  # channel lives on dl.pairfob.com; its manifest uses different paths.
+  find "$ROOT/dist/dl" -maxdepth 1 -type f -exec cp {} "$DEST/dl/" \;
+fi
+if [[ -d "$legacy_stage/beta" ]]; then
+  mkdir -p "$DEST/dl/android"
+  cp -R "$legacy_stage/beta" "$DEST/dl/android/"
 fi
 cp "$PWA/index.html" "$DEST/pair.html"
 cp "$PWA/index.html" "$DEST/pair/index.html"

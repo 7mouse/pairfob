@@ -17,9 +17,9 @@ describe("origin config", () => {
     const config = await loadOriginConfig(async (input, init) => {
       calls.push(`${init?.cache}:${String(input)}`);
       return new Response(JSON.stringify({ protocol: 2, build: "s11", p2p: false }), { status: 200 });
-    });
+    }, "http://localhost");
     expect(config).toEqual({ protocol: 2, build: "s11", p2p: false });
-    expect(calls).toEqual(["no-store:/api/config"]);
+    expect(calls).toEqual(["no-store:http://localhost/api/config"]);
   });
 
   test("network failures become bad_relay instead of a generic TypeError", async () => {
@@ -67,17 +67,18 @@ describe("origin config", () => {
   });
 
   test("ws URL is /v2/ws with role, daemon_id, and ticket", () => {
-    const site = { protocol: "https:", host: "pairfob.com" };
-    expect(clientWsURL(2, site)).toBe("wss://pairfob.com/v2/ws?role=client");
-    expect(clientWsURL(2, site, { daemonId: "d_0123456789abcdefabcd" })).toBe(
+    const relay = "https://pairfob.com";
+    expect(clientWsURL(2, relay)).toBe("wss://pairfob.com/v2/ws?role=client");
+    expect(clientWsURL(2, relay, { daemonId: "d_0123456789abcdefabcd" })).toBe(
       "wss://pairfob.com/v2/ws?role=client&daemon_id=d_0123456789abcdefabcd",
     );
     expect(
-      clientWsURL(2, site, { daemonId: "d_0123456789abcdefabcd", pairTicket: "aa".repeat(16) }),
+      clientWsURL(2, relay, { daemonId: "d_0123456789abcdefabcd", pairTicket: "aa".repeat(16) }),
     ).toBe(`wss://pairfob.com/v2/ws?role=client&daemon_id=d_0123456789abcdefabcd&pair_ticket=${"aa".repeat(16)}`);
-    expect(() => clientWsURL(1, site)).toThrow(ProtocolError);
-    expect(clientWsURL(2, site)).not.toContain("/v1/ws");
-    expect(clientWsURL(2, site, { daemonId: "d_0123456789abcdefabcd" })).not.toContain("pair_loc");
+    expect(() => clientWsURL(1, relay)).toThrow(ProtocolError);
+    expect(clientWsURL(2, relay)).not.toContain("/v1/ws");
+    expect(clientWsURL(2, relay, { daemonId: "d_0123456789abcdefabcd" })).not.toContain("pair_loc");
+    expect(clientWsURL(2, "http://127.0.0.1:18786")).toBe("ws://127.0.0.1:18786/v2/ws?role=client");
   });
 });
 

@@ -3,6 +3,7 @@ import { parseUpdateStatus, updateInProgress, type UpdateStatus } from "../../li
 import type { LiveSession } from "../../lib/protocol/session-types";
 import { newerRelease, legacyBuild, releaseParts } from "../../lib/daemon-version";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
+import { relayURL } from "../../lib/runtime-config";
 /**
  * One computer's version and update state. `noRemote`: the computer answered
  * the status read with `unknown_op`, so it can only be updated by hand.
@@ -115,7 +116,7 @@ export async function checkDaemonRelease(force = false): Promise<void> {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
-      const response = await fetch("/dl/VERSION", { cache: "no-store", signal: controller.signal });
+      const response = await fetch(relayURL("/dl/VERSION"), { cache: "no-store", signal: controller.signal });
       if (!response.ok) throw new Error("release unavailable");
       const value = (await response.text()).trim();
       if (!releaseParts(value)) throw new Error("invalid release version");

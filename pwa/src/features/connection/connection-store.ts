@@ -4,6 +4,7 @@ import { NETWORK_MODE_KEY, parseNetworkMode, persistNetworkMode, type NetworkMod
 import { parseNotificationTarget, type NotificationTarget } from "../../lib/notification-target";
 import type { MuxProtocol } from "../../lib/protocol/mux";
 import type { FinishedP2PAttemptObservation } from "../../lib/protocol/client";
+import { relayOrigin } from "../../lib/runtime-config";
 import { batch, createDomain, detach, immutableCopy } from "../../shared/model/domain-store";
 import { composeTransaction } from "../../shared/model/compose-transaction";
 import type { DomainEnvironment } from "../../shared/model/domain-environment";
@@ -317,5 +318,5 @@ export function clearPairingFragment(): void {
 }
 
 export function wsURL(query?: { daemonId?: string; pairTicket?: string }): string {
-  return clientWsURL(read().originProtocol, location, query);
+  return clientWsURL(read().originProtocol, relayOrigin(), query);
 }

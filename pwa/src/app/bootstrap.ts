@@ -4,6 +4,8 @@ import { bindLegacyGestureBoundary } from "../lib/gesture-boundary";
 import { detectLang, initI18n, langPref, setLang, t } from "../lib/i18n";
 import { messageOf } from "../lib/notices";
 import { loadOriginConfig, originConfigErrorIsRecoverable, probeOrigin } from "../lib/origin-config";
+import { backgroundAndroidUpdateCheck } from "../features/settings/android-update";
+import { isNativeRuntime, relayOrigin } from "../lib/runtime-config";
 import { track } from "../lib/telemetry";
 import { connectedRuntime, loadConnectedRuntime, subscribeConnectedRuntime } from "./connected-loader";
 import { reloadComputers as reloadCatalog } from "../features/connection/catalog-load";
@@ -193,6 +195,10 @@ export function startApplication(): () => void {
     mountApp();
     if (running !== stop) return stop;
     bindNetworkLifecycle(signal);
+    void backgroundAndroidUpdateCheck();
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") void backgroundAndroidUpdateCheck();
+    }, { signal });
     bindResponsiveLayout(signal);
     // Pending frames only: a delivered callback removes its id before the
     // ownership check, so completed frames never accumulate for the page
@@ -359,7 +365,7 @@ async function boot(generation: number, firstConfigRead?: Promise<ConfigRead>): 
   // read always runs: it, not the browser's offline hint, decides reachability.
   const configRead = firstConfigRead ?? readOriginConfig();
   try {
-    await reloadCatalog({ loadCatalog, origin: () => location.origin }, { shouldApply: () => generation === bootGeneration });
+    await reloadCatalog({ loadCatalog, origin: relayOrigin }, { shouldApply: () => generation === bootGeneration });
     if (generation !== bootGeneration) return;
   } catch {
     if (generation !== bootGeneration) return;
@@ -462,6 +468,9 @@ async function boot(generation: number, firstConfigRead?: Promise<ConfigRead>): 
 }
 
 function registerServiceWorkerAfterLoad(signal: AbortSignal): void {
+  // The native shell serves the bundle from local assets and has no Web Push
+  // worker to install; native push uses the platform bridge instead.
+  if (isNativeRuntime()) return;
   if (!("serviceWorker" in navigator)) return;
   const register = (): void => {
     const timer = window.setTimeout(() => {

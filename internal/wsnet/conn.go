@@ -3,6 +3,7 @@ package wsnet
 import (
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -121,7 +122,14 @@ func DialProtocol(rawURL, subprotocol string) (*Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	d := websocket.Dialer{Subprotocols: []string{subprotocol}, TLSClientConfig: tlsCfg}
+	d := websocket.Dialer{
+		Subprotocols:     []string{subprotocol},
+		TLSClientConfig:  tlsCfg,
+		HandshakeTimeout: 10 * time.Second,
+		// A stalled TCP connect otherwise holds the daemon's reconnect loop
+		// for the OS timeout, which is minutes on a network change.
+		NetDialContext: (&net.Dialer{Timeout: 10 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+	}
 	ws, _, err := d.Dial(rawURL, nil)
 	if err != nil {
 		return nil, err

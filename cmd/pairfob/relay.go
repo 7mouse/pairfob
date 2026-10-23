@@ -21,6 +21,7 @@ const (
 	relayStableConnection  = 10 * time.Second
 	relayInitialBackoff    = time.Second
 	relayMaxBackoff        = 30 * time.Second
+	relayRegisterTimeout   = 10 * time.Second
 )
 
 type relayRetry struct {
@@ -144,7 +145,7 @@ func runRelayWith(link *relayLink, eng *daemon.Engine, relayURL, join string, fi
 			if err := conn.Send(frame); err != nil {
 				return envelope.Frame{}, err
 			}
-			return conn.Recv()
+			return conn.RecvWithin(relayRegisterTimeout)
 		}); err != nil {
 			conn.Close()
 			if !retryAfter(retry, "relay registration failed", backoff, err, stop) {

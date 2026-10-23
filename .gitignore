@@ -4,7 +4,10 @@ node_modules/
 
 # build / pack (rebuild with bun / scripts/pack-origin-assets.sh / release.sh)
 pwa/dist
+pwa/dist-native
 workers/pairfob-origin/public-dist
+workers/pairfob-downloads/public/*
+!workers/pairfob-downloads/public/.gitkeep
 site/doc/.vitepress/dist
 site/doc/.vitepress/cache
 /dist
@@ -21,6 +24,7 @@ site/doc/.vitepress/cache
 log/
 ui-review/
 /design/
+/local/
 
 # local agent skills and runbooks
 .agents/

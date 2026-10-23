@@ -15,11 +15,23 @@
       <p>The same terminal, not a remote desktop. Leave your desk and keep going.</p>
       <div class="wm">
         <svg viewBox="0 0 512 512" aria-hidden="true">
-          <rect width="512" height="512" rx="112" fill="#0b0e13" />
-          <rect x="200" y="64" width="112" height="200" rx="56" fill="#e9edf3" />
-          <circle cx="256" cy="312" r="136" fill="#e9edf3" />
-          <circle cx="256" cy="120" r="34" fill="#0b0e13" />
-          <circle cx="256" cy="312" r="54" fill="#6ea8fe" />
+          <defs>
+            <radialGradient id="ogw" cx="35%" cy="30%" r="80%">
+              <stop offset="0" stop-color="#ffffff" />
+              <stop offset="1" stop-color="#cbd6e6" />
+            </radialGradient>
+            <radialGradient id="ogb" cx="35%" cy="30%" r="80%">
+              <stop offset="0" stop-color="#a9c8ff" />
+              <stop offset="1" stop-color="#5b8fea" />
+            </radialGradient>
+          </defs>
+          <rect width="512" height="512" rx="112" fill="#0a0c10" />
+          <g transform="scale(4.740741)">
+            <line x1="46" y1="48" x2="66" y2="62" stroke="url(#ogw)" stroke-width="26" stroke-linecap="round" />
+            <circle cx="46" cy="48" r="21" fill="url(#ogw)" />
+            <circle cx="66" cy="62" r="15" fill="url(#ogb)" />
+            <circle cx="61" cy="57" r="3" fill="#ffffff" fill-opacity=".55" />
+          </g>
         </svg>
         Pairfob
       </div>

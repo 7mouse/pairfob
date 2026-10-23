@@ -2,6 +2,7 @@ import { t } from "./i18n.ts";
 import { validDaemonId } from "./identifiers.ts";
 import { ProtocolError } from "./protocol/errors.ts";
 import { fetchWithTimeout, type FetchLike } from "./request-timeout.ts";
+import { relayOrigin, relayURLFor } from "./runtime-config.ts";
 
 export type PairIntent = {
   daemonId: string;
@@ -34,10 +35,11 @@ export async function requestPairIntent(
   pairLoc: string,
   fetchImpl: FetchLike = fetch,
   signal?: AbortSignal,
+  origin: string = relayOrigin(),
 ): Promise<PairIntent> {
   let response: Response;
   try {
-    response = await fetchWithTimeout(fetchImpl, "/v2/pair-intent", {
+    response = await fetchWithTimeout(fetchImpl, relayURLFor(origin, "/v2/pair-intent"), {
       method: "POST",
       headers: { "content-type": "application/json" },
       cache: "no-store",

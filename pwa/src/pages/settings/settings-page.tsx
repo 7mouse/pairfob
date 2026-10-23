@@ -6,6 +6,8 @@ import { usePreferences } from "../../features/settings/hooks";
 import { computerTitle } from "../../lib/computer-catalog";
 import { t } from "../../lib/i18n";
 import { leaveSettings } from "../../features/settings/actions";
+import { supportsWebPush } from "../../lib/platform";
+import { isNativeRuntime } from "../../lib/runtime-config";
 import { useLang } from "../../features/settings/language";
 import { setSettingsSection, settingsSection, subscribeSettingsSection } from "../../features/settings/settings-section";
 import { travelSettingsSection } from "./section-travel";
@@ -84,10 +86,10 @@ export function SettingsContent({ withBack }: { withBack: boolean }) {
           defaultTermMode: preferences.defaultTermMode,
           defaultComposeLive: preferences.defaultComposeLive,
           composeEnterSends: preferences.composeEnterSends,
-          notification: {
+          notification: isNativeRuntime() ? null : {
             loading: runtime.settingsLoading,
             connected,
-            supported: "serviceWorker" in navigator && "PushManager" in window && "Notification" in window,
+            supported: supportsWebPush(),
             pushEnabled: runtime.pushEnabled,
             pushSubscribed: runtime.pushSubscribed,
             error: runtime.pushConfigError,

@@ -26,7 +26,7 @@ function acknowledgementMatches(agent: DashboardAgentCard, value: true | string 
   return value !== undefined && value === completionToken(agent);
 }
 
-/** Keep an acknowledgement only while the same runtime completion is current. */
+/** Keep acknowledgements through unknown observations; verify identity on recovery. */
 export function reconcileSeenCompletions(
   previous: RuntimeAgentStatuses,
   next: RuntimeAgentStatuses,
@@ -36,10 +36,17 @@ export function reconcileSeenCompletions(
   const byPane = new Map((agents || []).map((agent) => [agent.paneId, agent]));
   const seen: SeenCompletions = Object.create(null);
   for (const [paneId, status] of Object.entries(next)) {
+    const acknowledged = current[paneId];
+    // Unknown is a gap in observation, not evidence of a new turn. Keep the
+    // receipt without projecting it as idle; a later done must still match its
+    // full identity and sequence. Missing panes and observed work still retire it.
+    if (status === "unknown") {
+      if (acknowledged !== undefined) seen[paneId] = acknowledged;
+      continue;
+    }
     if (status !== "done") continue;
     const before = Object.hasOwn(previous, paneId) ? previous[paneId] : undefined;
-    if (before !== undefined && before !== "done") continue;
-    const acknowledged = current[paneId];
+    if (before !== undefined && before !== "done" && before !== "unknown") continue;
     const agent = byPane.get(paneId);
     if (agent ? acknowledgementMatches(agent, acknowledged) : acknowledged !== undefined) {
       seen[paneId] = acknowledged!;

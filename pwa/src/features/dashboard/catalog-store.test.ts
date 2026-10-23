@@ -3,7 +3,7 @@ import "../../../test-support/boot-dom";
 import type { SnapshotWire } from "../../lib/dashboard";
 
 const { acknowledgeAllCompletions, acknowledgePaneCompletion, applySnapshot, dashboardStore, liveAgents, markPaneSubmitted, replaceAgentsFromSnapshot, resetDashboard,
-  restoreCompletions, selectedAgent, setRefreshBusy } = await import("./catalog-store");
+  reloadCompletionSeen, loadCompletionSeen, restoreCompletions, selectedAgent, setRefreshBusy } = await import("./catalog-store");
 const { boardStore, resetBoardCatalog } = await import("../board/layout-store");
 const { preferencesStore, setPaneTermMode } = await import("../settings/preferences-store");
 const { selectPane, sessionStore, openPaneId } = await import("../session/session-store");
@@ -187,5 +187,34 @@ describe("dashboard domain", () => {
     resetBoardCatalog();
     expect(boardStore.get().workspaceList).toEqual([]);
     expect(boardStore.get().boardTabId).toBe("");
+  });
+
+  test("read completions survive unknown recovery snapshots and a subsequent reconnect", () => {
+    useTestDaemon();
+    const finished: SnapshotWire = {
+      panes: ["p1", "p2", "p3"].map(paneId => ({
+        pane_id: paneId, workspace_id: "w1", agent: "codex", agent_status: "done",
+        terminal_id: `terminal-${paneId}`, agent_instance_id: `instance-${paneId}`, state_change_seq: 7,
+      })),
+    };
+    replaceAgentsFromSnapshot(finished);
+    acknowledgeAllCompletions();
+    const seen = loadCompletionSeen();
+    expect(Object.keys(seen)).toHaveLength(3);
+
+    resetDashboard();
+    reloadCompletionSeen();
+    replaceAgentsFromSnapshot({ ...finished, panes: finished.panes!.map(pane => ({ ...pane, agent_status: "unknown" })) });
+    expect(dashboardStore.get().agents.map(a => a.status)).toEqual(["unknown", "unknown", "unknown"]);
+    expect(loadCompletionSeen()).toEqual(seen);
+    // A second reconnect must also reload the original receipts from storage.
+    resetDashboard();
+    reloadCompletionSeen();
+    replaceAgentsFromSnapshot(finished);
+    expect(dashboardStore.get().agents.map(a => a.status)).toEqual(["idle", "idle", "idle"]);
+    replaceAgentsFromSnapshot({ ...finished, panes: finished.panes!.map((pane, i) => ({ ...pane, state_change_seq: i === 1 ? 8 : 7 })) });
+    expect(dashboardStore.get().agents.map(a => a.status)).toEqual(["idle", "done", "idle"]);
+    replaceAgentsFromSnapshot({ panes: [] });
+    expect(loadCompletionSeen()).toEqual({});
   });
 });

@@ -5,6 +5,7 @@ import {
   networkOnline, notificationGeneration, notificationTarget, phase,
 } from "../features/connection/connection-store";
 import { parseNotificationURL, type NotificationTarget } from "../lib/notification-target";
+import { relayOrigin } from "../lib/runtime-config";
 import { t } from "../lib/i18n";
 import { messageOf } from "../lib/notices";
 import { showError } from "./notices-store";
@@ -103,7 +104,7 @@ export function bindNotificationLinks(signal: AbortSignal, ports?: NotificationP
   }, { signal });
   navigator.serviceWorker?.addEventListener("message", event => {
     if (event.data?.type !== "pairfob_notify") return;
-    const target = parseNotificationURL(event.data.url, location.origin);
+    const target = parseNotificationURL(event.data.url, relayOrigin());
     if (!target) { diagnose("notify_error", "invalid_target"); return; }
     capture(target, "worker_message");
     // Acknowledging capture lets a new worker fall back for an older page.

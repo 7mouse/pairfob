@@ -1,5 +1,5 @@
-const CACHE = "pairfob-shell-v11";
-const PREVIOUS_CACHE = "pairfob-shell-v10";
+const CACHE = "pairfob-shell-v12";
+const PREVIOUS_CACHE = "pairfob-shell-v11";
 const PREF = "pairfob-pref";
 const NOTIFY_DIAGNOSTICS = "pairfob-notification-diagnostics-v1";
 const NOTIFY_LOG = "/__pairfob_notification_diagnostics__";

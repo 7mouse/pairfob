@@ -4,6 +4,7 @@ import { bindInactiveNetworkPreference } from "../settings/network-preference";
 import { acceptDaemonVersion, markDaemonConfigIncompatible } from "../settings/daemon-update";
 import { t } from "../../lib/i18n";
 import type { NetworkMode } from "../../lib/network-mode";
+import { relayOrigin } from "../../lib/runtime-config";
 import { deleteCredential, loadCatalog, rememberLastUsed, saveCredential } from "../../lib/credentials";
 import {
   ProtocolError,
@@ -181,7 +182,7 @@ const lifecyclePorts: LifecyclePorts = {
   resetPaneReads: resetPaneReadRequests,
   setRefreshIdle: () => setRefreshBusy(false),
   track,
-  origin: () => location.origin,
+  origin: relayOrigin,
 };
 
 const lifecycle: LifecycleContext = {

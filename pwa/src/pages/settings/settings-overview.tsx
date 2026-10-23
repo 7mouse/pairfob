@@ -1,4 +1,5 @@
 import { openComputers } from "../../features/computers/actions";
+import { AndroidUpdateRow } from "../../features/settings/android-update-view";
 import { DaemonUpdateRow } from "../../features/settings/daemon-update-view";
 import { HerdSessionRow } from "../../features/herd-sessions/herd-session-row";
 import { LanguageControl } from "../../features/settings/language";
@@ -19,7 +20,7 @@ export type SettingsOverviewInput = {
   defaultTermMode: TermMode;
   defaultComposeLive: boolean;
   composeEnterSends: boolean;
-  notification: NotificationRowInput;
+  notification: NotificationRowInput | null;
   /** The desktop names the local group for the device, not the phone. */
   desk: boolean;
 };
@@ -42,7 +43,8 @@ export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
       <AgentQuotaModule />
       <SessionDefaults mode={input.defaultTermMode} live={input.defaultComposeLive} enterSends={input.composeEnterSends} />
       <SetGroup label={t(input.desk ? "set.deviceSection" : "settings.phoneSection")}>
-        <NotificationItem input={input.notification} />
+        {input.notification && <NotificationItem input={input.notification} />}
+        <AndroidUpdateRow />
         <SetItem className="language-item" label={t("settings.language")} trailing={<LanguageControl className="set-seg"><SegThumb /></LanguageControl>} />
       </SetGroup>
     </>
