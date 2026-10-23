@@ -297,8 +297,10 @@
 }
 
 /* The reply carries the turn's answer, so it is the one block drawn as a card:
-   its own surface, a firmer edge, and a lift off the transcript. */
-.agent-assistant-final .agent-md {
+   its own surface, a firmer edge, and a lift off the transcript. The shape is
+   the same while the turn runs, so the text does not reflow when it ends; only
+   the copy action arrives. */
+.agent-assistant .agent-md {
   padding: 12px 14px;
   border: 1px solid var(--line-strong);
   border-radius: var(--r-md);

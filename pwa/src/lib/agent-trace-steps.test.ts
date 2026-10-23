@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { setLang, t } from "./i18n.ts";
 import type { AgentTraceItem } from "./operations";
-import { formatElapsed, groupSteps, pendingAsk, recordsStepResults, stepCategory, stepObject, stepRows, stepState, turnOutcome, turnSpan } from "./agent-trace-steps";
+import { findingBreaks, formatElapsed, groupSteps, pendingAsk, recordsStepResults, stepCategory, stepObject, stepRows, stepState, turnOutcome, turnSpan } from "./agent-trace-steps";
 
 beforeEach(() => setLang("zh"));
 
@@ -167,5 +167,25 @@ describe("the rows a card draws", () => {
     // Without findings the list is untouched, so a plain turn keeps its identity.
     const plain = [tool("Read", { toolState: "done" })];
     expect(stepRows(plain)).toEqual(plain);
+  });
+});
+
+describe("a finding breaks the run it interrupted", () => {
+  test("rows either side of a finding fold as two runs, not one", () => {
+    const entries = [
+      tool("Read", { toolState: "done" }), tool("Read", { toolState: "done" }), tool("Read", { toolState: "done" }),
+      { type: "assistant" as const, text: "Now the parser." },
+      tool("Read", { toolState: "done" }), tool("Read", { toolState: "done" }), tool("Read", { toolState: "done" }),
+    ];
+    // Three rows before the finding, a fourth starts the next run.
+    expect(findingBreaks(entries)).toEqual([3]);
+    expect(groupSteps(stepRows(entries), findingBreaks(entries)).map((group) => group.steps.length)).toEqual([3, 3]);
+    // Without the break the six reads would read as one deed.
+    expect(groupSteps(stepRows(entries))).toHaveLength(1);
+  });
+
+  test("a finding before any step, or with nothing after it, breaks nothing", () => {
+    expect(findingBreaks([{ type: "assistant", text: "first" }, tool("Read", { toolState: "done" }), tool("Read", { toolState: "done" })])).toEqual([]);
+    expect(findingBreaks([tool("Read", { toolState: "done" }), tool("Read", { toolState: "done" }), { type: "assistant", text: "last" }])).toEqual([]);
   });
 });

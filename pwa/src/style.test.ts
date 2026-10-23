@@ -664,12 +664,17 @@ describe("UI accessibility guardrails", () => {
   });
 
   test("standalone PWA paints the home-indicator strip with the app canvas", () => {
-    expect(html).toContain('name="color-scheme" content="dark"');
-    expect(html).toContain('name="theme-color" content="#0a0c10"');
+    // The page wears either palette, so the document declares both. Each side
+    // names its own theme colour, and the browser picks with the media query.
+    expect(html).toContain('name="color-scheme" content="dark light"');
+    expect(html).toContain('name="theme-color" content="#0a0c10" media="(prefers-color-scheme: dark)"');
+    expect(html).toContain('name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)"');
     expect(html).toContain("viewport-fit=cover");
     expect(manifest.background_color).toBe("#0a0c10");
     expect(manifest.theme_color).toBe("#0a0c10");
     expect(rule(":root")).toMatch(/color-scheme:\s*dark/);
+    // A light document states its own, so the form controls follow the page.
+    expect(css).toContain("color-scheme: light;");
     expect(rule("html")).toMatch(/height:\s*-webkit-fill-available/);
     expect(rule("html, body")).toMatch(/min-height:\s*-webkit-fill-available/);
     expect(rule("html, body")).toMatch(/background:\s*var\(--bg\)/);

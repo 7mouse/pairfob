@@ -4,7 +4,11 @@ import { applyDocumentTheme, setThemePref, subscribeTheme, theme, themePref, the
 /** A root and a light/dark media query the test owns, without a browser. */
 function install(systemLight: boolean) {
   const attributes = new Map<string, string>();
-  const metas: Array<{ content: string }> = [{ content: "#0a0c10" }];
+  // The page declares one handle per colour scheme, as index.html does.
+  const metas = [
+    { content: "#0a0c10", media: "(prefers-color-scheme: dark)", hasAttribute: (name: string) => name === "media" },
+    { content: "#f5f6f8", media: "(prefers-color-scheme: light)", hasAttribute: (name: string) => name === "media" },
+  ];
   const listeners = new Set<() => void>();
   let light = systemLight;
   const globals = globalThis as unknown as {
@@ -96,10 +100,15 @@ describe("the theme a document wears", () => {
   });
 
   test("the browser chrome colour follows the palette", () => {
+    // Following the system, each meta keeps its own media query and the browser picks.
     applyDocumentTheme();
     expect(env!.metas[0]!.content).toBe("#0a0c10");
+    expect(env!.metas[0]!.media).toBe("(prefers-color-scheme: dark)");
+    // An explicit choice outranks the system, so both metas name that side.
     setThemePref("light");
-    expect(env!.metas[0]!.content).toBe("#f5f6f8");
+    expect(env!.metas.map((meta) => meta.content)).toEqual(["#f5f6f8", "#f5f6f8"]);
+    setThemePref("dark");
+    expect(env!.metas.map((meta) => meta.content)).toEqual(["#0a0c10", "#0a0c10"]);
   });
 
   test("a change notifies subscribers once, and a system flip only while following", () => {

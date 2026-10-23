@@ -72,8 +72,13 @@ export function applyDocumentTheme(): void {
   if (pref === "auto") root.removeAttribute("data-theme");
   else root.dataset.theme = pref;
   // The browser's own chrome (address bar, PWA status bar) follows the palette.
+  // The page declares one `theme-color` per scheme, each with its own media
+  // query, so following the system needs no work here; an explicit choice
+  // outranks the system, so every meta is set to the chosen side.
+  const color = theme() === "light" ? "#f5f6f8" : "#0a0c10";
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
-    meta.content = theme() === "light" ? "#f5f6f8" : "#0a0c10";
+    if (pref === "auto" && meta.hasAttribute("media")) continue;
+    meta.content = color;
   }
 }
 

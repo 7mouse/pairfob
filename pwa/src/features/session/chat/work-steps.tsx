@@ -121,10 +121,14 @@ function FoldedRow({ group, verified, arriving, onOpen }: {
  * work went. The card's box is final from the first frame: only the rows travel,
  * inside a window that clips them, and the transcript below does not move twice.
  */
-export function StepList({ steps, hidden, listKey, arrivals, verified, onOpen }: {
+export function StepList({ steps, hidden, listKey, breaks = [], folds = true, arrivals, verified, onOpen }: {
   steps: readonly AgentTraceItem[]; hidden: number;
   /** Tells one filter's rows from another's. */
   listKey: string;
+  /** Row indices where a finding sat between steps, so no run folds across one. */
+  breaks?: readonly number[];
+  /** A running turn draws every step as itself; a finished one folds its runs. */
+  folds?: boolean;
   arrivals: StepArrivals; verified: boolean; onOpen: (item: AgentTraceItem, steps?: AgentTraceItem[]) => void;
 }) {
   const track = useRef<HTMLDivElement>(null);
@@ -140,13 +144,14 @@ export function StepList({ steps, hidden, listKey, arrivals, verified, onOpen }:
     playMove(node, [{ transform: `translateY(${shift}px)` }, { transform: "translateY(0)" }], MOTION_MS.panel);
   }, [arrivals.move]);
   const gone = arrivals.pushed;
-  // Rows are grouped after the window is cut, so `hidden` still counts steps the
-  // reader asked to reveal, and a group's first step keeps its own arrival.
-  // Folding is for a list the reader asked to see whole: a card's window shows
-  // its newest rows one by one, and a chosen filter shows exactly what it named.
+  // Rows are grouped after the window is cut, so `hidden` still counts the steps
+  // the reader asked to reveal, and a group's first step keeps its own arrival.
+  // A chosen filter shows exactly what it named, one row each; the unfiltered
+  // list folds its runs, in the window and out of it alike, because the window
+  // is measured in the same rows.
   const visible = steps.slice(hidden);
-  const groups = hidden === 0 && listKey === "all"
-    ? groupSteps(visible)
+  const groups = listKey === "all" && folds
+    ? groupSteps(visible, breaks.map((at) => at - hidden).filter((at) => at >= 0))
     : visible.map((item) => ({ items: [item], steps: [item], category: stepCategory(item) }));
   const firstOf = new Map(groups.map((group) => [group, visible.indexOf(group.steps[0]!)]));
   // `arrivals.from` counts steps in the whole list, so a row's own step index is
@@ -161,11 +166,13 @@ export function StepList({ steps, hidden, listKey, arrivals, verified, onOpen }:
           : <StepRow key={`${listKey}:pushed:${index}`} item={group.items[0]!} verified={verified} onOpen={onOpen} />)}
       </ol>}
       <ol className="work-steps" aria-label={t("work.stepsAria")}>
-        {groups.map((group, index) => group.steps.length > 1
-          ? <FoldedRow key={`${listKey}:${hidden + (firstOf.get(group) ?? index)}`} group={group} verified={verified}
-            arriving={arrived(firstOf.get(group) ?? index)} onOpen={(item) => onOpen(item, group.steps)} />
-          : <StepRow key={`${listKey}:${hidden + (firstOf.get(group) ?? index)}`} item={group.items[0]!} verified={verified}
-            arriving={arrived(firstOf.get(group) ?? index)} onOpen={onOpen} />)}
+        {groups.map((group, index) => {
+          return group.steps.length > 1
+            ? <FoldedRow key={`${listKey}:${hidden + (firstOf.get(group) ?? index)}`} group={group} verified={verified}
+              arriving={arrived(firstOf.get(group) ?? index)} onOpen={(item) => onOpen(item, group.steps)} />
+            : <StepRow key={`${listKey}:${hidden + (firstOf.get(group) ?? index)}`} item={group.items[0]!} verified={verified}
+              arriving={arrived(firstOf.get(group) ?? index)} onOpen={onOpen} />;
+        })}
       </ol>
     </div>
   </div>;

@@ -194,14 +194,20 @@ test("a manual collapse of a live card survives new output and keeps its card no
   expect(appRoot().querySelector(".agent-reply-copy")).toBeNull();
 });
 
-test("a live card shows the latest steps and reveals earlier ones on request", () => {
+test("a live card shows every step as itself, and a finished one folds the run", () => {
   const many: AgentTraceItem[] = [{ type: "user", text: "go" },
-    ...Array.from({ length: 7 }, (_, index): AgentTraceItem => ({ type: "tool", name: "Read", label: `f${index}.ts`, toolState: "done" }))];
-  act(() => renderReact(<AgentStream items={many} working empty={empty} />));
+    ...Array.from({ length: 7 }, (_, index): AgentTraceItem => ({ type: "tool", name: "Read", label: `f${index}.ts`, toolState: "done" })),
+    { type: "assistant", text: "done" }];
+  act(() => renderReact(<AgentStream items={many.slice(0, 8)} working empty={empty} />));
+  // Running: the window keeps four rows and no run folds under the reader, so
+  // the steps they just watched arrive stay visible.
   expect([...appRoot().querySelectorAll(".work-step-text")].map(node => node.textContent)).toEqual(["f3.ts", "f4.ts", "f5.ts", "f6.ts"]);
+  expect(appRoot().querySelector(".work-folded")).toBeNull();
   act(() => appRoot().querySelector<HTMLButtonElement>(".work-earlier")!.click());
-  // Opened whole, the seven reads are one run: one row naming the count, the
-  // files a press away. The window's own rows stay one step each.
+  expect(appRoot().querySelectorAll(".work-step")).toHaveLength(7);
+  act(unmountReact);
+  // Finished: the same seven reads are one run, one row naming the count.
+  act(() => renderReact(<AgentStream items={many} working={false} empty={empty} />));
   const folded = appRoot().querySelector<HTMLButtonElement>(".work-folded-head")!;
   expect(folded.getAttribute("aria-label")).toContain(t("work.folded", { category: t("work.cat.read"), n: 7 }));
   expect(folded.querySelector(".work-folded-count")?.textContent).toBe(t("work.foldedCount", { n: 7 }));
@@ -517,4 +523,31 @@ test("a reply still being written has no copy button until it is final, and then
   expect(appRoot().querySelectorAll(".md-copy")).toHaveLength(0);
   paintWorking(false);
   expect(appRoot().querySelectorAll(".md-code .md-copy")).toHaveLength(1);
+});
+
+test("a final reply of nothing but space leaves no blank bubble to focus", () => {
+  const turn: AgentTraceItem[] = [{ type: "user", text: "go" },
+    { type: "tool", name: "Read", label: "a.go", toolState: "done", detailRef: "r1" },
+    { type: "assistant", text: "   " }];
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified />));
+  expect(appRoot().querySelector(".agent-assistant")).toBeNull();
+  expect(appRoot().querySelectorAll(".agent-assistant button")).toHaveLength(0);
+});
+
+test("a finding spoken before the first step introduces the work, above the card", () => {
+  const turn: AgentTraceItem[] = [{ type: "user", text: "inspect" },
+    { type: "assistant", text: "I'll take a look first." },
+    { type: "tool", name: "Read", label: "a.go", toolState: "done", detailRef: "r1" },
+    { type: "assistant", text: "Found it." },
+    { type: "tool", name: "Edit", label: "a.go", toolState: "done", detailRef: "e1" },
+    { type: "assistant", text: "Fixed." }];
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified />));
+  const card = appRoot().querySelector<HTMLElement>(".work-card")!;
+  const [intro, between] = [...appRoot().querySelectorAll<HTMLElement>(".agent-finding")];
+  // The one that opens the turn stands before the work it introduces.
+  expect(intro!.textContent).toContain("I'll take a look first.");
+  expect(Boolean(intro!.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+  // The one spoken mid-run stays after the card, where it was said.
+  expect(between!.textContent).toContain("Found it.");
+  expect(Boolean(card.compareDocumentPosition(between!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
 });
