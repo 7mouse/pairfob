@@ -2,7 +2,7 @@ import { captureFileLinkOwner, openChatFile } from "../../workspace/file-links";
 import { useLayoutEffect, useMemo, useRef, useState, type MouseEvent, type ReactNode, type Ref } from "react";
 import { renderMarkdown } from "../../../lib/agent-markdown";
 import { groupAgentTurns, replyText, submittedText, turnKey, type AgentTurn } from "../../../lib/agent-trace-view";
-import { pendingAsk, splitTurn, stepObject, turnOutcome, turnSpan, type TurnRef } from "../../../lib/agent-trace-steps";
+import { pendingAsk, splitTurn, stepObject, stepRows, turnOutcome, turnSpan, type TurnRef } from "../../../lib/agent-trace-steps";
 import type { AgentTraceItem } from "../../../lib/operations";
 import { t } from "../../../lib/i18n";
 import type { AgentEmptySpec, DetailsState } from "./agent-chat-stream";
@@ -215,7 +215,9 @@ function TraceTurn({ turn, state, anchor, kept, onCopy, onTerminal, onAnswered, 
   // Findings are the agent's own words between steps. They leave the card and
   // speak in the transcript, so a run of steps never buries what it concluded.
   const findings = entries.filter((item) => item.type === "assistant");
-  const steps = findings.length ? entries.filter((item) => item.type !== "assistant") : entries;
+  // The card draws `steps`, and the sheet pages through that same list: one
+  // source for both, or a press would carry an index into another list.
+  const steps = stepRows(entries);
   const { live, waiting } = state;
   const outcome = turnOutcome(turn.items, state);
   const tools = entries.filter((item) => item.type === "tool");
@@ -238,7 +240,7 @@ function TraceTurn({ turn, state, anchor, kept, onCopy, onTerminal, onAnswered, 
       onOpen={(item, steps) => onOpenStep(item, steps, { key: anchor.key, ordinal: anchor.ordinal })}
       anchor={{ anchor: `${anchor.key}:work`, ordinal: anchor.ordinal, ordinalFromEnd: anchor.ordinalFromEnd }} />}
     {findings.map((item, index) => <FindingBubble key={`${anchor.key}:finding:${index}`} item={item}
-      anchor={anchor} part={`finding-${index}`} onOpen={(step) => onOpenStep(step, entries, { key: anchor.key, ordinal: anchor.ordinal })} />)}
+      anchor={anchor} part={`finding-${index}`} onOpen={(step) => onOpenStep(step, steps, { key: anchor.key, ordinal: anchor.ordinal })} />)}
     {live && waiting && <NeedsYouCard ask={pendingAsk(turn.items)} raised={asked} onTerminal={onTerminal} onAnswered={onAnswered} />}
     {reply.length > 0 && <AssistantReply items={reply} final={!live} anchor={anchor} part="reply" onCopy={onCopy} />}
     {compacted && <CompactionDivider />}

@@ -253,3 +253,18 @@ export function turnEntries(items: readonly AgentTraceItem[], ref: TurnRef): Age
   const turn = groupAgentTurns(items).filter((candidate) => turnKey(candidate) === ref.key)[ref.ordinal];
   return turn ? splitTurn(turn).entries : null;
 }
+
+/**
+ * The rows the card draws for a turn's steps: the same list the sheet pages
+ * through, so a press and the index it carries agree after a repaint. Findings
+ * speak in the transcript as their own message, so they leave this list.
+ */
+export function stepRows(entries: readonly AgentTraceItem[]): AgentTraceItem[] {
+  return entries.filter((item) => item.type !== "assistant");
+}
+
+/** The step rows of the turn a sheet was opened from, or null once it is gone. */
+export function turnStepRows(items: readonly AgentTraceItem[], ref: TurnRef): AgentTraceItem[] | null {
+  const entries = turnEntries(items, ref);
+  return entries ? stepRows(entries) : null;
+}

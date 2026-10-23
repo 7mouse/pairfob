@@ -113,14 +113,14 @@
   position: absolute;
   inset: 5px;
   z-index: -1;
-  border: 1px solid var(--accent-press);
+  border: 1px solid var(--accent-22);
   border-radius: 10px;
-  background: var(--accent-wash);
+  background: var(--accent-12);
 }
 
-.rail-create:active:not(:disabled)::after { background: var(--accent-press); }
+.rail-create:active:not(:disabled)::after { background: var(--accent-20); }
 /* Its menu makes the page inert, so the button holds the pressed look itself. */
-.rail-create[data-popover-open]::after { background: var(--accent-press); }
+.rail-create[data-popover-open]::after { background: var(--accent-20); }
 .rail-create:disabled { opacity: 0.4; }
 /* The keyboard's ring goes round the chip, not the finger's target around it. */
 .rail-create:focus-visible { outline: none; }
@@ -299,7 +299,7 @@
 .rail .card-main { padding: 8px 12px; }
 
 /* Rows in the tab the board beside the rail shows: a light wash, below the selection and waiting grounds. */
-.rail .card.in-board:not(.sel) .card-main { background-color: var(--plate-2); }
+.rail .card.in-board:not(.sel) .card-main { background-color: var(--in-board-ground); }
 .rail .card.in-board.is-blocked:not(.sel) .card-main { background-color: #221f16; }
 
 .rail .card-name { font-size: var(--text-lead); }
@@ -361,7 +361,7 @@ html[data-kb="open"] .rail-nav { display: none; }
   }
 
   .rail-create::after { inset: 0; border-radius: var(--r-sm); }
-  .rail-create:hover:not(:disabled)::after { background: var(--accent-press); }
+  .rail-create:hover:not(:disabled)::after { background: var(--accent-20); }
 
   .rail-head .herd-mode:hover { background: var(--surface); color: var(--ink); }
   .rail-head .herd-mode:hover svg { color: inherit; }
@@ -370,7 +370,7 @@ html[data-kb="open"] .rail-nav { display: none; }
   .rail > .herd-session-switch:hover { background: var(--surface); }
 
   .rail-search { min-height: 34px; border-radius: 9px; }
-  .rail-search:hover { border-color: var(--hairline); color: var(--ink); }
+  .rail-search:hover { border-color: var(--ink-hairline-3); color: var(--ink); }
 
   .rail .attn-strip-label { min-height: 28px; }
   .rail .attn-strip-label:hover { text-decoration: underline; }

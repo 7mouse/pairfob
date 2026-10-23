@@ -90,21 +90,47 @@
      the dark side; the light side states its own, because a wash on dark is not
      the same wash on paper.
      ------------------------------------------------------------------------------ */
-  /* Line-height washes over whatever surface a control sits on: hairlines, a
-     row's hover, a separator inside a card. */
-  --wash-faint: rgba(233, 237, 243, 0.035);
-  --wash-soft: rgba(233, 237, 243, 0.07);
-  --wash: rgba(233, 237, 243, 0.1);
-  --wash-strong: rgba(233, 237, 243, 0.16);
-  --wash-ink: rgba(233, 237, 243, 0.62);
-  --hairline: rgba(233, 237, 243, 0.26);
-  /* Accent washes, by role: a faint ground, a row's selected ground, a press,
-     a drawn edge, and a glow that marks the live pane. */
-  --accent-faint: rgba(110, 168, 254, 0.08);
-  --accent-wash: rgba(110, 168, 254, 0.13);
-  --accent-press: rgba(110, 168, 254, 0.22);
-  --accent-line: rgba(110, 168, 254, 0.34);
-  --accent-glow: rgba(110, 168, 254, 0.55);
+  /* Ink and accent at the exact weights the rules were written with. A theme
+     swap must not move a dark value, so each weight keeps its own token
+     instead of a few roles sharing one. */
+  --accent-9: rgba(110, 168, 254, 0.09);
+  --accent-06: rgba(110, 168, 254, 0.06);
+  --accent-08: rgba(110, 168, 254, 0.08);
+  --accent-10: rgba(110, 168, 254, 0.1);
+  --accent-12: rgba(110, 168, 254, 0.12);
+  --accent-13: rgba(110, 168, 254, 0.13);
+  --accent-14: rgba(110, 168, 254, 0.14);
+  --accent-15: rgba(110, 168, 254, 0.15);
+  --accent-16: rgba(110, 168, 254, 0.16);
+  --accent-18: rgba(110, 168, 254, 0.18);
+  --accent-20: rgba(110, 168, 254, 0.2);
+  --accent-22: rgba(110, 168, 254, 0.22);
+  --accent-24: rgba(110, 168, 254, 0.24);
+  --accent-28: rgba(110, 168, 254, 0.28);
+  --accent-30: rgba(110, 168, 254, 0.3);
+  --accent-32: rgba(110, 168, 254, 0.32);
+  --accent-35: rgba(110, 168, 254, 0.35);
+  --accent-40: rgba(110, 168, 254, 0.4);
+  --accent-45: rgba(110, 168, 254, 0.45);
+  --accent-50: rgba(110, 168, 254, 0.5);
+  --accent-55: rgba(110, 168, 254, 0.55);
+  --accent-60: rgba(110, 168, 254, 0.6);
+  --accent-70: rgba(110, 168, 254, 0.7);
+  --accent-80: rgba(110, 168, 254, 0.8);
+  --ink-faint: rgba(233, 237, 243, 0.35);
+  --ink-025: rgba(233, 237, 243, 0.025);
+  --ink-faint-35: rgba(233, 237, 243, 0.035);
+  --ink-07: rgba(233, 237, 243, 0.07);
+  --ink-08: rgba(233, 237, 243, 0.08);
+  --ink-hairline: rgba(233, 237, 243, 0.25);
+  --ink-hairline-2: rgba(233, 237, 243, 0.25);
+  --ink-hairline-3: rgba(233, 237, 243, 0.26);
+  --ink-line: rgba(233, 237, 243, 0.1);
+  --ink-line-strong: rgba(233, 237, 243, 0.16);
+  --ink-thumb: rgba(233, 237, 243, 0.34);
+  --ink-thumb-active: rgba(233, 237, 243, 0.62);
+  --ink-wash: rgba(233, 237, 243, 0.7);
+  --ink-wash-2: rgba(233, 237, 243, 0.8);
   /* A control that is being pressed, and the tint a running step carries. */
   --pressed: rgba(110, 168, 254, 0.1);
   --running-tint: rgba(110, 168, 254, 0.07);
@@ -115,6 +141,8 @@
      inspector draws, and the ground a media frame sits on. */
   --plate: #0e1218;
   --plate-2: #141922;
+  /* A row that belongs to the board's tab: a shade lighter than the list's own. */
+  --in-board-ground: #141b26;
   /* Ground a field is cut into, and the ground a chosen row sits on. On dark
      both sink below the page; on paper they lift above it. */
   --sink: #0a0d12;
@@ -127,13 +155,21 @@
   /* A chip or avatar plate that sits on a card, and the head bar that floats
      over a scrolled view. */
   --chip-plate: #1d232d;
-  --chrome-scrim: rgba(11, 14, 19, 0.92);
+  --chrome-scrim: rgba(11, 14, 19, 0.88);
+  --chrome-scrim-2: rgba(11, 14, 19, 0.92);
   /* The plate behind a terminal's mark: a green cast, dark on dark. */
   --term-mark-ground: #192019;
   --term-mark-ink: #a9c9b1;
   /* The seam between panes on the board, and the drop under the stage. */
   --board-seam: #262d39;
   --stage-shadow: rgba(0, 0, 0, 0.45);
+  /* Translucent grounds that sit over content: the tab bar, the workspace head,
+     a dimmed attachment, a badge. On paper they are a light veil instead. */
+  --veil-dim: rgba(10, 12, 16, 0.45);
+  --veil: rgba(10, 12, 16, 0.62);
+  --veil-strong: rgba(10, 12, 16, 0.8);
+  --veil-chrome: rgba(10, 12, 16, 0.9);
+  --veil-chrome-2: rgba(10, 12, 16, 0.96);
 }
 
 /*
@@ -163,25 +199,53 @@
   --term-ink: #1b222c;
   --dock-bg: #ffffff;
 
-  --wash-faint: rgba(18, 22, 29, 0.03);
-  --wash-soft: rgba(18, 22, 29, 0.05);
-  --wash: rgba(18, 22, 29, 0.07);
-  --wash-strong: rgba(18, 22, 29, 0.12);
-  --wash-ink: rgba(18, 22, 29, 0.55);
-  --hairline: rgba(18, 22, 29, 0.22);
-  --accent-faint: rgba(47, 111, 228, 0.07);
-  --accent-wash: rgba(47, 111, 228, 0.11);
-  --accent-press: rgba(47, 111, 228, 0.18);
-  --accent-line: rgba(47, 111, 228, 0.32);
-  --accent-glow: rgba(47, 111, 228, 0.45);
+  /* The same weights, with the alphas a paper surface needs to read. */
+  --accent-9: rgba(47, 111, 228, 0.09);
+  --accent-06: rgba(47, 111, 228, 0.06);
+  --accent-08: rgba(47, 111, 228, 0.08);
+  --accent-10: rgba(47, 111, 228, 0.1);
+  --accent-12: rgba(47, 111, 228, 0.12);
+  --accent-13: rgba(47, 111, 228, 0.13);
+  --accent-14: rgba(47, 111, 228, 0.14);
+  --accent-15: rgba(47, 111, 228, 0.15);
+  --accent-16: rgba(47, 111, 228, 0.16);
+  --accent-18: rgba(47, 111, 228, 0.18);
+  --accent-20: rgba(47, 111, 228, 0.2);
+  --accent-22: rgba(47, 111, 228, 0.22);
+  --accent-24: rgba(47, 111, 228, 0.24);
+  --accent-28: rgba(47, 111, 228, 0.28);
+  --accent-30: rgba(47, 111, 228, 0.3);
+  --accent-32: rgba(47, 111, 228, 0.32);
+  --accent-35: rgba(47, 111, 228, 0.35);
+  --accent-40: rgba(47, 111, 228, 0.4);
+  --accent-45: rgba(47, 111, 228, 0.45);
+  --accent-50: rgba(47, 111, 228, 0.5);
+  --accent-55: rgba(47, 111, 228, 0.55);
+  --accent-60: rgba(47, 111, 228, 0.6);
+  --accent-70: rgba(47, 111, 228, 0.7);
+  --accent-80: rgba(47, 111, 228, 0.8);
+  --ink-faint: rgba(18, 22, 29, 0.35);
+  --ink-faint-35: rgba(18, 22, 29, 0.035);
+  --ink-07: rgba(18, 22, 29, 0.07);
+  --ink-08: rgba(18, 22, 29, 0.08);
+  --ink-hairline: rgba(18, 22, 29, 0.25);
+  --ink-hairline-2: rgba(18, 22, 29, 0.25);
+  --ink-hairline-3: rgba(18, 22, 29, 0.26);
+  --ink-line: rgba(18, 22, 29, 0.1);
+  --ink-line-strong: rgba(18, 22, 29, 0.16);
+  --ink-thumb: rgba(18, 22, 29, 0.34);
+  --ink-thumb-active: rgba(18, 22, 29, 0.62);
+  --ink-wash: rgba(18, 22, 29, 0.7);
+  --ink-wash-2: rgba(18, 22, 29, 0.8);
+  --sheen-tint: rgba(18, 22, 29, 0.05);
   --pressed: rgba(47, 111, 228, 0.1);
   --running-tint: rgba(47, 111, 228, 0.07);
-  --sheen-tint: rgba(18, 22, 29, 0.05);
   --scrim: rgba(18, 22, 29, 0.42);
   /* On paper these climb in the other direction: a plate is a shade of grey,
      and a blocked row is a warm tint rather than a dark one. */
   --plate: #f0f2f5;
   --plate-2: #e8ebf0;
+  --in-board-ground: #eef1f6;
   --sink: #ffffff;
   --selected-ground: #e4e9f2;
   --media-ground: #e9ecf1;
@@ -189,11 +253,17 @@
   --blocked-ground-2: #fbf0d9;
   --blocked-ground-press: #f7eacb;
   --chip-plate: #e6eaf0;
-  --chrome-scrim: rgba(255, 255, 255, 0.92);
+  --chrome-scrim: rgba(255, 255, 255, 0.88);
+  --chrome-scrim-2: rgba(255, 255, 255, 0.92);
   --term-mark-ground: #e3f0e6;
   --term-mark-ink: #2f6b41;
   --board-seam: #c9d0da;
   --stage-shadow: rgba(18, 22, 29, 0.18);
+  --veil-dim: rgba(255, 255, 255, 0.5);
+  --veil: rgba(255, 255, 255, 0.65);
+  --veil-strong: rgba(255, 255, 255, 0.85);
+  --veil-chrome: rgba(245, 246, 248, 0.9);
+  --veil-chrome-2: rgba(245, 246, 248, 0.96);
 
   --shadow-1: 0 8px 20px rgba(18, 22, 29, 0.08);
   --shadow-2: 0 10px 28px rgba(18, 22, 29, 0.12);

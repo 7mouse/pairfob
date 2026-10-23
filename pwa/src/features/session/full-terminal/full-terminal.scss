@@ -76,7 +76,7 @@
   border-radius: 12px;
   color: var(--term-ink);
   background: rgba(26, 32, 41, 0.88);
-  border: 1px solid var(--wash-strong);
+  border: 1px solid var(--ink-line-strong);
 }
 
 .full-terminal-scroll-btn:active {
@@ -178,7 +178,7 @@
   min-width: 96px;
   min-height: 44px;
   padding: 0 18px;
-  border: 1px solid var(--accent-line);
+  border: 1px solid var(--accent-40);
   border-radius: 12px;
   color: var(--accent);
   background: var(--pressed);
@@ -191,7 +191,7 @@
 }
 
 .full-terminal-state-retry:active {
-  background: var(--accent-press);
+  background: var(--accent-20);
 }
 
 @keyframes full-terminal-state-spin {
@@ -438,18 +438,18 @@ html.full-terminal-active body {
   top: 3px;
   bottom: 1px;
   border-radius: 999px;
-  background: var(--wash-ink);
+  background: var(--ink-thumb);
   transition: background var(--dur-1) var(--ease);
 }
 
-.full-terminal-pan-bar.is-dragging .full-terminal-pan-thumb { background: var(--wash-ink); }
+.full-terminal-pan-bar.is-dragging .full-terminal-pan-thumb { background: var(--ink-thumb-active); }
 
 #app.desk { @include pan-without-scrollbar; }
 
 @media (hover: hover) and (pointer: fine) {
   @include pan-without-scrollbar;
 
-  .full-terminal-pan-bar:hover .full-terminal-pan-thumb { background: var(--wash-ink); }
+  .full-terminal-pan-bar:hover .full-terminal-pan-thumb { background: var(--ink-thumb-active); }
 }
 
 @media (prefers-reduced-motion: reduce) {

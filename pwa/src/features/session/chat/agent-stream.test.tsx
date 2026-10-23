@@ -77,6 +77,62 @@ test("the card leads with changed files past a routine failure, and step rows op
   expect(opened.map(item => item.detailRef)).toEqual(["b1"]);
 });
 
+test("a folded run keeps the card's verified state, so an unverified agent reads as ended, not done", () => {
+  // Three reads: enough to fold, all settled.
+  const turn: AgentTraceItem[] = [{ type: "user", text: "inspect" },
+    { type: "tool", name: "Read", label: "a.go", toolState: "done" },
+    { type: "tool", name: "Read", label: "b.go", toolState: "done" },
+    { type: "tool", name: "Read", label: "c.go", toolState: "done" },
+    { type: "assistant", text: "Nothing there." }];
+  // Verified: each row inside the run claims its own success.
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified />));
+  act(() => appRoot().querySelector<HTMLButtonElement>(".work-folded-head")!.click());
+  expect([...appRoot().querySelectorAll(".work-folded-steps .work-step")].map((row) => row.className))
+    .toEqual(["work-step is-read is-done", "work-step is-read is-done", "work-step is-read is-done"]);
+  act(unmountReact);
+  // Unverified: the same rows end without claiming a result they cannot know.
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} />));
+  act(() => appRoot().querySelector<HTMLButtonElement>(".work-folded-head")!.click());
+  expect([...appRoot().querySelectorAll(".work-folded-steps .work-step")].map((row) => row.className))
+    .toEqual(["work-step is-read is-ended", "work-step is-read is-ended", "work-step is-read is-ended"]);
+});
+
+test("a step pressed inside a folded run opens that step, at its own place in the card's list", () => {
+  const opened: AgentTraceItem[] = [];
+  const turn: AgentTraceItem[] = [
+    { type: "user", text: "inspect" },
+    { type: "assistant", text: "I will read all three." },
+    { type: "tool", name: "Read", label: "a.go", toolState: "done", detailRef: "r1" },
+    { type: "tool", name: "Read", label: "b.go", toolState: "done", detailRef: "r2" },
+    { type: "tool", name: "Read", label: "c.go", toolState: "done", detailRef: "r3" },
+    { type: "assistant", text: "Done." },
+  ];
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified onOpenStep={(item, steps) => {
+    opened.push(item);
+    // The list the sheet pages is the card's own rows: the finding is not in it.
+    expect(steps?.map((step) => step.detailRef ?? step.type)).toEqual(["r1", "r2", "r3"]);
+    expect(opened.at(-1)!.detailRef).toBe("r3");
+  }} />));
+  act(() => appRoot().querySelector<HTMLButtonElement>(".work-folded-head")!.click());
+  const rows = [...appRoot().querySelectorAll<HTMLButtonElement>(".work-folded-steps .work-step")];
+  expect(rows).toHaveLength(3);
+  act(() => rows[2]!.click());
+  expect(opened.map((item) => item.detailRef)).toEqual(["r3"]);
+});
+
+test("an 'other' tool never folds, even in a run of its own kind", () => {
+  const turn: AgentTraceItem[] = [{ type: "user", text: "go" },
+    { type: "tool", name: "mcp_call", label: "one", toolState: "done", detailRef: "o1" },
+    { type: "tool", name: "mcp_call", label: "two", toolState: "done", detailRef: "o2" },
+    { type: "tool", name: "mcp_call", label: "three", toolState: "done", detailRef: "o3" },
+    { type: "assistant", text: "Done." }];
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified />));
+  // Its rows carry no category to name a run by, so each stays its own row.
+  expect(appRoot().querySelector(".work-folded")).toBeNull();
+  expect([...appRoot().querySelectorAll(".work-step.is-other .work-step-text")].map((node) => node.textContent))
+    .toEqual(["one", "two", "three"]);
+});
+
 test("a turn's finding stands on its own between the steps and the reply", () => {
   const finding = "The snapshot keeps no URL, so the character photo is lost at submit.";
   const turn: AgentTraceItem[] = [

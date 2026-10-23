@@ -92,8 +92,8 @@ function StepRow({ item, verified, arriving = false, onOpen }: {
  * press opens the run's first step, and its own chevron stands it down again,
  * so a long stretch of reads or greps takes one line instead of one each.
  */
-function FoldedRow({ group, arriving, onOpen }: {
-  group: StepGroup; arriving?: boolean; onOpen: (item: AgentTraceItem, steps: AgentTraceItem[]) => void;
+function FoldedRow({ group, verified, arriving, onOpen }: {
+  group: StepGroup; verified: boolean; arriving?: boolean; onOpen: (item: AgentTraceItem, steps: AgentTraceItem[]) => void;
 }) {
   const Icon = CATEGORY_ICON[group.category];
   const [open, setOpen] = useState(false);
@@ -109,7 +109,7 @@ function FoldedRow({ group, arriving, onOpen }: {
       <span className="work-folded-count">{count}</span>
     </Button>
     {open && <ol className="work-steps work-folded-steps">
-      {group.steps.map((step, index) => <StepRow key={index} item={step} verified onOpen={(item) => onOpen(item, group.steps)} />)}
+      {group.steps.map((step, index) => <StepRow key={index} item={step} verified={verified} onOpen={(item) => onOpen(item, group.steps)} />)}
     </ol>}
   </li>;
 }
@@ -157,12 +157,12 @@ export function StepList({ steps, hidden, listKey, arrivals, verified, onOpen }:
     <div ref={track} className="work-steps-track">
       {gone && <ol ref={pushed} className="work-steps work-steps-pushed" aria-hidden="true" inert>
         {pushedGroups.map((group, index) => group.steps.length > 1
-          ? <FoldedRow key={`${listKey}:pushed:${index}`} group={group} onOpen={() => undefined} />
+          ? <FoldedRow key={`${listKey}:pushed:${index}`} group={group} verified={verified} onOpen={() => undefined} />
           : <StepRow key={`${listKey}:pushed:${index}`} item={group.items[0]!} verified={verified} onOpen={onOpen} />)}
       </ol>}
       <ol className="work-steps" aria-label={t("work.stepsAria")}>
         {groups.map((group, index) => group.steps.length > 1
-          ? <FoldedRow key={`${listKey}:${hidden + (firstOf.get(group) ?? index)}`} group={group}
+          ? <FoldedRow key={`${listKey}:${hidden + (firstOf.get(group) ?? index)}`} group={group} verified={verified}
             arriving={arrived(firstOf.get(group) ?? index)} onOpen={(item) => onOpen(item, group.steps)} />
           : <StepRow key={`${listKey}:${hidden + (firstOf.get(group) ?? index)}`} item={group.items[0]!} verified={verified}
             arriving={arrived(firstOf.get(group) ?? index)} onOpen={onOpen} />)}

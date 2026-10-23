@@ -24,7 +24,7 @@ $status-tint: var(--pressed);
 
   .notice-status {
     background: $status-tint;
-    border: 1px solid var(--accent-line);
+    border: 1px solid var(--accent-30);
     color: var(--accent);
   }
 }

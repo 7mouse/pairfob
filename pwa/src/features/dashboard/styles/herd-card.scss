@@ -285,7 +285,7 @@
   border-radius: inherit;
   pointer-events: none;
   z-index: 2;
-  background: linear-gradient(100deg, transparent 22%, var(--accent-wash) 50%, transparent 78%);
+  background: linear-gradient(100deg, transparent 22%, var(--accent-16) 50%, transparent 78%);
   background-size: 300% 100%;
   background-repeat: no-repeat;
   animation: card-sweep var(--dur-trace) var(--ease) forwards;
@@ -425,7 +425,7 @@
 }
 
 .pill-blocked { background: rgba(255, 178, 36, 0.16); color: var(--warn); border-color: rgba(255, 178, 36, 0.4); }
-.pill-working { background: var(--accent-wash); color: var(--accent); border-color: var(--accent-line); }
+.pill-working { background: var(--accent-13); color: var(--accent); border-color: var(--accent-32); }
 .pill-done { background: rgba(70, 214, 140, 0.12); color: var(--ok); border-color: rgba(70, 214, 140, 0.32); }
 .pill-idle { background: transparent; color: var(--muted); border-color: var(--line-strong); }
 .pill-unknown { background: transparent; color: var(--muted); border-color: var(--line-strong); }

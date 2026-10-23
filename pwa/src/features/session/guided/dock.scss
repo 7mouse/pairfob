@@ -134,8 +134,8 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
 
 .key-mod[aria-pressed="true"],
 .key-mod.on {
-  background: var(--accent-wash);
-  border-color: var(--accent-glow);
+  background: var(--accent-16);
+  border-color: var(--accent-50);
   color: var(--accent);
   transform: none;
 
@@ -356,7 +356,7 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
 }
 
 .dock-form.live textarea {
-  border-color: var(--accent-glow);
+  border-color: var(--accent-45);
 }
 
 .dock-form.live-pending textarea::placeholder {
@@ -475,7 +475,7 @@ html[data-kb="open"] .dock { animation: dock-settle var(--dur-3) var(--ease-spri
 
 /* Edit mode wobbles your commands the way a home screen does; slash commands are the agent's and stay put. */
 .quick-cmd.is-editing {
-  border-color: var(--accent-glow);
+  border-color: var(--accent-45);
   touch-action: none;
   -webkit-touch-callout: none;
   animation: pad-jiggle .5s ease-in-out infinite alternate;

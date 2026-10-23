@@ -60,7 +60,7 @@
   white-space: nowrap;
   flex: none;
 }
-.workspace-chip[aria-pressed="true"] { border-color: var(--accent-glow); background: var(--accent-faint); color: var(--accent); }
+.workspace-chip[aria-pressed="true"] { border-color: var(--accent-55); background: var(--accent-9); color: var(--accent); }
 .workspace-chip.is-change { border-color: rgba(255, 178, 36, 0.4); color: #ffc46b; }
 .workspace-chip .workspace-git-mark { min-width: 18px; height: 18px; }
 .workspace-chip:active { background: var(--surface-2); }
@@ -205,9 +205,9 @@
 }
 .workspace-code.is-wrap .workspace-highlight { width: auto; }
 /* The line whose actions are open, marked as a diff line with a note is. */
-.workspace-code-line.is-picked { background: var(--accent-wash); box-shadow: inset 3px 0 0 var(--accent); }
+.workspace-code-line.is-picked { background: var(--accent-14); box-shadow: inset 3px 0 0 var(--accent); }
 @media (hover: hover) and (pointer: fine) {
-  .workspace-code-line:hover:not(.is-picked) { background: var(--wash-faint); }
+  .workspace-code-line:hover:not(.is-picked) { background: var(--ink-faint-35); }
 }
 .workspace-code.is-wrap .workspace-code-line { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* The lines a find matched, and the one the reader is on. */
@@ -334,7 +334,7 @@ button.diff-line-number {
 .diff-noteable .diff-line-text { padding-right: 4px; }
 .diff-noteable:is(.diff-add, .diff-delete) .diff-line-hint { opacity: 0.4; }
 .workspace-diff-line.has-note .diff-line-hint { opacity: 0.9; }
-.workspace-diff-line.diff-noteable:active { background: var(--accent-press); }
+.workspace-diff-line.diff-noteable:active { background: var(--accent-20); }
 .workspace-diff-line.has-note { box-shadow: inset 3px 0 0 var(--accent); }
 /* A phone keeps :hover after the tap, so hover-only affordances would stay
    stuck on the last line the reader touched. */
@@ -354,7 +354,7 @@ button.diff-line-number {
   gap: 4px;
   margin: 4px 10px 8px calc(var(--diff-gutter) + 0.95rem);
   padding: 9px 10px 4px 12px;
-  border: 1px solid var(--accent-press);
+  border: 1px solid var(--accent-28);
   border-radius: var(--r-md);
   background: var(--surface-2);
   font-family: var(--font);
@@ -366,7 +366,7 @@ button.diff-line-number {
 .workspace-diff-note.is-sending { opacity: 0.6; }
 @keyframes note-fresh {
   0% { opacity: 0; transform: translateY(-6px); box-shadow: 0 0 0 0 transparent; }
-  25% { opacity: 1; transform: none; box-shadow: 0 0 0 4px var(--accent-line); }
+  25% { opacity: 1; transform: none; box-shadow: 0 0 0 4px var(--accent-35); }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
 .diff-note-main { display: flex; align-items: flex-start; gap: 8px; min-width: 0; cursor: pointer; }
@@ -418,7 +418,7 @@ button.diff-line-number {
 }
 /* A note that is not saved yet waits in the saved card's place: the same card,
    unfilled and dashed, and its words are the way back into the editor. */
-.workspace-diff-note.is-draft { border-style: dashed; border-color: var(--accent-glow); background: none; }
+.workspace-diff-note.is-draft { border-style: dashed; border-color: var(--accent-60); background: none; }
 /* Says what the dashed card is: a note still to be saved, not one already kept. */
 .diff-note-state { flex: none; color: var(--accent); font-size: var(--text-caption); font-weight: 620; white-space: nowrap; }
 .diff-note-resume { width: 100%; min-height: 34px; padding: 0; align-items: center; border-radius: var(--r-sm); color: var(--muted); text-align: left; }
@@ -513,7 +513,7 @@ button.diff-line-number {
   /* The note card's own place, so saving swaps one for the other without a jump. */
   margin: 4px 10px 8px calc(var(--diff-gutter) + 0.95rem);
   padding: 8px;
-  border: 1px solid var(--accent-glow);
+  border: 1px solid var(--accent-45);
   border-radius: var(--r-md);
   background: var(--surface-2);
   font-family: var(--font);

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { setLang, t } from "./i18n.ts";
 import type { AgentTraceItem } from "./operations";
-import { formatElapsed, groupSteps, pendingAsk, recordsStepResults, stepCategory, stepObject, stepState, turnOutcome, turnSpan } from "./agent-trace-steps";
+import { formatElapsed, groupSteps, pendingAsk, recordsStepResults, stepCategory, stepObject, stepRows, stepState, turnOutcome, turnSpan } from "./agent-trace-steps";
 
 beforeEach(() => setLang("zh"));
 
@@ -151,5 +151,21 @@ describe("consecutive same-kind tools fold into one row", () => {
     expect(failing.every((group) => group.steps.length === 1)).toBe(true);
     const running = groupSteps([tool("Bash", { toolState: "done" }), tool("Bash", { toolState: "running" }), tool("Bash", { toolState: "done" })]);
     expect(running.every((group) => group.steps.length === 1)).toBe(true);
+  });
+});
+
+describe("the rows a card draws", () => {
+  test("findings leave the list so a press and the sheet count the same rows", () => {
+    const entries = [
+      { type: "assistant" as const, text: "Let me look first." },
+      tool("Read", { toolState: "done", detailRef: "r1" }),
+      { type: "assistant" as const, text: "Now the next one." },
+      tool("Read", { toolState: "done", detailRef: "r2" }),
+    ];
+    // The finding is drawn as its own message; the rows keep only the steps.
+    expect(stepRows(entries).map((row) => row.detailRef)).toEqual(["r1", "r2"]);
+    // Without findings the list is untouched, so a plain turn keeps its identity.
+    const plain = [tool("Read", { toolState: "done" })];
+    expect(stepRows(plain)).toEqual(plain);
   });
 });

@@ -91,7 +91,7 @@
 .create-chip-sub { color: var(--muted); font-weight: 400; font-size: var(--text-secondary); }
 .create-chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .create-chip.on .create-chip-sub { color: inherit; opacity: 0.7; }
-.create-chip.is-combo.on { background: var(--accent-wash); color: var(--ink); border-color: var(--accent); }
+.create-chip.is-combo.on { background: var(--accent-12); color: var(--ink); border-color: var(--accent); }
 .create-chip.is-new:not(.on) { border-style: dashed; color: var(--accent); }
 
 .create-path { margin: 6px 0 0; font: 500 var(--text-caption) var(--mono); color: var(--muted); }
@@ -278,7 +278,7 @@ dialog.modal#{$desk} .create-footer > .create-submit {
 .create-sheet-body .kind-filter:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
 
 .kind-row { display: flex; align-items: center; border-radius: var(--r-md); transition: background-color var(--dur-1) var(--ease); }
-.kind-row.is-selected { background: var(--accent-faint); }
+.kind-row.is-selected { background: var(--accent-08); }
 
 .kind-pick {
   flex: 1 1 auto;
