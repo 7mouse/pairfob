@@ -212,6 +212,42 @@ export function splitTurn(turn: AgentTurn) {
 
 export type TurnRef = { key: string; ordinal: number };
 
+/**
+ * A run of consecutive steps the card shows as one row: same category tools,
+ * no findings between them, so "read 6 files" reads as one deed instead of six
+ * rows a phone has to scroll. A run shorter than the threshold stays expanded;
+ * so does one holding a running or failed step, whose row has to be pressable
+ * to open the failure. Everything else is a run of one, shown as itself.
+ */
+export type StepGroup = {
+  /** Rows the card draws: a grouped run is one entry holding its steps. */
+  items: AgentTraceItem[];
+  /** The run's steps; one element is a plain row. */
+  steps: AgentTraceItem[];
+  category: StepCategory;
+};
+
+/** Short enough to read as a list already; only longer runs fold. */
+const FOLD_FROM = 3;
+
+export function groupSteps(steps: readonly AgentTraceItem[]): StepGroup[] {
+  const settled = (step: AgentTraceItem) => step.type === "tool" && toolState(step) === "done" && stepCategory(step) !== "other";
+  const groups: StepGroup[] = [];
+  for (const item of steps) {
+    const previous = groups.at(-1);
+    const category = stepCategory(item);
+    if (settled(item) && previous && previous.category === category && previous.steps.every(settled)) {
+      previous.steps.push(item);
+      continue;
+    }
+    groups.push({ items: [item], steps: [item], category });
+  }
+  // A run that stayed under the threshold is its own rows again.
+  return groups.flatMap((group) => group.steps.length === 1 || group.steps.length >= FOLD_FROM
+    ? [group]
+    : group.steps.map((step) => ({ items: [step], steps: [step], category: group.category })));
+}
+
 /** The current steps of the turn a sheet was opened from, or null once it is gone. */
 export function turnEntries(items: readonly AgentTraceItem[], ref: TurnRef): AgentTraceItem[] | null {
   const turn = groupAgentTurns(items).filter((candidate) => turnKey(candidate) === ref.key)[ref.ordinal];

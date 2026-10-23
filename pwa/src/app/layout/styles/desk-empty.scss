@@ -57,9 +57,9 @@
 }
 
 .main .desk-ticket:active { background: var(--surface-2); }
-.main .desk-ticket.is-blocked { border-color: rgba(255, 178, 36, 0.28); background: #1c1a13; }
+.main .desk-ticket.is-blocked { border-color: rgba(255, 178, 36, 0.28); background: var(--blocked-ground); }
 .main .desk-ticket.is-blocked:active { background: #24211a; }
-.main .desk-ticket.is-blocked .agent-avatar-status { border-color: #1c1a13; }
+.main .desk-ticket.is-blocked .agent-avatar-status { border-color: var(--blocked-ground); }
 .main .desk-ticket > svg { flex: none; }
 
 .main .desk-ticket-copy { flex: 1 1 auto; min-width: 0; }

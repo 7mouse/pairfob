@@ -252,7 +252,7 @@
 .workspace-git-mark.mark-deleted { background: rgba(255, 128, 128, 0.13); color: #ff9a9a; }
 .workspace-git-mark.mark-renamed,
 .workspace-git-mark.mark-copied,
-.workspace-git-mark.mark-type { background: rgba(110, 168, 254, 0.14); color: #8fb8ff; }
+.workspace-git-mark.mark-type { background: var(--accent-wash); color: #8fb8ff; }
 .workspace-git-mark.mark-conflict { background: #ffb224; color: #1a0d00; }
 
 .workspace-dir-mark {
@@ -333,7 +333,7 @@
   color: var(--ink);
   text-align: left;
 }
-.workspace-change.active { background: rgba(110, 168, 254, 0.12); }
+.workspace-change.active { background: var(--accent-wash); }
 
 /* A file changed in both layers: one row, with the staged diff as a tag before the row's size
    and mark, which keep the list's right-hand column. The row's button is pressed over the
@@ -351,7 +351,7 @@
 .workspace-change-pair > .workspace-change::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .workspace-change-pair > .workspace-change-layer { position: relative; z-index: 1; margin: 0 -4px; }
 .workspace-change-tail { display: inline-flex; align-items: center; gap: 10px; flex: none; pointer-events: none; }
-.workspace-change-pair.active { background: rgba(110, 168, 254, 0.12); }
+.workspace-change-pair.active { background: var(--accent-wash); }
 .workspace-change-pair:has(> .workspace-change:active) { background: var(--surface); }
 .workspace-change-layer {
   display: inline-flex;
@@ -375,7 +375,7 @@
 @container changes (max-width: 479.98px) {
   .workspace-change-tail .workspace-change-bar { display: none; }
 }
-.workspace-change-layer.active { background: rgba(110, 168, 254, 0.12); color: var(--ink); }
+.workspace-change-layer.active { background: var(--accent-wash); color: var(--ink); }
 .workspace-change-layer.is-reviewed .workspace-review-dot { border-color: var(--ok); background: var(--ok); }
 .workspace-change-layer:active { background: var(--surface); }
 .workspace-change-head { gap: 2px; }
@@ -471,7 +471,7 @@
   padding: 0 6px 0 14px;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
-  background: #0e1218;
+  background: var(--plate);
 }
 .workspace-root-card code {
   flex: 1;
@@ -531,7 +531,7 @@
   min-height: 22px;
   padding: 0 7px;
   border-radius: 6px;
-  background: rgba(110, 168, 254, 0.15);
+  background: var(--accent-wash);
   color: var(--accent);
   font-size: 0.66rem;
   font-weight: 700;

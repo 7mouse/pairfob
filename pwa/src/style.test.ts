@@ -349,7 +349,7 @@ describe("UI accessibility guardrails", () => {
   });
 
   test("session compose live mode is marked on the field, not a dock switch", () => {
-    expect(rule(".dock-form.live textarea")).toMatch(/border-color:\s*rgba\(110, 168, 254/);
+    expect(rule(".dock-form.live textarea")).toContain("border-color: var(--accent-glow)");
     expect(css).not.toMatch(/\.compose-well/);
     expect(css).not.toMatch(/\.compose-mode-btn/);
   });

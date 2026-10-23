@@ -129,6 +129,23 @@ function AssistantReply({ items, final, anchor, part, onCopy }: {
   </article>;
 }
 
+/**
+ * What the agent found, spoken between its steps: its own message in the
+ * transcript, beside the card rather than inside it, so a finding reads in the
+ * flow of the conversation and a run of steps never buries it.
+ */
+function FindingBubble({ item, anchor, part, onOpen }: {
+  item: AgentTraceItem; anchor: TraceAnchor; part: string; onOpen: (item: AgentTraceItem) => void;
+}) {
+  const html = renderMarkdown(item.text || "", false);
+  return <article {...anchorData(anchor, part)} className="agent-finding">
+    <button type="button" className="agent-finding-body" onClick={() => onOpen(item)}>
+      {/* The existing Markdown parser returns sanitized allowlisted HTML. */}
+      <div className="agent-md" dangerouslySetInnerHTML={{ __html: html }} />
+    </button>
+  </article>;
+}
+
 
 /**
  * The card's saved open/closed choice key. Repeated prompts share a turn key,
@@ -195,6 +212,10 @@ function TraceTurn({ turn, state, anchor, kept, onCopy, onTerminal, onAnswered, 
   onAnswered?: () => void; onOpenStep: OpenStep;
 }) {
   const { entries, reply, compacted, interrupted } = splitTurn(turn);
+  // Findings are the agent's own words between steps. They leave the card and
+  // speak in the transcript, so a run of steps never buries what it concluded.
+  const findings = entries.filter((item) => item.type === "assistant");
+  const steps = findings.length ? entries.filter((item) => item.type !== "assistant") : entries;
   const { live, waiting } = state;
   const outcome = turnOutcome(turn.items, state);
   const tools = entries.filter((item) => item.type === "tool");
@@ -206,16 +227,18 @@ function TraceTurn({ turn, state, anchor, kept, onCopy, onTerminal, onAnswered, 
   if (state.partial) outcome.detail = [t("work.partial"), outcome.detail].filter(Boolean).join(" · ");
   const models = turnModels(turn.items);
   // A turn that stopped to ask before any step has nothing to show but the needs-you card below it.
-  const card = models !== undefined || entries.length > 0 || interrupted || (live && !state.pending && !waiting);
+  const card = models !== undefined || steps.length > 0 || interrupted || (live && !state.pending && !waiting);
   // The agent stopped to ask while this turn was on screen: its card is raised, not just drawn.
   const asked = useTurned(live && waiting);
   return <>
     {turn.user && <TurnHead item={turn.user} anchorData={anchorData(anchor, "user")} arriving={state.sent} />}
     {state.pending && !turn.items.length && <PendingCard {...state.pending} arriving={state.sent} />}
-    {card && <WorkCard traceKey={workKey(turn)} entries={entries} outcome={outcome} live={live} follow={state.follow} kept={kept}
+    {card && <WorkCard traceKey={workKey(turn)} entries={steps} outcome={outcome} live={live} follow={state.follow} kept={kept}
       verified={state.verified} models={models} span={turnSpan(turn.user, turn.items)} historyLoads={state.historyLoads}
       onOpen={(item, steps) => onOpenStep(item, steps, { key: anchor.key, ordinal: anchor.ordinal })}
       anchor={{ anchor: `${anchor.key}:work`, ordinal: anchor.ordinal, ordinalFromEnd: anchor.ordinalFromEnd }} />}
+    {findings.map((item, index) => <FindingBubble key={`${anchor.key}:finding:${index}`} item={item}
+      anchor={anchor} part={`finding-${index}`} onOpen={(step) => onOpenStep(step, entries, { key: anchor.key, ordinal: anchor.ordinal })} />)}
     {live && waiting && <NeedsYouCard ask={pendingAsk(turn.items)} raised={asked} onTerminal={onTerminal} onAnswered={onAnswered} />}
     {reply.length > 0 && <AssistantReply items={reply} final={!live} anchor={anchor} part="reply" onCopy={onCopy} />}
     {compacted && <CompactionDivider />}

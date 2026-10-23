@@ -77,6 +77,28 @@ test("the card leads with changed files past a routine failure, and step rows op
   expect(opened.map(item => item.detailRef)).toEqual(["b1"]);
 });
 
+test("a turn's finding stands on its own between the steps and the reply", () => {
+  const finding = "The snapshot keeps no URL, so the character photo is lost at submit.";
+  const turn: AgentTraceItem[] = [
+    { type: "user", text: "inspect" },
+    { type: "tool", name: "Read", label: "gen.go", toolState: "done", detailRef: "r1" },
+    { type: "assistant", text: finding },
+    { type: "tool", name: "Edit", label: "gen.go", toolState: "done", detailRef: "e1" },
+    { type: "assistant", text: "Fixed." },
+  ];
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified />));
+  const card = appRoot().querySelector<HTMLElement>(".work-card")!;
+  const bubble = appRoot().querySelector<HTMLElement>(".agent-finding")!;
+  // The card holds steps alone: no step row repeats the finding.
+  expect(card.querySelector(".agent-finding")).toBeNull();
+  expect([...card.querySelectorAll(".work-step-text")].map((node) => node.textContent)).toEqual(["gen.go", "gen.go"]);
+  // The finding is its own message, between the card and the reply, in order.
+  expect(bubble.textContent).toContain(finding);
+  expect(Boolean(card.compareDocumentPosition(bubble) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+  const reply = appRoot().querySelector(".agent-assistant-final")!;
+  expect(Boolean(bubble.compareDocumentPosition(reply) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+});
+
 test("a manual collapse of a live card survives new output and keeps its card node", () => {
   const paint = (text: string) => act(() => renderReact(<AgentStream items={[...items.slice(0, 3), { type: "assistant", text }]}
     working empty={empty} />));
@@ -100,7 +122,14 @@ test("a live card shows the latest steps and reveals earlier ones on request", (
   act(() => renderReact(<AgentStream items={many} working empty={empty} />));
   expect([...appRoot().querySelectorAll(".work-step-text")].map(node => node.textContent)).toEqual(["f3.ts", "f4.ts", "f5.ts", "f6.ts"]);
   act(() => appRoot().querySelector<HTMLButtonElement>(".work-earlier")!.click());
-  expect(appRoot().querySelectorAll(".work-step")).toHaveLength(7);
+  // Opened whole, the seven reads are one run: one row naming the count, the
+  // files a press away. The window's own rows stay one step each.
+  const folded = appRoot().querySelector<HTMLButtonElement>(".work-folded-head")!;
+  expect(folded.getAttribute("aria-label")).toContain(t("work.folded", { category: t("work.cat.read"), n: 7 }));
+  expect(folded.querySelector(".work-folded-count")?.textContent).toBe(t("work.foldedCount", { n: 7 }));
+  expect(appRoot().querySelectorAll(".work-step")).toHaveLength(1);
+  act(() => folded.click());
+  expect(appRoot().querySelectorAll(".work-step.is-read")).toHaveLength(7);
 });
 
 test("a blocked agent raises the needs-you card with what it waits to run", () => {

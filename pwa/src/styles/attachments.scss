@@ -168,7 +168,7 @@
 
 .attach-chip-wrap.is-selected .attach-chip {
   border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(110, 168, 254, 0.35);
+  box-shadow: 0 0 0 2px var(--accent-line);
 }
 
 .attach-chip.is-failed { border-color: var(--danger-bright); }
@@ -227,7 +227,7 @@
   stroke-width: 3.5;
 }
 
-.attach-ring-bg { stroke: rgba(233, 237, 243, 0.25); }
+.attach-ring-bg { stroke: var(--hairline); }
 
 .attach-ring-fg {
   stroke: #fff;

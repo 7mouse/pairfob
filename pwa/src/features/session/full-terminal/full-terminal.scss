@@ -76,7 +76,7 @@
   border-radius: 12px;
   color: var(--term-ink);
   background: rgba(26, 32, 41, 0.88);
-  border: 1px solid rgba(233, 237, 243, 0.16);
+  border: 1px solid var(--wash-strong);
 }
 
 .full-terminal-scroll-btn:active {
@@ -178,10 +178,10 @@
   min-width: 96px;
   min-height: 44px;
   padding: 0 18px;
-  border: 1px solid rgba(110, 168, 254, 0.4);
+  border: 1px solid var(--accent-line);
   border-radius: 12px;
   color: var(--accent);
-  background: rgba(110, 168, 254, 0.1);
+  background: var(--pressed);
   font-size: var(--text-lead);
   font-weight: 660;
 }
@@ -191,7 +191,7 @@
 }
 
 .full-terminal-state-retry:active {
-  background: rgba(110, 168, 254, 0.2);
+  background: var(--accent-press);
 }
 
 @keyframes full-terminal-state-spin {
@@ -309,7 +309,7 @@ html.page-zoomed .full-terminal-host .full-terminal-pan {
   border: 1px solid var(--line-strong);
   border-radius: 13px;
   color: var(--term-ink);
-  background: #0a0d12;
+  background: var(--sink);
   font: 400 16px/1.3 var(--font);
   letter-spacing: 0;
   text-transform: none;
@@ -438,18 +438,18 @@ html.full-terminal-active body {
   top: 3px;
   bottom: 1px;
   border-radius: 999px;
-  background: rgba(233, 237, 243, 0.34);
+  background: var(--wash-ink);
   transition: background var(--dur-1) var(--ease);
 }
 
-.full-terminal-pan-bar.is-dragging .full-terminal-pan-thumb { background: rgba(233, 237, 243, 0.62); }
+.full-terminal-pan-bar.is-dragging .full-terminal-pan-thumb { background: var(--wash-ink); }
 
 #app.desk { @include pan-without-scrollbar; }
 
 @media (hover: hover) and (pointer: fine) {
   @include pan-without-scrollbar;
 
-  .full-terminal-pan-bar:hover .full-terminal-pan-thumb { background: rgba(233, 237, 243, 0.62); }
+  .full-terminal-pan-bar:hover .full-terminal-pan-thumb { background: var(--wash-ink); }
 }
 
 @media (prefers-reduced-motion: reduce) {
