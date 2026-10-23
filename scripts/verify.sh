@@ -21,6 +21,9 @@ fi
 
 bash -n "$ROOT/scripts/install.sh"
 bash -n "$ROOT/scripts/release.sh"
+bash -n "$ROOT/scripts/build-android-release.sh"
+bash -n "$ROOT/scripts/publish-android-beta.sh"
+python3 "$ROOT/scripts/android-provenance.test.py"
 bash -n "$ROOT/scripts/pack-origin-assets.sh"
 bash -n "$ROOT/scripts/ship-guard.sh"
 bash -n "$ROOT/scripts/verify-web.sh"

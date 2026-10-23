@@ -9,7 +9,7 @@
     "apk:debug": "cd android && ./gradlew assembleDebug",
     "apk:release": "cd android && ./gradlew assembleRelease",
     "build:debug": "export PAIRFOB_ANDROID_SCHEME=https; export VITE_PAIRFOB_RELAY_ORIGIN=${PAIRFOB_RELAY_ORIGIN:-https://pairfob.com}; bun run pwa:native && bun run sync && bun run apk:debug",
-    "build:release": "export PAIRFOB_ANDROID_SCHEME=https; export VITE_PAIRFOB_RELAY_ORIGIN=${PAIRFOB_RELAY_ORIGIN:-https://pairfob.com}; bun run pwa:native && bun run sync && bun run apk:release",
+    "build:release": "bash ../scripts/build-android-release.sh",
     "build:debug:dev": "export PAIRFOB_ANDROID_SCHEME=http; export VITE_PAIRFOB_RELAY_ORIGIN=${PAIRFOB_RELAY_ORIGIN:-http://127.0.0.1:18786}; bun run pwa:native && bun run sync && bun run apk:debug"
   },
   "dependencies": {

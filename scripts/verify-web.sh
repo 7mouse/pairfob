@@ -29,3 +29,6 @@ step "Worker tests" bun test src
 step "Worker harness" bun test e2e
 step "Worker types" bun run typecheck
 step "Worker integration" bun run e2e:wrangler
+
+cd "$ROOT/workers/pairfob-downloads"
+step "Android download Worker tests" bun test src

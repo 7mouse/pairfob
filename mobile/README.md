@@ -106,6 +106,13 @@ every six hours. A higher `versionCode` offers **Download and install**, which
 sends the versioned APK to the system browser. Android's installer enforces the
 same signing key and keeps app data and pairing.
 
+Release builds require a clean source checkout. `build:release` fixes the production
+origins, embeds the source commit and tree in the signed APK, and fails if source
+changes during the build. Publishing reads that embedded provenance; an old APK
+cannot be relabeled with the publishing checkout's commit. Keep the generated
+`app-release.apk.provenance.json` beside the APK when moving it: publishing checks
+its final-byte hash to reject an APK rebuilt outside the release pipeline.
+
 Publish a built APK:
 
 ```sh
@@ -124,9 +131,22 @@ old channel at the staged build once more, and `--legacy-relay` publishes to
 both in one run. Both deploy the relay and require `--deploy`; use them only for the transition.
 
 The PWA side is `pwa/src/features/settings/android-update.ts` and
-`android-update-view.tsx`. `MainActivity` exposes the native bridge: installed
-version, an allowlisted HTTPS GET, and the browser intent. The allowlist is
-`pairfob.com`, `dl.pairfob.com`, and loopback for development.
+`android-update-view.tsx`. `UpdateBridge` installs an origin-restricted WebView
+message listener before navigation. Only the `https://localhost` main frame can
+read the installed version, fetch the exact download manifest or open a beta APK
+on `dl.pairfob.com`. Debug builds also allow the local HTTP app origin and
+loopback downloads. Unsupported WebViews receive no privileged fallback.
+
+Run the native boundary tests on a connected emulator (the release test uses the
+same signing key and preserves the existing app data):
+
+```sh
+cd android
+./gradlew connectedReleaseAndroidTest -PpairfobTestBuildType=release
+```
+
+Tester instructions and known limits live in
+[`site/doc/android-beta.md`](../site/doc/android-beta.md) and its Chinese version.
 
 ## Local dev relay
 

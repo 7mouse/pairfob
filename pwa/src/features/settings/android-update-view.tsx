@@ -128,8 +128,9 @@ export function AndroidUpdateRow() {
     setPhase({ kind: "opening", release });
     try {
       await app.openUrl({ url });
-    } finally {
       if (mounted.current) setPhase({ kind: "available", release });
+    } catch {
+      if (mounted.current) setPhase({ kind: "error" });
     }
   }
 

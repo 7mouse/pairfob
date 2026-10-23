@@ -66,7 +66,9 @@ AAPT2="${BUILD_TOOLS}aapt2"
 APKSIGNER="${BUILD_TOOLS}apksigner"
 [[ -x "$AAPT2" && -x "$APKSIGNER" ]] || { echo "aapt2 or apksigner missing in $BUILD_TOOLS" >&2; exit 1; }
 [[ -f "$DOWNLOADS/wrangler.jsonc" ]] || { echo "download worker missing: $DOWNLOADS" >&2; exit 1; }
-[[ -f "$RELAY/public-dist/index.html" ]] || { echo "relay live asset pack is missing; run scripts/pack-origin-assets.sh first" >&2; exit 1; }
+if [[ "$LEGACY_ONLY" == "1" || "$LEGACY_RELAY" == "1" ]]; then
+  [[ -f "$RELAY/public-dist/index.html" ]] || { echo "relay live asset pack is missing; run scripts/pack-origin-assets.sh first" >&2; exit 1; }
+fi
 
 mkdir -p "$STAGE"
 LOCK="$STAGE/.publish.lock"
@@ -157,12 +159,9 @@ with open(path, "w", encoding="utf-8") as handle:
 PY
 }
 
-commit="$(git -C "$ROOT" rev-parse --short HEAD 2>/dev/null || echo unknown)"
+# Read build-time provenance from the signed APK, never from the publishing checkout.
+commit=""
 dirty=0
-if [[ -n "$(git -C "$ROOT" status --porcelain --untracked-files=no 2>/dev/null || true)" ]]; then dirty=1; fi
-if [[ "$dirty" == "1" ]]; then
-  echo "warning: working tree is dirty; manifest records commit $commit with dirty=true" >&2
-fi
 
 # ---------------------------------------------------------------------------
 # Legacy channel only: republish the staged build to pairfob.com/dl/android.
@@ -172,6 +171,7 @@ if [[ "$LEGACY_ONLY" == "1" ]]; then
   staged_url="$(json_field "$STAGE/latest.json" url)" || { echo "staged manifest is unreadable" >&2; exit 1; }
   file_name="$(basename "$staged_url")"
   verify_staged "$STAGE/latest.json" "$STAGE/$file_name" || exit 1
+  commit="$(python3 "$ROOT/scripts/android-provenance.py" apk "$STAGE/$file_name")"
   staged_code="$VERSION_CODE"
   staged_name="$VERSION_NAME"
   staged_sha="$APK_SHA"
@@ -217,6 +217,7 @@ fi
 # ---------------------------------------------------------------------------
 [[ -f "$APK" ]] || { echo "APK not found: $APK" >&2; exit 1; }
 apk_meta "$APK" || exit 1
+commit="$(python3 "$ROOT/scripts/android-provenance.py" apk "$APK")"
 candidate_code="$VERSION_CODE"
 candidate_name="$VERSION_NAME"
 candidate_sha="$APK_SHA"
@@ -365,6 +366,7 @@ fi
 
 mkdir -p "$STAGE" "$DL_PUBLIC"
 cp "$APK" "$STAGE/$file_name"
+cp "$APK.provenance.json" "$STAGE/$file_name.provenance.json"
 write_manifest "$STAGE/latest.json" "/android/beta/$file_name" "$candidate_code" "$candidate_name" "$candidate_sha" "$candidate_size" "$commit" "$dirty"
 
 prev_name="$(basename "${retain_url:-}")"

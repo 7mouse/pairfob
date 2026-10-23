@@ -1,0 +1,36 @@
+name: Android beta feedback
+description: Report a problem with the Android beta / 反馈 Android 测试版问题
+title: "[Android beta] "
+body:
+  - type: markdown
+    attributes:
+      value: "This issue is public. Redact private content; never attach pairing codes, QR links or keys. 此反馈公开可见，请勿上传配对码、二维码链接或密钥。"
+  - type: input
+    id: versions
+    attributes:
+      label: App and daemon versions / 应用和 daemon 版本
+      description: App Settings and pairfob version on the computer.
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone, Android and WebView versions / 手机及系统版本
+    validations:
+      required: true
+  - type: dropdown
+    id: installation
+    attributes:
+      label: Installation / 安装方式
+      options:
+        - Fresh install / 全新安装
+        - Update over an existing beta / 覆盖更新
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps, expected and actual result / 步骤、预期和实际结果
+      description: Include network type and whether reconnecting changes the result. 请说明网络类型和重连后的表现。
+    validations:
+      required: true

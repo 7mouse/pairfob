@@ -20,59 +20,77 @@ export type NativeAppBridge = {
   fetchText(url: string): Promise<string>;
 };
 
-type PairfobNative = {
-  versionName(): string;
-  versionCode(): number;
-  openUrl(url: string): void;
-  fetch(url: string, requestId: string): void;
+export type NativeMessagePort = {
+  postMessage(message: string): void;
+  onmessage: ((event: { data: string }) => void) | null;
 };
 
-type NativeWindow = Window & {
-  PairfobNative?: PairfobNative;
-  __pairfobNativeFetch?: (id: string, ok: boolean, body: string) => void;
-};
+type NativeWindow = Window & { PairfobNative?: NativeMessagePort };
 
-let counter = 0;
-let installed = false;
-const pending = new Map<string, { resolve: (body: string) => void; reject: (error: Error) => void }>();
-
-function installCallback(): void {
-  if (installed || typeof window === "undefined") return;
-  installed = true;
-  (window as NativeWindow).__pairfobNativeFetch = (id, ok, body) => {
-    const waiter = pending.get(id);
+/** Correlate replies and bound failed requests, including a missing native reply. */
+export function createNativeApp(port: NativeMessagePort, timeoutMs = 25_000): NativeAppBridge {
+  let counter = 0;
+  const pending = new Map<string, {
+    resolve: (value: unknown) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }>();
+  port.onmessage = (event) => {
+    let reply: { id?: unknown; ok?: unknown; value?: unknown };
+    try { reply = JSON.parse(event.data); } catch { return; }
+    if (!reply || typeof reply.id !== "string") return;
+    const waiter = pending.get(reply.id);
     if (!waiter) return;
-    pending.delete(id);
-    if (ok) waiter.resolve(body);
-    else waiter.reject(new Error("native fetch failed"));
+    pending.delete(reply.id);
+    clearTimeout(waiter.timer);
+    if (reply.ok === true) waiter.resolve(reply.value);
+    else waiter.reject(new Error("native update request failed"));
+  };
+  function request(method: string, url?: string): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const id = String(++counter);
+      const timer = setTimeout(() => {
+        pending.delete(id);
+        reject(new Error("native update request timed out"));
+      }, timeoutMs);
+      pending.set(id, { resolve, reject, timer });
+      try {
+        port.postMessage(JSON.stringify({ id, method, url }));
+      } catch (error) {
+        pending.delete(id);
+        clearTimeout(timer);
+        reject(error instanceof Error ? error : new Error("native update request failed"));
+      }
+    });
+  }
+  return {
+    getInfo: async () => {
+      const info = await request("getInfo") as NativeAppInfo | null;
+      if (!info || typeof info.version !== "string" || typeof info.build !== "string") {
+        throw new Error("invalid native app info");
+      }
+      return info;
+    },
+    openUrl: async ({ url }) => { await request("openUrl", url); },
+    fetchText: async (url) => {
+      const text = await request("fetchText", url);
+      if (typeof text !== "string") throw new Error("invalid native response");
+      return text;
+    },
   };
 }
 
-/** The native bridge, or null in the hosted web build. */
+let cachedPort: NativeMessagePort | undefined;
+let cachedApp: NativeAppBridge | null = null;
+
+/** The origin-restricted native bridge, or null in the hosted web build. */
 export function nativeApp(): NativeAppBridge | null {
   if (typeof window === "undefined") return null;
-  const bridge = (window as NativeWindow).PairfobNative;
-  if (!bridge) return null;
-  installCallback();
-  return {
-    getInfo: async () => ({
-      name: "Pairfob",
-      id: "com.pairfob.app",
-      version: String(bridge.versionName()),
-      build: String(bridge.versionCode()),
-    }),
-    openUrl: async ({ url }) => {
-      bridge.openUrl(url);
-    },
-    fetchText: (url) => new Promise<string>((resolve, reject) => {
-      const id = String(++counter);
-      pending.set(id, { resolve, reject });
-      try {
-        bridge.fetch(url, id);
-      } catch (error) {
-        pending.delete(id);
-        reject(error instanceof Error ? error : new Error("native fetch failed"));
-      }
-    }),
-  };
+  const port = (window as NativeWindow).PairfobNative;
+  if (!port || typeof port.postMessage !== "function") return null;
+  if (port !== cachedPort) {
+    cachedPort = port;
+    cachedApp = createNativeApp(port);
+  }
+  return cachedApp;
 }
