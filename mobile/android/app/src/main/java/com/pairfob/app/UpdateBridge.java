@@ -73,7 +73,8 @@ final class UpdateBridge {
                         default:
                             throw new IllegalArgumentException();
                     }
-                } catch (Exception ignored) {
+                } catch (Exception error) {
+                    android.util.Log.w("PairfobUpdate", "Request rejected: " + error.getClass().getSimpleName());
                     respond(reply, id, false, "native update request failed");
                 }
             });
@@ -106,7 +107,8 @@ final class UpdateBridge {
                 connection.setReadTimeout(8000);
                 connection.setInstanceFollowRedirects(false);
                 connection.setRequestProperty("Accept", "application/json");
-                if (connection.getResponseCode() != 200) throw new IllegalStateException();
+                int status = connection.getResponseCode();
+                if (status != 200) throw new java.io.IOException("HTTP " + status);
                 try (InputStream input = connection.getInputStream()) {
                     ByteArrayOutputStream output = new ByteArrayOutputStream();
                     byte[] buffer = new byte[4096];
@@ -120,7 +122,8 @@ final class UpdateBridge {
                     body = output.toString(StandardCharsets.UTF_8.name());
                     ok = true;
                 }
-            } catch (Exception ignored) {
+            } catch (Exception error) {
+                android.util.Log.w("PairfobUpdate", "Manifest check failed", error);
                 // A failed check is retryable from Settings.
             } finally {
                 if (connection != null) connection.disconnect();

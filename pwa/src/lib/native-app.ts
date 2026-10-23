@@ -30,6 +30,7 @@ type NativeWindow = Window & { PairfobNative?: NativeMessagePort };
 /** Correlate replies and bound failed requests, including a missing native reply. */
 export function createNativeApp(port: NativeMessagePort, timeoutMs = 25_000): NativeAppBridge {
   let counter = 0;
+  const fetches = new Map<string, Promise<string>>();
   const pending = new Map<string, {
     resolve: (value: unknown) => void;
     reject: (error: Error) => void;
@@ -72,10 +73,17 @@ export function createNativeApp(port: NativeMessagePort, timeoutMs = 25_000): Na
       return info;
     },
     openUrl: async ({ url }) => { await request("openUrl", url); },
-    fetchText: async (url) => {
-      const text = await request("fetchText", url);
-      if (typeof text !== "string") throw new Error("invalid native response");
-      return text;
+    fetchText: (url) => {
+      // Startup and Settings can check together. Share the bounded native
+      // request instead of making one caller fail with a busy bridge.
+      const existing = fetches.get(url);
+      if (existing) return existing;
+      const run = request("fetchText", url).then((text) => {
+        if (typeof text !== "string") throw new Error("invalid native response");
+        return text;
+      }).finally(() => { fetches.delete(url); });
+      fetches.set(url, run);
+      return run;
     },
   };
 }

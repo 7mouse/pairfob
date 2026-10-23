@@ -32,6 +32,20 @@ test("native denial and browser intent failures reject the caller", async () => 
   await expect(opened).rejects.toThrow("native update request failed");
 });
 
+test("startup and Settings share an in-flight check and can retry after failure", async () => {
+  const { app, sent, reply } = fixture();
+  const startup = app.fetchText("manifest");
+  const settings = app.fetchText("manifest");
+  expect(sent).toHaveLength(1);
+  reply(0, "failed", false);
+  expect((await Promise.allSettled([startup, settings])).map((result) => result.status))
+    .toEqual(["rejected", "rejected"]);
+  const retry = app.fetchText("manifest");
+  expect(sent).toHaveLength(2);
+  reply(1, "release");
+  expect(await retry).toBe("release");
+});
+
 test("missing native replies time out and late replies cannot settle another request", async () => {
   const { app, port, reply } = fixture(10);
   const missing = app.fetchText("https://dl.pairfob.com/android/beta/latest.json");
