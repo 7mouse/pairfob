@@ -300,7 +300,7 @@
 
 /* Rows in the tab the board beside the rail shows: a light wash, below the selection and waiting grounds. */
 .rail .card.in-board:not(.sel) .card-main { background-color: var(--in-board-ground); }
-.rail .card.in-board.is-blocked:not(.sel) .card-main { background-color: #221f16; }
+.rail .card.in-board.is-blocked:not(.sel) .card-main { background-color: var(--blocked-ground-2); }
 
 .rail .card-name { font-size: var(--text-lead); }
 .rail .card-meta { font-size: var(--text-caption); }
@@ -475,7 +475,7 @@ html[data-kb="open"] .rail-nav { display: none; }
   .rail .card.in-board { --row-ground: #141b26; }
   .rail .card:hover { --row-ground: var(--surface); }
   .rail .card.is-blocked { --row-ground: var(--blocked-ground); }
-  .rail .card.in-board.is-blocked { --row-ground: #221f16; }
+  .rail .card.in-board.is-blocked { --row-ground: var(--blocked-ground-2); }
   .rail .card.sel { --row-ground: var(--selected-ground); }
   .rail .card:not(.sel):not(.is-blocked):has(.card-main:active) { --row-ground: var(--surface-2); }
 

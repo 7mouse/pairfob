@@ -22,6 +22,9 @@
   --error: #ff8080;
   --danger: #d63b31;
   --danger-bright: #ff6b5e;
+  /* The xterm palette stays dark on both sides, so the chrome around the
+     screen keeps its own dark ink: a light page must not put dark text on the
+     terminal's near-black plate. */
   --term-bg: #0b0e13;
   --term-ink: #dfe5ee;
   --dock-bg: #0d1117;
@@ -195,8 +198,6 @@
   --error: #c0392b;
   --danger: #b32b20;
   --danger-bright: #d63b31;
-  --term-bg: #ffffff;
-  --term-ink: #1b222c;
   --dock-bg: #ffffff;
 
   /* The same weights, with the alphas a paper surface needs to read. */

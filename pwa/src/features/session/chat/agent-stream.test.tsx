@@ -133,6 +133,28 @@ test("an 'other' tool never folds, even in a run of its own kind", () => {
     .toEqual(["one", "two", "three"]);
 });
 
+test("a finding opens on its own page, not as the first item of the tool pager", () => {
+  const finding = "The snapshot keeps no URL.";
+  const turn: AgentTraceItem[] = [{ type: "user", text: "inspect" },
+    { type: "tool", name: "Read", label: "a.go", toolState: "done", detailRef: "r1" },
+    { type: "tool", name: "Read", label: "b.go", toolState: "done", detailRef: "r2" },
+    { type: "tool", name: "Read", label: "c.go", toolState: "done", detailRef: "r3" },
+    // A step after the finding keeps it in the turn's entries, so it draws a bubble.
+    { type: "assistant", text: finding },
+    { type: "tool", name: "Edit", label: "a.go", toolState: "done", detailRef: "e1" },
+    { type: "assistant", text: "Fixed." }];
+  let opened: { item: AgentTraceItem; steps?: AgentTraceItem[] } | null = null;
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified
+    onOpenStep={(item, steps) => { opened = { item, steps }; }} />));
+  const bubble = appRoot().querySelector<HTMLButtonElement>(".agent-finding-body")!;
+  act(() => bubble.click());
+  // The finding is not one of the card's rows, so the press carries the card's
+  // tool list; `openStepSheet` drops it and pages the finding alone.
+  expect(opened!.item.text).toBe(finding);
+  expect(opened!.steps!.map((step) => step.detailRef ?? step.type)).toEqual(["r1", "r2", "r3", "e1"]);
+  expect(opened!.steps!.includes(opened!.item)).toBe(false);
+});
+
 test("a turn's finding stands on its own between the steps and the reply", () => {
   const finding = "The snapshot keeps no URL, so the character photo is lost at submit.";
   const turn: AgentTraceItem[] = [
