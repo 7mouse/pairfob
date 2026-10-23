@@ -42,6 +42,9 @@ public class UpdateBridgeTest {
                 view.getSettings().setJavaScriptEnabled(true);
                 new UpdateBridge(activity, view).install();
                 holder.set(view);
+                // Keep this WebView visible; detached renderers can be throttled.
+                activity.getBridge().getWebView().loadUrl("about:blank");
+                activity.setContentView(view);
                 view.loadDataWithBaseURL("https://localhost/", "<html><body>bridge test</body></html>",
                     "text/html", "UTF-8", null);
             });

@@ -12,6 +12,11 @@ import (
 	"pairfob/internal/mux"
 )
 
+// These tests assert frame transport and queue closure, not ICE latency. Give
+// instrumented builds time to connect on a busy host; p2p_gather_test.go checks
+// the product's answer budget separately.
+const p2pTransportTestWait = 15 * time.Second
+
 func TestWebRTCAcceptorCarriesPairfobFramesBothWays(t *testing.T) {
 	caller, err := webrtc.NewPeerConnection(webrtc.Configuration{})
 	if err != nil {
@@ -58,7 +63,7 @@ func TestWebRTCAcceptorCarriesPairfobFramesBothWays(t *testing.T) {
 	acceptor := &webRTCAcceptor{configuration: webrtc.Configuration{}}
 	daemonFrames := make(chan envelope.Frame, 1)
 	closed := make(chan struct{}, 1)
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), p2pTransportTestWait)
 	defer cancel()
 	answer, link, err := acceptor.Accept(ctx, caller.LocalDescription().SDP, func(_ mux.Conn, frame envelope.Frame) {
 		daemonFrames <- frame
@@ -75,7 +80,7 @@ func TestWebRTCAcceptorCarriesPairfobFramesBothWays(t *testing.T) {
 	select {
 	case <-opened:
 	case <-ctx.Done():
-		t.Fatal("data channel did not open")
+		t.Fatalf("data channel did not open: peer=%s ice=%s", caller.ConnectionState(), caller.ICEConnectionState())
 	}
 
 	route := [16]byte{1, 3, 5, 7}
@@ -203,7 +208,7 @@ func openP2PTestPair(t *testing.T) *p2pTestPair {
 		t.Fatal("caller ICE gathering timed out")
 	}
 	pair := &p2pTestPair{closed: make(chan struct{}, 1)}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), p2pTransportTestWait)
 	acceptor := &webRTCAcceptor{configuration: webrtc.Configuration{}}
 	answer, link, err := acceptor.Accept(ctx, caller.LocalDescription().SDP, func(mux.Conn, envelope.Frame) {}, func(mux.Conn) {
 		if pair.onCloseHook != nil {
