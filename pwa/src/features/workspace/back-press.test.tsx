@@ -129,6 +129,23 @@ async function pointerPress(target: Element): Promise<boolean> {
   return delivered;
 }
 
+/** Keep gesture time independent of React render time on a busy runner. */
+async function withGestureClock(run: (advance: (ms: number) => void) => Promise<void>): Promise<void> {
+  let now = 1000;
+  const clock = spyOn(performance, "now").mockImplementation(() => now);
+  const realTimeout = globalThis.setTimeout;
+  const expiry = spyOn(globalThis, "setTimeout").mockImplementation(((callback: TimerHandler, delay?: number, ...args: unknown[]) =>
+    realTimeout(delay === BACK_SECOND_TAP_MS ? () => {} : callback, delay === BACK_SECOND_TAP_MS ? 0 : delay, ...args)
+  ) as typeof setTimeout);
+  try {
+    await run((ms) => { now += ms; });
+  } finally {
+    document.dispatchEvent(new happy.KeyboardEvent("keydown", { key: "Shift", bubbles: true }) as unknown as Event);
+    expiry.mockRestore();
+    clock.mockRestore();
+  }
+}
+
 /** Enter on a button: a click that no pointer made. */
 async function keyPress(target: HTMLElement): Promise<void> {
   await act(async () => {
@@ -175,12 +192,15 @@ describe("the inspector's way back to the list", () => {
     await bootInspector();
     await act(async () => { await loadGitDiff("app.ts", "worktree"); });
     await settle();
-    expect(await pointerPress(one(".inspector-back"))).toBeTrue();
-    expect(workspaceModel.view).toBe("browser");
-    // The list starts where the chip was: its first group's title is under the pointer now.
-    const group = () => one(".inspector-list .workspace-change-group-title");
-    expect(await pointerPress(group())).toBeFalse();
-    expect(group().getAttribute("aria-expanded")).toBe("true");
+    await withGestureClock(async (advance) => {
+      expect(await pointerPress(one(".inspector-back"))).toBeTrue();
+      expect(workspaceModel.view).toBe("browser");
+      // The list starts where the chip was: its first group's title is under the pointer now.
+      const group = () => one(".inspector-list .workspace-change-group-title");
+      advance(200);
+      expect(await pointerPress(group())).toBeFalse();
+      expect(group().getAttribute("aria-expanded")).toBe("true");
+    });
   });
 
   test("Enter on it arms nothing: the next press is the reader's own", async () => {
@@ -198,34 +218,21 @@ describe("the inspector's way back to the list", () => {
 describe("the inspector's Close", () => {
   test("pressed twice, it closes the column and the second press does not reach the session's own actions", async () => {
     await bootInspector();
-    // Rendering may take longer than a double tap on a busy test runner. Keep
-    // the gesture's clock and expiry under the test's control, while the
-    // column's animation and React lifecycle still settle normally.
-    let now = 1000;
-    const clock = spyOn(performance, "now").mockImplementation(() => now);
-    const realTimeout = globalThis.setTimeout;
-    const expiry = spyOn(globalThis, "setTimeout").mockImplementation(((callback: TimerHandler, delay?: number, ...args: unknown[]) =>
-      realTimeout(delay === BACK_SECOND_TAP_MS ? () => {} : callback, delay === BACK_SECOND_TAP_MS ? 0 : delay, ...args)
-    ) as typeof setTimeout);
-    try {
+    await withGestureClock(async (advance) => {
       expect(await pointerPress(one(".inspector .inspector-close"))).toBeTrue();
       await columnGone();
       expect(inspectorOpen()).toBeFalse();
-      now += 200;
+      advance(200);
       // The session header's trailing actions stand where the column's corner was.
       expect(await pointerPress(one(".main .chrome-actions .icon-more"))).toBeFalse();
       expect(document.querySelector("dialog[open]")).toBeNull();
-      now += 100;
+      advance(100);
       expect(await pointerPress(one(".main .chrome-actions .icon-workspace"))).toBeFalse();
       expect(inspectorOpen()).toBeFalse();
-      now += BACK_SECOND_TAP_MS;
+      advance(BACK_SECOND_TAP_MS);
       expect(await pointerPress(one(".main .chrome-actions .icon-workspace"))).toBeTrue();
       expect(inspectorOpen()).toBeTrue();
-    } finally {
-      document.dispatchEvent(new happy.KeyboardEvent("keydown", { key: "Shift", bubbles: true }) as unknown as Event);
-      expiry.mockRestore();
-      clock.mockRestore();
-    }
+    });
   });
 });
 
@@ -242,10 +249,13 @@ describe("the directory's ways up", () => {
 
   test("Up pressed twice climbs one folder, not two", async () => {
     await openAt("src/lib");
-    expect(await pointerPress(one(".workspace-up"))).toBeTrue();
-    expect(workspaceModel.directory).toBe("src");
-    expect(await pointerPress(one(".workspace-up"))).toBeFalse();
-    expect(workspaceModel.directory).toBe("src");
+    await withGestureClock(async (advance) => {
+      expect(await pointerPress(one(".workspace-up"))).toBeTrue();
+      expect(workspaceModel.directory).toBe("src");
+      advance(200);
+      expect(await pointerPress(one(".workspace-up"))).toBeFalse();
+      expect(workspaceModel.directory).toBe("src");
+    });
   });
 
   test("Enter on Up twice climbs two: keys are counted one by one", async () => {
@@ -257,12 +267,15 @@ describe("the directory's ways up", () => {
 
   test("a folder above pressed twice lands in that folder, whatever the trail draws under the pointer next", async () => {
     await openAt("src/lib/deep");
-    const lib = [...appRoot().querySelectorAll<HTMLButtonElement>(".workspace-crumb")].find((crumb) => crumb.textContent === "lib")!;
-    expect(await pointerPress(lib)).toBeTrue();
-    expect(workspaceModel.directory).toBe("src/lib");
-    const src = [...appRoot().querySelectorAll<HTMLButtonElement>(".workspace-crumb")].find((crumb) => crumb.textContent === "src")!;
-    expect(await pointerPress(src)).toBeFalse();
-    expect(workspaceModel.directory).toBe("src/lib");
-    expect(crumbs().at(-1)).toBe("lib");
+    await withGestureClock(async (advance) => {
+      const lib = [...appRoot().querySelectorAll<HTMLButtonElement>(".workspace-crumb")].find((crumb) => crumb.textContent === "lib")!;
+      expect(await pointerPress(lib)).toBeTrue();
+      expect(workspaceModel.directory).toBe("src/lib");
+      const src = [...appRoot().querySelectorAll<HTMLButtonElement>(".workspace-crumb")].find((crumb) => crumb.textContent === "src")!;
+      advance(200);
+      expect(await pointerPress(src)).toBeFalse();
+      expect(workspaceModel.directory).toBe("src/lib");
+      expect(crumbs().at(-1)).toBe("lib");
+    });
   });
 });
