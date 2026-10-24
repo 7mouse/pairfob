@@ -1,0 +1,23 @@
+{
+  "name": "pairfob-mobile",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "pwa:native": "cd ../pwa && bun run build:native",
+    "sync": "cap sync android",
+    "apk:debug": "cd android && ./gradlew assembleDebug",
+    "apk:release": "cd android && ./gradlew assembleRelease",
+    "build:debug": "export PAIRFOB_ANDROID_SCHEME=https; export VITE_PAIRFOB_RELAY_ORIGIN=${PAIRFOB_RELAY_ORIGIN:-https://pairfob.com}; bun run pwa:native && bun run sync && bun run apk:debug",
+    "build:release": "bash ../scripts/build-android-release.sh",
+    "build:debug:dev": "export PAIRFOB_ANDROID_SCHEME=http; export VITE_PAIRFOB_RELAY_ORIGIN=${PAIRFOB_RELAY_ORIGIN:-http://127.0.0.1:18786}; bun run pwa:native && bun run sync && bun run apk:debug"
+  },
+  "dependencies": {
+    "@capacitor/android": "8.5.3",
+    "@capacitor/core": "8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "8.5.3",
+    "typescript": "5.9.3"
+  }
+}

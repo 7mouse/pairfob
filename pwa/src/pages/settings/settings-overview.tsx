@@ -1,4 +1,5 @@
 import { openComputers } from "../../features/computers/actions";
+import { AndroidUpdateCard } from "../../features/settings/android-update-view";
 import { DaemonUpdateRow } from "../../features/settings/daemon-update-view";
 import { HerdSessionRow } from "../../features/herd-sessions/herd-session-row";
 import { LanguageControl } from "../../features/settings/language";
@@ -20,7 +21,7 @@ export type SettingsOverviewInput = {
   defaultTermMode: TermMode;
   defaultComposeLive: boolean;
   composeEnterSends: boolean;
-  notification: NotificationRowInput;
+  notification: NotificationRowInput | null;
   /** The desktop names the local group for the device, not the phone. */
   desk: boolean;
 };
@@ -40,10 +41,11 @@ export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
         <SetNavItem label={t("settings.switchComputer")} value={t("settings.countUnit", { n: String(input.computerCount) })}
           onClick={openComputers} />
       </ComputerPanel>
+      <AndroidUpdateCard />
       <AgentQuotaModule />
       <SessionDefaults mode={input.defaultTermMode} live={input.defaultComposeLive} enterSends={input.composeEnterSends} />
       <SetGroup label={t(input.desk ? "set.deviceSection" : "settings.phoneSection")}>
-        <NotificationItem input={input.notification} />
+        {input.notification && <NotificationItem input={input.notification} />}
         <SetItem className="theme-item" label={t("settings.themeAria")} trailing={<ThemeControl className="set-seg"><SegThumb /></ThemeControl>} />
         <SetItem className="language-item" label={t("settings.language")} trailing={<LanguageControl className="set-seg"><SegThumb /></LanguageControl>} />
       </SetGroup>

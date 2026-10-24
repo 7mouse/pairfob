@@ -24,6 +24,7 @@ import { PairingScanError, scanPairingCode } from "../../lib/pairing-scanner";
 import { pairOverWS, ProtocolError, type PairInput } from "../../lib/protocol/client";
 import { friendlyDeviceLabel, pairErrorField, shouldForgetPairFragment, type PairErrorField, type PairStepKey } from "../../lib/ui-model";
 import { saveCredential } from "../../lib/credentials";
+import { relayOrigin } from "../../lib/runtime-config";
 import { track } from "../../lib/telemetry";
 import { offerNotifications } from "../settings/notification-onboarding";
 import { pairCodeProblem, type ConnectNotice, type ConnectViewInput } from "./model";
@@ -384,7 +385,7 @@ export async function pastePairCode(): Promise<void> {
 export async function scanPairCode(): Promise<void> {
   const work = currentWork();
   try {
-    const result = await scanPairingCode(location.origin, () => work === currentWork());
+    const result = await scanPairingCode(relayOrigin(), () => work === currentWork());
     if (!result || work !== currentWork()) return;
     // "Enter the code instead" from the scanner: the scanner has closed, so
     // the code sheet replaces it rather than stacking on it.

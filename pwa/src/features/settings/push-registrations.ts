@@ -1,4 +1,5 @@
 import { t } from "../../lib/i18n";
+import { isNativeRuntime, pageOrigin } from "../../lib/runtime-config";
 import { subscriptionMatches } from "./push-config";
 
 /**
@@ -24,8 +25,8 @@ export function vapidKey(value: string): ArrayBuffer {
 }
 
 async function computerRegistration(daemonId: string): Promise<ServiceWorkerRegistration | undefined> {
-  if (!DAEMON_ID.test(daemonId)) return undefined;
-  const scope = new URL(computerPushScope(daemonId), location.origin).href;
+  if (isNativeRuntime() || !DAEMON_ID.test(daemonId)) return undefined;
+  const scope = new URL(computerPushScope(daemonId), pageOrigin()).href;
   // getRegistration(url) falls back to an enclosing scope; only an exact match is this computer's.
   return (await navigator.serviceWorker.getRegistrations()).find(registration => registration.scope === scope);
 }
@@ -52,6 +53,7 @@ function activated(registration: ServiceWorkerRegistration): Promise<ServiceWork
 export async function computerSubscription(
   app: ServiceWorkerRegistration, daemonId: string, key: string,
 ): Promise<PushSubscription | null> {
+  if (isNativeRuntime()) return null;
   for (const registration of [await computerRegistration(daemonId), app]) {
     const subscription = await registration?.pushManager.getSubscription();
     if (subscription && subscriptionMatches(subscription, key)) return subscription;
@@ -66,7 +68,7 @@ export async function computerSubscription(
  * existing one is asked to update, since no page load ever does that for it.
  */
 export async function preparePushRegistration(app: ServiceWorkerRegistration, daemonId: string, key: string): Promise<void> {
-  if (!DAEMON_ID.test(daemonId)) return;
+  if (isNativeRuntime() || !DAEMON_ID.test(daemonId)) return;
   const existing = await computerRegistration(daemonId);
   if (existing) {
     await existing.update();
@@ -84,6 +86,7 @@ export async function preparePushRegistration(app: ServiceWorkerRegistration, da
  * caller gets a message that says so.
  */
 export async function subscribeComputer(app: ServiceWorkerRegistration, daemonId: string, key: string): Promise<PushSubscription> {
+  if (isNativeRuntime()) throw new Error(t("err.pushUnsupported"));
   const existing = await computerSubscription(app, daemonId, key);
   if (existing) return existing;
   const options = { userVisibleOnly: true, applicationServerKey: vapidKey(key) };
@@ -102,6 +105,6 @@ export async function subscribeComputer(app: ServiceWorkerRegistration, daemonId
 
 /** Unregistering a forgotten computer's worker drops its subscription with it. */
 export async function forgetComputerPush(daemonId: string): Promise<void> {
-  if (!("serviceWorker" in navigator)) return;
+  if (isNativeRuntime() || !("serviceWorker" in navigator)) return;
   await (await computerRegistration(daemonId))?.unregister();
 }

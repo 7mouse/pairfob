@@ -7,7 +7,9 @@
   "preview_urls": false,
   "vars": {
     "BUILD": "local",
-    "P2P_OPEN": "1"
+    "P2P_OPEN": "1",
+    "APP_ORIGINS": "https://localhost",
+    "ALLOW_HTTP_APP_ORIGINS": "1"
   },
   "analytics_engine_datasets": [
     { "binding": "METRICS", "dataset": "pairfob" }

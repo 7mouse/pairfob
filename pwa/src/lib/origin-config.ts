@@ -2,6 +2,7 @@ import { t } from "./i18n.ts";
 import { ProtocolError } from "./protocol/errors.ts";
 import type { MuxProtocol } from "./protocol/mux.ts";
 import { fetchWithTimeout, type FetchLike } from "./request-timeout.ts";
+import { relayOrigin, relayURLFor, webSocketURLFor } from "./runtime-config.ts";
 
 export type { MuxProtocol };
 export type OriginConfig = { protocol: MuxProtocol; build: string; p2p: boolean };
@@ -29,10 +30,13 @@ export function originConfigErrorIsRecoverable(error: unknown): boolean {
   return error.code === "bad_relay" || error.code === "timeout";
 }
 
-export async function loadOriginConfig(fetchImpl: FetchLike = fetch): Promise<OriginConfig> {
+export async function loadOriginConfig(
+  fetchImpl: FetchLike = fetch,
+  origin: string = relayOrigin(),
+): Promise<OriginConfig> {
   let response: Response;
   try {
-    response = await fetchWithTimeout(fetchImpl, "/api/config", { cache: "no-store" });
+    response = await fetchWithTimeout(fetchImpl, relayURLFor(origin, "/api/config"), { cache: "no-store" });
   } catch (error) {
     if (error instanceof ProtocolError) throw error;
     throw new ProtocolError("bad_relay", t("err.originRead"));
@@ -53,26 +57,28 @@ export const ORIGIN_PROBE_TIMEOUT_MS = 5_000;
  * decided here, not by `navigator.onLine`: Android Chrome can keep reporting
  * offline after a return from the background while requests still succeed.
  */
-export async function probeOrigin(fetchImpl: FetchLike = fetch): Promise<boolean> {
+export async function probeOrigin(
+  fetchImpl: FetchLike = fetch,
+  origin: string = relayOrigin(),
+): Promise<boolean> {
   try {
-    const response = await fetchWithTimeout(fetchImpl, "/api/config", { cache: "no-store" }, { timeoutMs: ORIGIN_PROBE_TIMEOUT_MS });
+    const response = await fetchWithTimeout(fetchImpl, relayURLFor(origin, "/api/config"), { cache: "no-store" }, { timeoutMs: ORIGIN_PROBE_TIMEOUT_MS });
     return response.ok;
   } catch {
     return false;
   }
 }
 
-/** Same-origin PWA WS. Origin config is pairfob.v2 only; never `/v1/ws`. */
+/** Client WS URL on the relay. Origin config is pairfob.v2 only; never `/v1/ws`. */
 export function clientWsURL(
   protocol: MuxProtocol,
-  site: { protocol: string; host: string },
+  origin: string,
   query?: { daemonId?: string; pairTicket?: string },
 ): string {
   if (protocol !== 2) {
     throw new ProtocolError("bad_message", t("err.originVersion"));
   }
-  const scheme = site.protocol === "https:" ? "wss" : "ws";
-  const url = new URL(`${scheme}://${site.host}/v2/ws`);
+  const url = new URL(webSocketURLFor(origin, "/v2/ws"));
   url.searchParams.set("role", "client");
   if (query?.daemonId) url.searchParams.set("daemon_id", query.daemonId);
   if (query?.pairTicket) url.searchParams.set("pair_ticket", query.pairTicket);

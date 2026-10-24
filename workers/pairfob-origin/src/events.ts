@@ -1,5 +1,6 @@
 import type { Env } from "./env.ts";
-import { buildOf, errorJson, jsonResponse, noStore, requireSameHostBrowserOrigin, clientIP, readJSON } from "./http.ts";
+import { appCorsHeaders, requireAllowedBrowserOrigin } from "./app-origin.ts";
+import { buildOf, errorJson, jsonResponse, noStore, clientIP, readJSON } from "./http.ts";
 import { allowEventsIP } from "./limits.ts";
 import { observeBeacon, observeError, observePage } from "./metrics.ts";
 
@@ -47,9 +48,9 @@ export function observeDocument(env: Env, method: string, path: string, status: 
 
 export async function handleEvents(req: Request, env: Env, now = Date.now()): Promise<Response> {
   const build = buildOf(env);
-  const store = noStore();
+  const store = noStore(appCorsHeaders(req, env));
   if (req.method !== "POST") return errorJson(build, 405, "bad_token", store);
-  if (!requireSameHostBrowserOrigin(req)) return errorJson(build, 403, "forbidden", store);
+  if (!requireAllowedBrowserOrigin(req, env)) return errorJson(build, 403, "forbidden", store);
   if (!allowEventsIP(clientIP(req), now)) {
     observeError(env, "rate_limited");
     return errorJson(build, 429, "rate_limited", store);

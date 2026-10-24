@@ -1,0 +1,56 @@
+/* The installed app and the offered release keep separate lines. The download
+   action has its own row so long version names never compete with its target. */
+.android-update .set-item-label { font-weight: 600; }
+
+.android-update .android-update-status {
+  margin: 0;
+  padding: 0 var(--set-pad) 14px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.android-update .android-update-status::before { display: none; }
+.android-update-status[data-error] { color: var(--error); }
+
+.android-update-target {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 12px;
+  margin: 0 0 4px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+}
+
+.android-update-target strong {
+  color: var(--ink);
+  font-size: var(--text-body);
+  overflow-wrap: anywhere;
+}
+
+.android-update-install { min-height: 44px; width: 100%; }
+
+.android-update-hint,
+.android-update-notes p {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.android-update-notes summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  color: var(--muted);
+  font-size: var(--text-secondary);
+  cursor: pointer;
+  list-style: none;
+}
+
+.android-update-notes summary::-webkit-details-marker { display: none; }
+.android-update-notes[open] .set-disclosure { transform: rotate(180deg); }
+.android-update-notes p { padding-bottom: 4px; white-space: pre-line; }

@@ -34,6 +34,30 @@ describe("completion attention", () => {
     expect(completed.agents[0].status).toBe("done");
   });
 
+  test("an unknown observation preserves read completions until their identity can be checked again", () => {
+    const finished = [
+      agent("legacy", "done"),
+      { ...agent("rich", "done"), terminalId: "t1", agentInstanceId: "a1", stateChangeSeq: 7 },
+    ];
+    const { seen } = markAllCompletionsSeen({}, { legacy: "done", rich: "done" }, finished);
+    // Recovery may not yet have the optional runtime identity/sequence either.
+    const unknown = projectCompletionAttention(finished.map(a => agent(a.paneId, "unknown")),
+      { legacy: "done", rich: "done" }, seen);
+    expect(unknown.seen).toBe(seen);
+    expect(unknown.agents.map(a => a.status)).toEqual(["unknown", "unknown"]);
+    const restored = projectCompletionAttention(finished, unknown.runtimeStatuses, unknown.seen);
+    expect(restored.agents.map(a => a.status)).toEqual(["idle", "idle"]);
+
+    for (const change of [{ stateChangeSeq: 8 }, { agentInstanceId: "a2" }, { terminalId: "t2" }, { runtimeSession: "other" }]) {
+      const newer = projectCompletionAttention([finished[0], { ...finished[1], ...change }], unknown.runtimeStatuses, unknown.seen);
+      expect(newer.agents.map(a => a.status)).toEqual(["idle", "done"]);
+    }
+    for (const status of ["working", "blocked"] as const) {
+      const active = projectCompletionAttention([agent("legacy", status)], unknown.runtimeStatuses, unknown.seen);
+      expect(projectCompletionAttention([agent("legacy", "done")], active.runtimeStatuses, active.seen).agents[0].status).toBe("done");
+    }
+  });
+
   test("reading only acknowledges a currently completed pane", () => {
     const seen = markCompletionSeen({}, { p1: "done", p2: "working" }, "p1");
     expect(seen).toEqual({ p1: true });

@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Pairfob fob mark, drawn inside the adaptive-icon safe zone.
+
+  The launcher shows at most 72dp of the 108dp canvas and guarantees only a
+  66dp centre circle, so the glyph is 60dp tall and centred: 30dp from the
+  icon centre at its extremes, 3dp inside the safe circle. Geometry is the
+  fob from pwa/public/icon-maskable-512.png (body r119, loop r48.5, hole r29.5,
+  dot r48 at 512), scaled by 60/337 and centred.
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Body circle, loop, and the pinhole punched out by opposite winding. -->
+    <path
+        android:fillColor="#E9EDF3"
+        android:fillType="nonZero"
+        android:pathData="M54,41.537 a21.187,21.187 0 1,1 0,42.374 a21.187,21.187 0 1,1 0,-42.374 Z M45.365,62.724 L45.365,32.546 A8.635,8.635 0 0,1 62.635,32.546 L62.635,62.724 Z M54,27.383 a5.252,5.252 0 1,0 0,10.504 a5.252,5.252 0 1,0 0,-10.504 Z" />
+
+    <!-- The fob's blue dot, centred in the body. -->
+    <path
+        android:fillColor="#6EA8FE"
+        android:pathData="M54,54.224 a8.5,8.5 0 1,1 0,17 a8.5,8.5 0 1,1 0,-17 Z" />
+</vector>

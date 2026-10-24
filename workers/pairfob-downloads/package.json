@@ -1,0 +1,9 @@
+{
+  "name": "pairfob-downloads",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "devDependencies": {
+    "wrangler": "4.126.0"
+  }
+}

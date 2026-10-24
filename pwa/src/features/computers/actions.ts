@@ -24,6 +24,7 @@ import { fragmentUsableOnOrigin, parsePairingFragment } from "../../lib/pairing-
 import { pairOverWS, ProtocolError, type PairResult } from "../../lib/protocol/client";
 import { friendlyDeviceLabel } from "../../lib/ui-model";
 import { track } from "../../lib/telemetry";
+import { relayOrigin } from "../../lib/runtime-config";
 import {
   closeComputerSession, establish, landAfterDisconnect, refreshFromSession, reloadComputers,
   startPolling, stopPolling,
@@ -244,7 +245,7 @@ export async function pairFromMachineLink(pairUrl: string, signal: AbortSignal):
   } catch {
     throw new ProtocolError("bad_link");
   }
-  const fragment = url.origin === location.origin && url.pathname === "/pair" ? parsePairingFragment(url.hash) : null;
+  const fragment = url.origin === relayOrigin() && url.pathname === "/pair" ? parsePairingFragment(url.hash) : null;
   if (!fragment?.daemonId || !fragment.fingerprint || !fragmentUsableOnOrigin(fragment, originProtocol())) {
     throw new ProtocolError("bad_link");
   }

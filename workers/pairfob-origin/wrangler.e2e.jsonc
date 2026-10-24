@@ -6,7 +6,8 @@
   "workers_dev": true,
   "vars": {
     "BUILD": "test",
-    "P2P_OPEN": "1"
+    "P2P_OPEN": "1",
+    "APP_ORIGINS": "https://localhost"
   },
   "analytics_engine_datasets": [
     { "binding": "METRICS", "dataset": "pairfob" }

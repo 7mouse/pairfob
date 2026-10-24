@@ -16,11 +16,11 @@ describe("pair-intent", () => {
     let body = "";
     const intent = await requestPairIntent("WJ3K9M", async (_input, init) => {
       body = String(init?.body || "");
-      expect(String(_input)).toBe("/v2/pair-intent");
+      expect(String(_input)).toBe("http://localhost/v2/pair-intent");
       expect(init?.method).toBe("POST");
       expect(init?.cache).toBe("no-store");
       return new Response(JSON.stringify(hit), { status: 200 });
-    });
+    }, undefined, "http://localhost");
     expect(JSON.parse(body)).toEqual({ v: 2, pair_loc: "WJ3K9M" });
     expect(body).not.toContain("pair_ref");
     expect(body).not.toMatch(/"s"/);

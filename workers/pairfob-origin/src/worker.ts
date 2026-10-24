@@ -1,5 +1,6 @@
 import { PREVIEW_HEADERS, PREVIEW_PATH } from "./preview-policy";
 import { handleAdmin } from "./admin.ts";
+import { appCorsHeaders, appPreflight, hasAppOrigin, isAllowedClientOrigin, withCors } from "./app-origin.ts";
 import { CSP_SITE, DAEMON_ID_RE, PROTOCOL, SUBPROTOCOL } from "./constants.ts";
 import { handleEnroll } from "./enroll.ts";
 import { handleEvents, observeDocument } from "./events.ts";
@@ -10,7 +11,6 @@ import {
   buildOf,
   clientIP,
   errorJson,
-  hasBrowserOrigin,
   isSameHostOrigin,
   jsonResponse,
   noStore,
@@ -26,10 +26,27 @@ import { handleRekey } from "./rekey.ts";
 
 const PLACEHOLDER = `<!doctype html><meta charset="utf-8"><title>Pairfob</title><h1>Pairfob</h1><p>Hosted origin. Production copies pwa/dist into R2.</p>`;
 
+/** Public paths the native shell reads cross-origin. */
+const APP_CORS_PATHS = new Set([
+  "/api/config",
+  "/v2/pair-intent",
+  "/v2/events",
+  "/dl/VERSION",
+  "/dl/android/beta/latest.json",
+]);
+
+/** Static assets that carry app CORS headers when read from the native shell. */
+const APP_CORS_ASSETS = new Set(["/dl/VERSION", "/dl/android/beta/latest.json"]);
+
 export async function handleFetch(req: Request, env: Env): Promise<Response> {
   const build = buildOf(env);
   const url = new URL(req.url);
   const path = url.pathname;
+
+  // App preflights only. Same-host OPTIONS keeps its previous non-CORS path.
+  if (req.method === "OPTIONS" && APP_CORS_PATHS.has(path) && hasAppOrigin(req, env)) {
+    return appPreflight(req, env);
+  }
 
   const apex = apexRedirect(url, req.method, path);
   if (apex) return apex;
@@ -46,7 +63,8 @@ export async function handleFetch(req: Request, env: Env): Promise<Response> {
   }
 
   if (path === "/api/config" && req.method === "GET") {
-    return jsonResponse(build, 200, { protocol: PROTOCOL, build, p2p: env.P2P_OPEN === "1" }, noStore());
+    return jsonResponse(build, 200, { protocol: PROTOCOL, build, p2p: env.P2P_OPEN === "1" },
+      { ...noStore(), ...appCorsHeaders(req, env) });
   }
 
   if (path === "/v2/enroll") return handleEnroll(req, env);
@@ -60,7 +78,9 @@ export async function handleFetch(req: Request, env: Env): Promise<Response> {
 
   if (path === "/v2/ws") return routeWs(req, env);
 
-  return staticOrPlaceholder(req, env, build);
+  const response = await staticOrPlaceholder(req, env, build);
+  if (APP_CORS_ASSETS.has(path)) return withCors(response, appCorsHeaders(req, env));
+  return response;
 }
 
 /**
@@ -122,7 +142,7 @@ async function routeWs(req: Request, env: Env): Promise<Response> {
   if (!DAEMON_ID_RE.test(daemonId)) return errorJson(build, 400, "bad_token", noStore());
 
   if (role === "client") {
-    if (!hasBrowserOrigin(req) || !isSameHostOrigin(req)) {
+    if (!isAllowedClientOrigin(req, env)) {
       return errorJson(build, 403, "forbidden", noStore());
     }
   } else if (!isSameHostOrigin(req)) {
@@ -278,6 +298,12 @@ function staticAssetHeaders(path: string, ok: boolean, contentType: string | nul
   }
   if (path === "/dl/VERSION" || path === "/dl/SHA256SUMS") {
     return { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" };
+  }
+  if (path === "/dl/android/beta/latest.json") {
+    return { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" };
+  }
+  if (/^\/dl\/android\/beta\/[A-Za-z0-9._-]+\.apk$/.test(path)) {
+    return { "Content-Type": "application/vnd.android.package-archive", "Cache-Control": "public, max-age=31536000, immutable" };
   }
   if (path.startsWith("/dl/")) {
     return { "Cache-Control": "public, max-age=3600" };

@@ -1,5 +1,7 @@
 /** First-party, content-free funnel events. Never send pairing secrets or paths. */
 
+import { relayURL } from "./runtime-config.ts";
+
 export const PWA_EVENTS = [
   "pwa_boot",
   "pwa_pairing_start",
@@ -64,13 +66,13 @@ function defaultSend(body: string): void {
   try {
     if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
       const blob = new Blob([body], { type: "application/json" });
-      if (navigator.sendBeacon("/v2/events", blob)) return;
+      if (navigator.sendBeacon(relayURL("/v2/events"), blob)) return;
     }
   } catch {
     /* fall through to fetch */
   }
   if (typeof fetch !== "function") return;
-  void fetch("/v2/events", {
+  void fetch(relayURL("/v2/events"), {
     method: "POST",
     headers: { "content-type": "application/json" },
     body,

@@ -96,6 +96,13 @@ lock-screen presentation or notification deep links on a physical iPhone.
 - Date/Date.now are fixed at `2026-09-08T04:00:00.000Z`; monotonic gesture/timer clocks remain real. A scene that seeds stamps the application takes from `Date.now()` itself (`home-recent`'s opens) does it through `clockAt` (`qa/environment.ts`), which holds another instant for one synchronous action and returns to the fixed one. Animations/transitions and caret paint are disabled without changing the browser motion preference or layout rules; what the page moves from script (an element kept for its exit, a measured move) stands still too, because script is told the reader asked for less motion while the style sheet is not. This is static geometry/color parity, not animation acceptance.
 - When recording acceptance evidence, keep source/test, rendered fixture, live transport and physical-device results distinct.
 
+`setDaemonUpdate({ build, completedTarget })` seeds the running version independently
+of a completed update record. Use it to check a later CLI update, an installed
+version that is not running yet, and version strings with an optional `v` prefix.
+`scripts/qa-settings-updates.mjs` checks these states and the native app update card
+in Chinese and English with touch and mouse/keyboard input. Its web and native
+Vite servers must use separate cache directories when run together.
+
 
 The board scenes (`board`, `board-busy`, `board-zoomed`, `board-offline`) keep a
 split tree per tab (`qa/board-layout.ts`) and publish herdr-shaped `splits`.

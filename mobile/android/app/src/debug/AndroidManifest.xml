@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug builds only. The release application sets usesCleartextTraffic=false
+  and has no network security config, so release traffic stays TLS-only.
+  Cleartext is permitted solely for the loopback dev relay reached through
+  `adb reverse tcp:18786 tcp:18786`.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application android:networkSecurityConfig="@xml/network_security_config" />
+</manifest>

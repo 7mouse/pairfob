@@ -12,7 +12,7 @@ import {
   type DaemonVersion,
 } from "./daemon-update";
 import { updateInProgress, type UpdateStatus } from "../../lib/daemon-update-status";
-import { legacyBuild } from "../../lib/daemon-version";
+import { legacyBuild, newerRelease, sameRelease } from "../../lib/daemon-version";
 import { askConfirm } from "../../shared/ui/overlay/basic-dialogs";
 import { t } from "../../lib/i18n";
 import { currentDaemonId, liveSession } from "../computers/catalog-store";
@@ -92,9 +92,13 @@ function updateStage(view: DaemonVersion): Stage {
   if (configIncompatible(view)) return "incompatible";
   if (view.requesting || updateInProgress(status)) return "busy";
   if (view.uncertain) return "uncertain";
-  // Installed but the computer still reports the old build: a restart is pending.
-  if (status?.phase === "complete" && status.target && view.build !== status.target) return "waiting";
-  if (status?.phase === "complete" && view.watched) return "done";
+  // A completed record can survive a later CLI update. The running build is
+  // authoritative; an older target must not look like a pending restart.
+  if (status?.phase === "complete" && status.target) {
+    const targetRunning = sameRelease(view.build, status.target);
+    if (!targetRunning && !newerRelease(view.build, status.target)) return "waiting";
+    if (targetRunning && view.watched) return "done";
+  }
   if (!needsDaemonUpdate(view)) return "current";
   if (status?.phase === "failed" || status?.phase === "rolled_back") return "failed";
   if (legacyBuild(view.build) || view.noRemote || status?.available === false) return "manual";
@@ -150,7 +154,7 @@ function checkResult(view: DaemonVersion): ReactNode {
   if (state === "checking") return null;
   if (view.error || state === "error") return <Line tone="error" live>{t("update.checkFailed")}</Line>;
   if (state !== "success") return null;
-  return <Line tone="ok" live>{view.build === view.latest ? <><Check size={14} aria-hidden="true" />{t("update.latest")}</> : t("update.noAuto")}</Line>;
+  return <Line tone="ok" live>{sameRelease(view.build, view.latest) ? <><Check size={14} aria-hidden="true" />{t("update.latest")}</> : t("update.noAuto")}</Line>;
 }
 
 function StageBody({ view, stage }: { view: DaemonVersion; stage: Stage }) {
@@ -166,7 +170,7 @@ function StageBody({ view, stage }: { view: DaemonVersion; stage: Stage }) {
         <p className="set-note">{t("update.uncertainNote")}</p>
       </>;
     case "waiting":
-      return <Line live>{t("update.waitConfirm", { version: status!.target })}</Line>;
+      return <Line live>{t("update.waitConfirm", { version: status!.target, current: view.build || t("update.versionUnknown") })}</Line>;
     case "done":
       return <Line tone="ok" live><Check size={14} aria-hidden="true" />{t("update.complete", { version: view.build })}</Line>;
     case "current":

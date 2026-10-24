@@ -10,6 +10,7 @@
     "typecheck:qa": "tsc --noEmit -p tsconfig.qa.json",
     "dev": "vite",
     "build": "vite build && bun scripts/build-asset-manifest.ts",
+    "build:native": "VITE_PAIRFOB_NATIVE=1 VITE_PAIRFOB_RELAY_ORIGIN=${VITE_PAIRFOB_RELAY_ORIGIN:-https://pairfob.com} vite build --outDir dist-native --emptyOutDir && bun scripts/build-asset-manifest.ts dist-native",
     "perf:budget": "bun scripts/performance-budget.ts",
     "test:performance": "bun test scripts/performance-budget.test.ts scripts/build-asset-manifest.test.ts",
     "live": "bun scripts/live-session.ts",

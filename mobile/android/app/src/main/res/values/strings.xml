@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Pairfob</string>
+    <string name="title_activity_main">Pairfob</string>
+    <string name="package_name">com.pairfob.app</string>
+    <string name="custom_url_scheme">com.pairfob.app</string>
+</resources>

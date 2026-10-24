@@ -5,14 +5,11 @@ import { useComputers } from "../../features/computers/hooks";
 import { enablePush, preparePush, supportsWebPush } from "../../features/settings/actions";
 import { dismissNotifications, notificationPromptRevision, notificationsPending, subscribeNotificationPrompt } from "../../features/settings/notification-onboarding";
 import { t } from "../../lib/i18n";
+import { needsHomeScreen } from "../../lib/platform";
 import { Button } from "../../shared/ui/primitives/button";
 import "./notification-prompt.scss";
 
-export function needsHomeScreen(): boolean {
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  return ios && !window.matchMedia("(display-mode: standalone)").matches
-    && !(navigator as Navigator & { standalone?: boolean }).standalone;
-}
+export { needsHomeScreen } from "../../lib/platform";
 
 /**
  * A floating invitation never resizes the computer's terminal or takes focus.

@@ -11,6 +11,7 @@ import {
 } from "../connection/runtime-store";
 import { showError, showStatus } from "../../app/notices-store";
 import { t } from "../../lib/i18n";
+import { supportsWebPush } from "../../lib/platform";
 import { parseRuntimeOperationsConfig } from "../../lib/operations";
 import { haptic } from "../../shared/ui/dom/feedback";
 import { reportMutationError } from "../connection/mutations";
@@ -76,9 +77,7 @@ export function leaveSettings(): void {
   commitView();
 }
 
-export function supportsWebPush(): boolean {
-  return "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-}
+export { supportsWebPush } from "../../lib/platform";
 
 /** Whether this browser holds a subscription made with the connected computer's key. */
 async function computerSubscribed(push: PushConfig | undefined): Promise<boolean> {

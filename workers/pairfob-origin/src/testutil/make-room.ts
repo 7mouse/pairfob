@@ -128,6 +128,7 @@ export function testEnv(opts?: {
     IP_HASH_PEPPER: "dev-pepper-not-for-prod",
     BUILD: "test",
     INTENT_PAD_MS: "0",
+    APP_ORIGINS: "https://localhost",
     ASSETS: opts?.assets,
   };
 }
