@@ -1,7 +1,7 @@
 /**
- * The Android beta download host. It is a separate Worker on dl.pairfob.com so
- * publishing an APK never deploys the relay and never resets its WebSockets.
+ * Daemon and Android downloads share this Worker independently of the relay.
  */
+import { daemonDownload } from "./daemon";
 
 export interface Env {
   ASSETS: { fetch(req: Request): Promise<Response> };
@@ -29,7 +29,14 @@ function headers(res: Response, extra: Record<string, string>): Headers {
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
+    const daemon = await daemonDownload(req, env.ASSETS);
+    if (daemon) return daemon;
     const url = new URL(req.url);
+    const metadata = url.pathname === MANIFEST || url.pathname === "/android/beta/previous.json"
+      || /^\/android\/beta\/[A-Za-z0-9._-]+\.apk\.provenance\.json$/.test(url.pathname);
+    if (!metadata && !APK.test(url.pathname)) {
+      return new Response(null, { status: 404, headers: { "Cache-Control": "no-store" } });
+    }
     if (req.method === "OPTIONS" && url.pathname === MANIFEST) {
       return new Response(null, {
         status: 204,
@@ -66,6 +73,6 @@ export default {
           }),
       });
     }
-    return new Response(res.body, { status: res.status, headers: headers(res, {}) });
+    return new Response(res.body, { status: res.status, headers: headers(res, { "Cache-Control": "no-store" }) });
   },
 };

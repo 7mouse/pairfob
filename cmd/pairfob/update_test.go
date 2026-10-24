@@ -27,6 +27,9 @@ func TestAllowedDownloadBaseRejectsCleartextInternet(t *testing.T) {
 	if err := allowedDownloadBase("https://pairfob.com/dl"); err != nil {
 		t.Fatal(err)
 	}
+	if err := allowedDownloadBase(defaultDownloadBase); err != nil {
+		t.Fatal(err)
+	}
 	if err := allowedDownloadBase("http://127.0.0.1:9/dl"); err != nil {
 		t.Fatal(err)
 	}

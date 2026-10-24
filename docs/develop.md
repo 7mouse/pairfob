@@ -183,9 +183,8 @@ commit the intended changes, including `version = "X.Y.Z"` in
 `herdr-plugin.toml` and its assertion in `plugin/herdr/plugin.test.ts`,
 choose an unused `vX.Y.Z` tag, and build once
 from a clean tree with `VERSION=vX.Y.Z ./scripts/release.sh`. Run the full
-`./scripts/verify.sh` gate on that candidate before publishing. For an origin
-deployment, follow the asset-continuity steps below and use
-`PAIRFOB_PACK_DL=1` during verification. Preserve the verified source and
+`./scripts/verify.sh` gate on that candidate before publishing. Daemon releases
+use `scripts/publish-daemon.sh`; they do not pack or deploy the relay. Preserve the verified source and
 artifact snapshot; subsequent edits require the affected checks again.
 
 Version numbers default to a patch bump: fixes and features both ship as
@@ -195,16 +194,16 @@ the daemon and PWA updaters only order versions of equal length.
 
 After verification, tag that exact commit and push the current branch to its
 configured upstream, then push the tag to the same remote. Upload all six
-files from the verified `dist/dl/` directory; these are also the files served
-at `https://pairfob.com/dl/`. Write reviewed release notes to a file outside
+files from the verified `dist/daemon/` directory; these are also the files served
+at `https://dl.pairfob.com/daemon/`. Write reviewed release notes to a file outside
 the working tree, including changes, requirements and upgrade instructions.
 For example, replacing `vX.Y.Z` with the chosen version:
 
 ```sh
 gh release create vX.Y.Z \
-  dist/dl/pairfob-darwin-amd64 dist/dl/pairfob-darwin-arm64 \
-  dist/dl/pairfob-linux-amd64 dist/dl/pairfob-linux-arm64 \
-  dist/dl/VERSION dist/dl/SHA256SUMS \
+  dist/daemon/pairfob-darwin-amd64 dist/daemon/pairfob-darwin-arm64 \
+  dist/daemon/pairfob-linux-amd64 dist/daemon/pairfob-linux-arm64 \
+  dist/daemon/VERSION dist/daemon/SHA256SUMS \
   --repo arronKler/pairfob --verify-tag --draft \
   --title "Pairfob vX.Y.Z" --notes-file /tmp/pairfob-release-notes.md
 ```
@@ -222,8 +221,27 @@ gh release edit vX.Y.Z --repo arronKler/pairfob --verify-tag --draft=false --lat
 
 Confirm the public Release has all six assets and is the latest stable
 release. Do not overwrite published assets or move a released tag; corrections
-to binaries need a new version. GitHub publication does not deploy the origin
-or change the installer's download source. `.goreleaser.yaml` remains an
+to binaries need a new version. GitHub publication does not update the download Worker. After checking the
+GitHub assets, publish the same directory with:
+
+```sh
+./scripts/publish-daemon.sh --source dist/daemon --deploy
+```
+
+The download Worker serves `/daemon/VERSION`, `/daemon/SHA256SUMS`, the four
+binaries and `/install.sh`. It also owns the legacy `pairfob.com/dl/` daemon
+URLs and `pairfob.com/install.sh` through narrow Cloudflare routes. Old clients
+and the PWA's same-origin version check keep working without redirects or a
+relay deployment. New daemons download directly from `dl.pairfob.com`.
+
+Both release publishers lock the shared download deployment, hydrate the other
+channel from its live, hash-checked inventory, and reject a changed inventory
+before deployment. A fresh checkout must not publish only its local channel.
+Daemon build output is `dist/daemon`; Android staging remains `dist/dl/android`.
+The historical `PAIRFOB_PACK_DL=1` origin pack is a legacy snapshot mechanism,
+not the daemon publication path.
+
+`.goreleaser.yaml` remains an
 optional build configuration with publishing disabled; this workflow uses
 `scripts/release.sh` so GitHub and the official site share identical artifacts.
 
@@ -258,7 +276,7 @@ assets and use that snapshot as the previous generation:
 
 ```sh
 bun scripts/snapshot-pwa-assets.ts https://pairfob.com /tmp/pairfob-hosted-assets
-PAIRFOB_PREVIOUS_ASSETS=/tmp/pairfob-hosted-assets PAIRFOB_PACK_DL=1 ./scripts/verify.sh
+PAIRFOB_PREVIOUS_ASSETS=/tmp/pairfob-hosted-assets ./scripts/verify.sh
 ```
 
 Packing retains two prior generations of hashed assets, so existing tabs can
@@ -269,9 +287,9 @@ do not deploy a fresh pack without a trustworthy previous generation. The
 internal Vite manifest remains in `pwa/dist/` for measurement and is excluded
 from the public tree.
 
-Cross-compile downloadable binaries with `./scripts/release.sh` (SemVer from
-`git tag vX.Y.Z`). Pack the origin (including `/dl/` when `PAIRFOB_PACK_DL=1`)
-with `scripts/pack-origin-assets.sh`.
+Cross-compile daemon binaries with `./scripts/release.sh` (SemVer from
+`git tag vX.Y.Z`) and publish them with `scripts/publish-daemon.sh`.
+PWA/site assets are packed separately with `scripts/pack-origin-assets.sh`.
 
 ### PWA UI-only release
 
@@ -281,7 +299,7 @@ or worktree unless explicitly requested:
 
 ```sh
 (cd pwa && bun install --frozen-lockfile)
-PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>
+./scripts/verify.sh --pwa-only <verified-release-commit>
 ```
 
 Set the origin's `BUILD` stamp before this command. The scope check includes
@@ -294,8 +312,8 @@ check.
 
 This path retains all PWA tests, QA, typechecks, fresh builds and Worker
 integration checks, while reusing the unchanged backend's prior verification.
-It prints timings for each web stage. `dist/dl/` must contain the existing
-shippable binaries; this command validates and packs them without rebuilding.
+It prints timings for each web stage. Daemon binaries are published separately
+by the download Worker and are not required for a PWA-only pack.
 After success, deploy the packed tree directly with `wrangler deploy
 --keep-vars` from `workers/pairfob-origin`; do not repeat the pack/docs build
 if inputs have not changed. Verify the live BUILD and asset hashes before

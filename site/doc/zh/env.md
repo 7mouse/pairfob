@@ -26,7 +26,7 @@ description: 安装、登记、路径根、推送。不要设 PAIRFOB_JOIN_TOKEN
 
 | 变量 | 说明 |
 | --- | --- |
-| `PAIRFOB_DOWNLOAD_BASE` | 二进制下载根，默认 `https://pairfob.com/dl` |
+| `PAIRFOB_DOWNLOAD_BASE` | 二进制下载根，默认 `https://dl.pairfob.com/daemon` |
 | `PAIRFOB_INSTALL_PREFIX` | 安装前缀，等同 `install.sh --prefix` |
 
 ## 推送

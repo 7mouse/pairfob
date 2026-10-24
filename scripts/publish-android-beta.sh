@@ -70,13 +70,20 @@ if [[ "$LEGACY_ONLY" == "1" || "$LEGACY_RELAY" == "1" ]]; then
   [[ -f "$RELAY/public-dist/index.html" ]] || { echo "relay live asset pack is missing; run scripts/pack-origin-assets.sh first" >&2; exit 1; }
 fi
 
+DOWNLOAD_LOCK="$DOWNLOADS/.publish.lock"
+if ! mkdir "$DOWNLOAD_LOCK" 2>/dev/null; then
+  echo "another download publication is running: $DOWNLOAD_LOCK" >&2
+  exit 1
+fi
+other_snapshot="$(mktemp)"
+trap 'rm -f "$other_snapshot"; rmdir "$DOWNLOAD_LOCK" 2>/dev/null || true' EXIT
 mkdir -p "$STAGE"
 LOCK="$STAGE/.publish.lock"
 if ! mkdir "$LOCK" 2>/dev/null; then
   echo "another publish is already running (lock: $LOCK)" >&2
   exit 1
 fi
-trap 'rmdir "$LOCK" 2>/dev/null || true' EXIT
+trap 'rm -f "$other_snapshot"; rmdir "$LOCK" "$DOWNLOAD_LOCK" 2>/dev/null || true' EXIT
 
 json_field() {
   python3 -c 'import json,sys
@@ -364,6 +371,9 @@ elif (( candidate_code == prev_code )) && [[ -f "$previous_file" ]]; then
   fi
 fi
 
+# A fresh checkout may not have the daemon files that are live on this Worker.
+python3 "$ROOT/scripts/download-channel.py" preserve --channel daemon --require-present --origin "$ORIGIN" \
+  --public "$DOWNLOADS/public" --receipt "$other_snapshot"
 mkdir -p "$STAGE" "$DL_PUBLIC"
 cp "$APK" "$STAGE/$file_name"
 cp "$APK.provenance.json" "$STAGE/$file_name.provenance.json"
@@ -437,7 +447,9 @@ else
   check_live_download "$tmp" || { rm -f "$tmp"; exit 1; }
   rm -f "$tmp"
 
+  python3 "$ROOT/scripts/download-channel.py" check --receipt "$other_snapshot"
   (cd "$DOWNLOADS" && bunx wrangler deploy)
+  python3 "$ROOT/scripts/download-channel.py" check --receipt "$other_snapshot"
 
   live="$(curl -fsS --retry 6 --retry-delay 2 --retry-all-errors --max-time 20 "$BASE/latest.json?published=$candidate_code")"
   live_code="$(printf '%s' "$live" | python3 -c 'import json,sys; print(json.load(sys.stdin)["versionCode"])')"

@@ -26,7 +26,7 @@ Operator-facing variables only. Leave unspecified variables unset. Do not put se
 
 | Variable | Notes |
 | --- | --- |
-| `PAIRFOB_DOWNLOAD_BASE` | Binary download root, default `https://pairfob.com/dl` |
+| `PAIRFOB_DOWNLOAD_BASE` | Binary download root, default `https://dl.pairfob.com/daemon` |
 | `PAIRFOB_INSTALL_PREFIX` | Same as `install.sh --prefix` |
 
 ## Push

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install pairfob from https://pairfob.com/dl (or $PAIRFOB_DOWNLOAD_BASE).
+# Install pairfob from https://dl.pairfob.com/daemon (or $PAIRFOB_DOWNLOAD_BASE).
 set -eu
 
 usage() {
@@ -28,7 +28,7 @@ INSTALL_HERDR=0
 NO_INSTALL_HERDR=0
 NON_INTERACTIVE=0
 SKIP_HERDR_CHECK=0
-BASE="${PAIRFOB_DOWNLOAD_BASE:-https://pairfob.com/dl}"
+BASE="${PAIRFOB_DOWNLOAD_BASE:-https://dl.pairfob.com/daemon}"
 BASE="${BASE%/}"
 
 while [ "$#" -gt 0 ]; do

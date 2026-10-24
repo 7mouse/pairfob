@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Cross-compile pairfob for hosted download at https://pairfob.com/dl.
+# Cross-compile pairfob for hosted download at https://dl.pairfob.com/daemon.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -23,7 +23,7 @@ if [[ -z "$COMMIT" ]] && command -v git >/dev/null 2>&1 && git -C "$ROOT" rev-pa
 fi
 pairfob_require_shipable_version "$VERSION" "release.sh VERSION"
 
-OUT="${OUT:-$ROOT/dist/dl}"
+OUT="${OUT:-$ROOT/dist/daemon}"
 rm -rf "$OUT"
 mkdir -p "$OUT"
 
@@ -54,5 +54,5 @@ printf '%s\n' "$VERSION" >"${OUT}/VERSION"
 pairfob_require_release_dir "$OUT"
 
 echo "artifacts in ${OUT}"
-echo "production: PAIRFOB_PACK_DL=1 ./scripts/pack-origin-assets.sh then wrangler deploy"
-echo "verify.sh omits binaries so Worker e2e stays small."
+echo "production: ./scripts/publish-daemon.sh --source \"${OUT}\" --deploy"
+echo "Publishing deploys only the download Worker; the relay is unchanged."

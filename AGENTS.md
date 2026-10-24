@@ -71,6 +71,7 @@ from the original module so imports do not churn.
 | --- | --- |
 | `cmd/pairfob` | outbound origin, pairing CLI, local Herdr |
 | `workers/pairfob-origin` | the only relay: Worker + R2 + DaemonRoom DO (production and `wrangler dev`) |
+| `workers/pairfob-downloads` | daemon and Android artifacts at `dl.pairfob.com`; owns legacy daemon download/install routes independently of the relay |
 | `cmd/genvectors` | generate `proto/pairfob-vectors.json` from the Go crypto |
 | `internal/mux` | frame routing; does not touch FWD plaintext |
 | `internal/daemon` | pairing, session, RPC, push, operation ledger |
@@ -92,7 +93,8 @@ from the original module so imports do not churn.
 | `herdr-plugin.toml` `plugin/herdr` | Herdr plugin listing and its pane scripts |
 | `scripts/verify.sh` | format, vet, Go tests (including race), PWA tests, Worker origin tests, typecheck, production build |
 | `scripts/install.sh` | one-line install of pairfob (checksum, enroll, user-level service) |
-| `scripts/release.sh` | cross-compile SemVer `dist/dl/pairfob-{os}-{arch}` + SHA256SUMS (`git tag vX.Y.Z`) |
+| `scripts/release.sh` | cross-compile SemVer `dist/daemon/pairfob-{os}-{arch}` + SHA256SUMS (`git tag vX.Y.Z`) |
+| `scripts/publish-daemon.sh` | publish verified daemon artifacts through the download Worker while preserving the live Android channel |
 | `scripts/site-shots.ts` | render the homepage product stills `site/img/home/{en,zh}` from the `pwa/qa` fixtures; rerun after PWA screen changes |
 
 Put new code in an existing module. Add `internal/<name>` only when no current
@@ -180,6 +182,13 @@ the major only for a backward-incompatible change. A release commit carries the
 matching `herdr-plugin.toml` version and its `plugin/herdr/plugin.test.ts`
 assertion.
 
+Daemon artifacts publish with `scripts/publish-daemon.sh`, independently of
+the relay. The shared download Worker also serves Android; use the channel
+publishers so a fresh checkout restores and verifies the other live channel
+before deployment. Initial migration publishes the daemon channel before the
+updated Android publisher can deploy. The legacy origin binary pack is not
+the daemon publication path.
+
 ## Verify
 
 Choose verification by **change scope and task stage**. Do not run the full
@@ -191,7 +200,7 @@ repository gate after every local edit or merely because a task is ending.
 | Local implementation iteration | Run affected module tests and relevant type/format checks. For shared code, include its affected consumers. |
 | UI behavior or layout change | Add focused browser checks for the changed interaction, on each surface it can reach: a phone with touch (390x844), a tablet with touch (about 1024x768, and 820 wide for the 720–899 tier when the change touches layout), and a desktop with a mouse and keyboard (1440x900). Shared components and anything keyed on width or input reach all three. Drive them with real touch and mouse input through the `pwa/qa` scenes; a unit test at one width does not cover the others. Fixtures, live transport and physical-device acceptance are distinct. |
 | Agent transcript adapter (`internal/journal`) or an agent CLI upgrade | Run `PAIRFOB_SCAN_LOCAL_TRANSCRIPTS=1 go test ./internal/journal -run LocalTranscripts -v` on a machine with real Claude Code / Codex / Grok / Pi / Cursor / Hermes / opencode sessions; a hit is injected context leaking into chat. |
-| PWA UI-only production release | Run `PAIRFOB_PACK_DL=1 ./scripts/verify.sh --pwa-only <verified-release-commit>` against a trustworthy baseline in the current checkout. |
+| PWA UI-only production release | Run `./scripts/verify.sh --pwa-only <verified-release-commit>` against a trustworthy baseline in the current checkout. |
 | Backend, protocol, cross-module contract or release-tooling delivery | Run the full `./scripts/verify.sh` once on the final candidate before handoff/merge/release. Use focused checks during iteration. |
 | Production release outside the guarded PWA-only scope, or without a trustworthy baseline | Run the full gate on the final release candidate. |
 

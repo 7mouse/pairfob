@@ -265,7 +265,7 @@ func TestSelectMachineNeedsAnUnambiguousName(t *testing.T) {
 
 func TestMachineInstallScriptQuotesAndValidatesItsInputs(t *testing.T) {
 	script, err := machineInstall{}.script()
-	if err != nil || !strings.Contains(script, "curl -fsSL 'https://pairfob.com/install.sh'") || strings.Contains(script, "PAIRFOB_DOWNLOAD_BASE") || strings.Contains(script, "--origin") {
+	if err != nil || !strings.Contains(script, "curl -fsSL 'https://dl.pairfob.com/install.sh'") || strings.Contains(script, "PAIRFOB_DOWNLOAD_BASE") || strings.Contains(script, "--origin") {
 		t.Fatalf("default script = %q, %v", script, err)
 	}
 	for name, plan := range map[string]machineInstall{
@@ -279,5 +279,15 @@ func TestMachineInstallScriptQuotesAndValidatesItsInputs(t *testing.T) {
 	}
 	if got := shellQuote("a'b"); got != `'a'\''b'` {
 		t.Fatalf("shellQuote = %s", got)
+	}
+}
+
+func TestMachineInstallSupportsCanonicalAndLegacyDownloadPaths(t *testing.T) {
+	for _, suffix := range []string{"/daemon", "/dl"} {
+		base := "http://127.0.0.1:8799" + suffix
+		script, err := (machineInstall{DownloadBase: base}).script()
+		if err != nil || !strings.Contains(script, "curl -fsSL 'http://127.0.0.1:8799/install.sh'") || !strings.Contains(script, "export PAIRFOB_DOWNLOAD_BASE='"+base+"'") {
+			t.Fatalf("%s: script = %q, error = %v", suffix, script, err)
+		}
 	}
 }

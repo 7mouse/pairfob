@@ -13,7 +13,7 @@ import (
 
 const (
 	defaultHostedOrigin = "https://pairfob.com"
-	defaultDownloadBase = "https://pairfob.com/dl"
+	defaultDownloadBase = "https://dl.pairfob.com/daemon"
 )
 
 type muxEnv struct {

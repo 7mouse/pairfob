@@ -4,7 +4,13 @@
   "compatibility_date": "2026-08-22",
   "workers_dev": false,
   "routes": [
-    { "pattern": "dl.pairfob.com", "custom_domain": true }
+    { "pattern": "dl.pairfob.com", "custom_domain": true },
+    // Old clients keep their URLs; these routes take precedence over the relay's
+    // custom domain without deploying or proxying through the relay Worker.
+    { "pattern": "pairfob.com/dl/VERSION*", "zone_name": "pairfob.com" },
+    { "pattern": "pairfob.com/dl/SHA256SUMS*", "zone_name": "pairfob.com" },
+    { "pattern": "pairfob.com/dl/pairfob-*", "zone_name": "pairfob.com" },
+    { "pattern": "pairfob.com/install.sh*", "zone_name": "pairfob.com" }
   ],
   "assets": {
     "directory": "./public",

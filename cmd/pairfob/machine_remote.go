@@ -176,7 +176,10 @@ func (plan machineInstall) script() (string, error) {
 	}
 	root, ok := strings.CutSuffix(base, "/dl")
 	if !ok {
-		return "", errors.New("PAIRFOB_DOWNLOAD_BASE must end in /dl to install on another machine")
+		root, ok = strings.CutSuffix(base, "/daemon")
+	}
+	if !ok {
+		return "", errors.New("PAIRFOB_DOWNLOAD_BASE must end in /daemon or /dl to install on another machine")
 	}
 	var b strings.Builder
 	b.WriteString("set -eu\ntmp=\"$(mktemp)\"\ntrap 'rm -f \"$tmp\"' 0\n")
