@@ -9,6 +9,7 @@ export interface Env {
 
 const APP_ORIGIN = "https://localhost";
 const MANIFEST = "/android/beta/latest.json";
+const LATEST_APK = "/android/beta/latest.apk";
 const APK = /^\/android\/beta\/[A-Za-z0-9._-]+\.apk$/;
 
 function cors(req: Request): Record<string, string> {
@@ -25,6 +26,30 @@ function headers(res: Response, extra: Record<string, string>): Headers {
   merged.set("X-Content-Type-Options", "nosniff");
   for (const [key, value] of Object.entries(extra)) merged.set(key, value);
   return merged;
+}
+
+/** Point the stable link at whatever version the manifest currently names. */
+async function latestAPK(env: Env, url: URL): Promise<Response> {
+  const manifest = await env.ASSETS.fetch(new Request(new URL(MANIFEST, url)));
+  let path: unknown;
+  if (manifest.ok) {
+    try {
+      const data = (await manifest.json()) as { url?: unknown };
+      path = data.url;
+    } catch {
+      /* handled below */
+    }
+  }
+  if (typeof path !== "string" || !APK.test(path) || path === LATEST_APK) {
+    return new Response(null, {
+      status: 502,
+      headers: headers(new Response(null), { "Cache-Control": "no-store" }),
+    });
+  }
+  return new Response(null, {
+    status: 302,
+    headers: headers(new Response(null), { Location: path, "Cache-Control": "no-store" }),
+  });
 }
 
 export default {
@@ -47,6 +72,9 @@ export default {
           "Access-Control-Max-Age": "600",
         }),
       });
+    }
+    if (url.pathname === LATEST_APK && (req.method === "GET" || req.method === "HEAD")) {
+      return latestAPK(env, url);
     }
     const res = await env.ASSETS.fetch(req);
     if (url.pathname === MANIFEST) {

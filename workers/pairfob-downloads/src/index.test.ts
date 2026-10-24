@@ -2,6 +2,13 @@ import { expect, test } from "bun:test";
 import worker from "./index";
 
 const env = (status = 200) => ({ ASSETS: { fetch: async () => new Response("asset", { status }) } });
+const manifestEnv = (manifest: unknown, status = 200) => ({
+  ASSETS: {
+    fetch: async (req: Request) => new URL(req.url).pathname === "/android/beta/latest.json"
+      ? new Response(JSON.stringify(manifest), { status })
+      : new Response("asset", { status: 200 }),
+  },
+});
 const request = (path: string, origin?: string) => new Request(`https://dl.pairfob.com${path}`, {
   headers: origin ? { Origin: origin } : {},
 });
@@ -23,6 +30,33 @@ test("only successful APK responses are immutable", async () => {
       ? "public, max-age=31536000, immutable" : "no-store");
     expect(response.headers.get("Content-Type")).toBe("application/vnd.android.package-archive");
   }
+});
+
+test("latest.apk redirects to the manifest's versioned APK without caching", async () => {
+  const response = await worker.fetch(
+    request("/android/beta/latest.apk"),
+    manifestEnv({ url: "/android/beta/pairfob-1.0.0-beta.14-14.apk" }),
+  );
+  expect(response.status).toBe(302);
+  expect(response.headers.get("Location")).toBe("/android/beta/pairfob-1.0.0-beta.14-14.apk");
+  expect(response.headers.get("Cache-Control")).toBe("no-store");
+  expect(response.headers.get("X-Content-Type-Options")).toBe("nosniff");
+});
+
+test("latest.apk fails closed on a missing or invalid manifest", async () => {
+  for (const manifest of [
+    {},
+    { url: "https://evil.example/pairfob.apk" },
+    { url: "/android/beta/latest.apk" },
+    { url: "/android/beta/pairfob.zip" },
+    { url: "/android/beta/../pairfob.apk" },
+  ]) {
+    const response = await worker.fetch(request("/android/beta/latest.apk"), manifestEnv(manifest));
+    expect(response.status).toBe(502);
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+  }
+  const missing = await worker.fetch(request("/android/beta/latest.apk"), manifestEnv({}, 404));
+  expect(missing.status).toBe(502);
 });
 
 test("preflight grants only the app origin and does not read assets", async () => {

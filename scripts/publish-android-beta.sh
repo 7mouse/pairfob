@@ -28,18 +28,20 @@ BETA_CERT_SHA256="1df205898f9e85ab178d280d3a7a5af5a683e5c686ac7e0df3c37057a64349
 
 APK="${APK:-$ROOT/mobile/android/app/build/outputs/apk/release/app-release.apk}"
 NOTES="Beta update."
+NOTES_ZH=""
 DEPLOY=0
 LEGACY_RELAY=0
 LEGACY_ONLY=0
 
 usage() {
-  echo "usage: publish-android-beta.sh [--apk PATH] [--notes TEXT] [--deploy] [--legacy-relay] [--legacy-only]" >&2
+  echo "usage: publish-android-beta.sh [--apk PATH] [--notes TEXT] [--notes-zh TEXT] [--deploy] [--legacy-relay] [--legacy-only]" >&2
 }
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --apk) APK="${2:?missing value}"; shift 2 ;;
     --notes) NOTES="${2:?missing value}"; shift 2 ;;
+    --notes-zh) NOTES_ZH="${2:?missing value}"; shift 2 ;;
     --deploy) DEPLOY=1; shift ;;
     --legacy-relay) LEGACY_RELAY=1; shift ;;
     --legacy-only) LEGACY_ONLY=1; shift ;;
@@ -144,9 +146,9 @@ verify_staged() {
 
 write_manifest() {
   local path="$1" url_path="$2" code="$3" name="$4" sha="$5" size="$6" commit="$7" dirty="$8"
-  python3 - "$path" "$url_path" "$code" "$name" "$sha" "$size" "$NOTES" "$commit" "$dirty" <<'PY'
+  python3 - "$path" "$url_path" "$code" "$name" "$sha" "$size" "$NOTES" "$NOTES_ZH" "$commit" "$dirty" <<'PY'
 import json, sys, datetime
-path, url_path, code, name, sha, size, notes, commit, dirty = sys.argv[1:10]
+path, url_path, code, name, sha, size, notes, notes_zh, commit, dirty = sys.argv[1:11]
 manifest = {
     "channel": "beta",
     "versionCode": int(code),
@@ -160,6 +162,8 @@ manifest = {
     "dirty": dirty == "1",
     "notes": notes,
 }
+if notes_zh:
+    manifest["notesZh"] = notes_zh
 with open(path, "w", encoding="utf-8") as handle:
     json.dump(manifest, handle, ensure_ascii=False, indent=2)
     handle.write("\n")

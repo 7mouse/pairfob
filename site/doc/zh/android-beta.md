@@ -12,7 +12,7 @@ Agent。当前通过 APK 侧载安装，尚未上架应用商店。使用时请�
 
 1. 使用 Android 7.0 或更新版本，并更新 Android System WebView 和浏览器。
 2. 在电脑上[安装 Pairfob](/zh/install)，启动服务。
-3. [下载 beta.14](https://dl.pairfob.com/android/beta/pairfob-1.0.0-beta.14-14.apk)。
+3. [下载最新 beta](https://dl.pairfob.com/android/beta/latest.apk)。
    当前版本和更新说明见[发布清单](https://dl.pairfob.com/android/beta/latest.json)，
    旧版本在 [GitHub Releases](https://github.com/arronKler/pairfob/releases)。
 4. 打开下载的 APK。如系统提示，请为下载所用的浏览器开启「允许安装未知应用」。

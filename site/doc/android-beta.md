@@ -13,7 +13,7 @@ APK, not a Play Store release. Keep the computer running and online.
 
 1. Use Android 7.0 or newer, with an up-to-date Android System WebView and browser.
 2. [Install Pairfob on your computer](/install) and start its service.
-3. [Download beta.14](https://dl.pairfob.com/android/beta/pairfob-1.0.0-beta.14-14.apk).
+3. [Download the latest beta](https://dl.pairfob.com/android/beta/latest.apk).
    The current version and its notes are in the
    [release manifest](https://dl.pairfob.com/android/beta/latest.json); past
    builds are on [GitHub Releases](https://github.com/arronKler/pairfob/releases).

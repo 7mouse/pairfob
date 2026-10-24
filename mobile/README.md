@@ -116,7 +116,7 @@ its final-byte hash to reject an APK rebuilt outside the release pipeline.
 Publish a built APK:
 
 ```sh
-./scripts/publish-android-beta.sh --notes "What changed" --deploy
+./scripts/publish-android-beta.sh --notes "What changed" --notes-zh "本次改动" --deploy
 ```
 
 The script verifies the beta certificate, requires a `versionCode` higher than
@@ -124,6 +124,11 @@ every published channel, stages `latest.json` and the APK, deploys
 `workers/pairfob-downloads`, and verifies the live manifest and APK hash. It
 keeps the current and previous APK. A bad beta is fixed with a higher
 `versionCode`, because Android refuses downgrades.
+
+`--notes-zh` is optional. The app shows that note when its language is Chinese
+and falls back to `--notes` otherwise. The stable link
+`https://dl.pairfob.com/android/beta/latest.apk` redirects to the APK named in
+the manifest, so the tester docs do not need a version in the URL.
 
 Builds from before beta.9 used the relay path
 `https://pairfob.com/dl/android/beta/latest.json`. `--legacy-only` points that
