@@ -35,7 +35,7 @@ export type FixtureSession = {
   dispose(): void;
 };
 
-export type DaemonUpdateFixture = { ending?: "complete" | "failed" | "rolled_back"; supported?: boolean };
+export type DaemonUpdateFixture = { ending?: "complete" | "failed" | "rolled_back"; supported?: boolean; build?: string; completedTarget?: string };
 
 /** What a scene's computer reports; the baseline fixture when a scene names none. */
 export type SessionSource = {
@@ -291,9 +291,11 @@ export function createSession(source: SessionSource = {}): FixtureSession {
     hold(method) { held.add(method); },
     release(method) { held.delete(method); for (const waiter of waiters.get(method) ?? []) waiter.resolve(); waiters.delete(method); },
     failNext(method, code) { failures.set(method, code); },
-    setDaemonUpdate({ ending, supported }) {
+    setDaemonUpdate({ ending, supported, build: running, completedTarget }) {
       if (ending) updateEnding = ending;
       if (supported !== undefined) updateSupported = supported;
+      if (running !== undefined) build = running;
+      if (completedTarget !== undefined) update = { available: true, phase: "complete", target: completedTarget, operation_id: "op_qa_completed_update" };
     },
     dispose() {
       disposed = true;

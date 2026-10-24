@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { t } from "../../lib/i18n";
 import { nativeApp } from "../../lib/native-app";
 import { nativePlatform } from "../../lib/platform";
-import { SetAction, SetItem, Spinner } from "../../shared/ui/primitives";
+import { Button, SetAction, SetGroup, SetItem, SetTag, Spinner } from "../../shared/ui/primitives";
 import {
   cacheAndroidRelease,
   cachedAndroidRelease,
@@ -23,30 +24,30 @@ type Phase =
   | { kind: "current" }
   | { kind: "available"; release: AndroidRelease }
   | { kind: "opening"; release: AndroidRelease }
-  | { kind: "error" };
-
-function versionLine(build: AndroidBuild | null): string {
-  return build ? `${build.version} (${build.code})` : t("set.androidNoBridge");
-}
+  | { kind: "open-error"; release: AndroidRelease }
+  | { kind: "read-error" }
+  | { kind: "check-error" };
 
 /**
- * The Android app's update row. The hosted web build has no self-update, so the
- * row exists only inside the native shell. Checking is silent on foreground and
- * explicit on tap; installing hands the versioned APK to the system browser.
+ * The local app's own update card, separate from the connected computer and
+ * language preferences. It exists only inside the native shell. Checking is
+ * silent on foreground and explicit on tap; installing opens the system browser.
  */
-export function AndroidUpdateRow() {
+export function AndroidUpdateCard() {
   const android = nativePlatform()?.kind === "android";
   const [build, setBuild] = useState<AndroidBuild | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "reading" });
   const mounted = useRef(true);
   const buildRef = useRef<AndroidBuild | null>(null);
   const checkingRef = useRef(false);
+  const openingRef = useRef(false);
+  const readAttempt = useRef(0);
 
   async function check(known: AndroidBuild, manual: boolean): Promise<void> {
-    if (checkingRef.current) return;
+    if (checkingRef.current || openingRef.current) return;
     const app = nativeApp();
     if (!app) {
-      setPhase({ kind: "error" });
+      setPhase({ kind: "check-error" });
       return;
     }
     checkingRef.current = true;
@@ -62,7 +63,7 @@ export function AndroidUpdateRow() {
       if (!mounted.current) return;
       const cached = manual ? null : cachedAndroidRelease();
       if (!manual && cached && hasNewerRelease(known.code, cached)) setPhase({ kind: "available", release: cached });
-      else setPhase(manual ? { kind: "error" } : { kind: "idle" });
+      else setPhase(manual ? { kind: "check-error" } : { kind: "idle" });
     } finally {
       checkingRef.current = false;
     }
@@ -90,85 +91,93 @@ export function AndroidUpdateRow() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [android]);
 
-  useEffect(() => {
-    if (!android) return;
-    let cancelled = false;
-    const app = nativeApp();
-    if (!app) {
-      setPhase({ kind: "error" });
-      return;
-    }
-    void app.getInfo().then((info) => {
-      if (cancelled) return;
+  async function readVersion(manual = false): Promise<void> {
+    const attempt = ++readAttempt.current;
+    setPhase({ kind: "reading" });
+    try {
+      const app = nativeApp();
+      if (!app) throw new Error("native bridge unavailable");
+      const info = await app.getInfo();
       const parsed = parseAndroidBuild(info.version, info.build);
-      if (!parsed) {
-        setPhase({ kind: "error" });
-        return;
-      }
+      if (!parsed) throw new Error("invalid native version");
+      if (!mounted.current || attempt !== readAttempt.current) return;
+      buildRef.current = parsed;
       setBuild(parsed);
       const cached = cachedAndroidRelease();
       if (cached && hasNewerRelease(parsed.code, cached)) setPhase({ kind: "available", release: cached });
-      if (dueForCheck()) void check(parsed, false);
+      if (manual || dueForCheck()) await check(parsed, manual);
       else if (!cached || !hasNewerRelease(parsed.code, cached)) setPhase({ kind: "idle" });
-    }).catch(() => {
-      if (!cancelled) setPhase({ kind: "error" });
-    });
-    return () => {
-      cancelled = true;
-    };
+    } catch {
+      if (mounted.current && attempt === readAttempt.current) setPhase({ kind: "read-error" });
+    }
+  }
+
+  useEffect(() => {
+    if (!android) return;
+    void readVersion();
+    return () => { readAttempt.current++; };
   }, [android]);
 
   async function install(release: AndroidRelease): Promise<void> {
-    const app = nativeApp();
-    const url = resolveReleaseURL(release.url);
-    if (!app || !url) {
-      setPhase({ kind: "error" });
-      return;
-    }
+    if (openingRef.current) return;
+    openingRef.current = true;
     setPhase({ kind: "opening", release });
     try {
+      const app = nativeApp();
+      const url = resolveReleaseURL(release.url);
+      if (!app || !url) throw new Error("download unavailable");
       await app.openUrl({ url });
       if (mounted.current) setPhase({ kind: "available", release });
     } catch {
-      if (mounted.current) setPhase({ kind: "error" });
+      if (mounted.current) setPhase({ kind: "open-error", release });
+    } finally {
+      openingRef.current = false;
     }
   }
 
   if (!android) return null;
 
   const checking = phase.kind === "reading" || phase.kind === "checking";
-  const release = phase.kind === "available" || phase.kind === "opening" ? phase.release : null;
-  let sub = versionLine(build);
-  if (checking) sub = t("set.androidChecking");
-  else if (phase.kind === "opening") sub = `${versionLine(build)} · ${t("set.androidOpening")}`;
-  else if (phase.kind === "current") sub = `${versionLine(build)} · ${t("set.androidCurrent")}`;
-  else if (release) sub = `${versionLine(build)} · ${t("set.androidAvailable", { version: release.versionName })}`;
-  else if (phase.kind === "error") sub = `${versionLine(build)} · ${t("set.androidError")}`;
+  const release = "release" in phase ? phase.release : null;
+  const failed = phase.kind === "read-error" || phase.kind === "check-error" || phase.kind === "open-error";
+  const sub = build ? t("set.androidInstalled", { version: build.version }) : null;
+  const status = phase.kind === "reading" ? t("set.androidReading")
+    : phase.kind === "checking" ? t("set.androidChecking")
+    : phase.kind === "current" ? t("set.androidCurrent")
+    : phase.kind === "read-error" ? t("set.androidNoBridge")
+    : phase.kind === "check-error" ? t("set.androidError")
+    : phase.kind === "open-error" ? t("set.androidOpenError") : null;
 
   let trailing;
   if (checking) {
     trailing = <Spinner />;
-  } else if (phase.kind === "opening") {
-    trailing = <span className="set-state">{t("set.androidOpening")}</span>;
   } else if (release) {
-    trailing = <SetAction tone="fill" onClick={() => void install(release)}>{t("set.androidInstall")}</SetAction>;
+    trailing = <SetTag tone="accent">{t("set.androidUpdateAvailable")}</SetTag>;
   } else {
     trailing = (
-      <SetAction disabled={!build} onClick={() => { if (build) void check(build, true); }}>
-        {t(phase.kind === "error" ? "set.androidRetry" : "set.androidCheck")}
+      <SetAction onClick={() => { if (build) void check(build, true); else void readVersion(true); }}>
+        {t(failed ? "set.androidRetry" : "set.androidCheck")}
       </SetAction>
     );
   }
 
   return (
-    <div className="set-item-group android-update">
+    <SetGroup label={t("set.androidSection")} className="android-update" id="settings-android-app">
       <SetItem label={t("set.androidApp")} sub={sub} trailing={trailing} />
+      {status ? <p className="android-update-status" data-error={failed || undefined} role="status">{status}</p> : null}
       {release ? (
-        <div>
-          {release.notes ? <p className="set-note">{release.notes}</p> : null}
-          <p className="set-note">{t("set.androidInstallNote")}</p>
+        <div className="set-item-block android-update-release">
+          <p className="android-update-target"><span>{t("set.androidNewVersion")}</span><strong>{release.versionName}</strong></p>
+          <Button className="btn btn-primary android-update-install" disabled={phase.kind === "opening"} onClick={() => void install(release)}>
+            {phase.kind === "opening" ? <Spinner /> : null}{t(phase.kind === "opening" ? "set.androidOpening" : phase.kind === "open-error" ? "set.androidRetryDownload" : "set.androidInstall")}
+          </Button>
+          <p className="android-update-hint">{t("set.androidInstallNote")}</p>
+          {release.notes ? <details className="android-update-notes">
+            <summary>{t("set.androidReleaseNotes")}<ChevronDown size={14} className="set-disclosure" aria-hidden="true" /></summary>
+            <p>{release.notes}</p>
+          </details> : null}
         </div>
       ) : null}
-    </div>
+    </SetGroup>
   );
 }

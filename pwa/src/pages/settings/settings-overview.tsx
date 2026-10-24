@@ -1,5 +1,5 @@
 import { openComputers } from "../../features/computers/actions";
-import { AndroidUpdateRow } from "../../features/settings/android-update-view";
+import { AndroidUpdateCard } from "../../features/settings/android-update-view";
 import { DaemonUpdateRow } from "../../features/settings/daemon-update-view";
 import { HerdSessionRow } from "../../features/herd-sessions/herd-session-row";
 import { LanguageControl } from "../../features/settings/language";
@@ -40,11 +40,11 @@ export function SettingsOverview({ input }: { input: SettingsOverviewInput }) {
         <SetNavItem label={t("settings.switchComputer")} value={t("settings.countUnit", { n: String(input.computerCount) })}
           onClick={openComputers} />
       </ComputerPanel>
+      <AndroidUpdateCard />
       <AgentQuotaModule />
       <SessionDefaults mode={input.defaultTermMode} live={input.defaultComposeLive} enterSends={input.composeEnterSends} />
       <SetGroup label={t(input.desk ? "set.deviceSection" : "settings.phoneSection")}>
         {input.notification && <NotificationItem input={input.notification} />}
-        <AndroidUpdateRow />
         <SetItem className="language-item" label={t("settings.language")} trailing={<LanguageControl className="set-seg"><SegThumb /></LanguageControl>} />
       </SetGroup>
     </>

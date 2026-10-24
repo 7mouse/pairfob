@@ -115,8 +115,37 @@ test("completion requires the target to be running", async () => {
   connect({ daemonUpdateStatus: async () => ({ ...idle, phase: "complete", target: "1.1.0", operation_id: "op_abcdefghijklmnop" }), getConfig: async () => ({ build: "1.0.0" }) });
   await act(async () => { await refreshDaemonUpdate(); });
   paintDaemon(true);
-  expect(host!.textContent).toContain(t("update.waitConfirm", { version: "1.1.0" }));
+  expect(host!.textContent).toContain(t("update.waitConfirm", { version: "1.1.0", current: "1.0.0" }));
   expect(host!.textContent).not.toContain(t("update.complete", { version: "1.1.0" }));
+});
+
+test.each([false, true])("an older completed update is not a pending restart or fresh success (watched=%s)", async (watched) => {
+  connect({ daemonUpdateStatus: async () => ({ ...idle, phase: "complete", target: "v1.4.4" }), getConfig: async () => ({ build: "v1.4.5" }) }, "v1.4.5");
+  await act(async () => { await refreshDaemonUpdate(); });
+  daemonVersion()!.watched = watched;
+  paintDaemon(true);
+  expect(host!.querySelector("[data-stage]")?.getAttribute("data-stage")).toBe("current");
+  expect(host!.textContent).toContain("Pairfob 运行版本");
+  expect(host!.textContent).toContain("v1.4.5");
+  expect(host!.textContent).not.toContain("v1.4.4");
+  expect(host!.textContent).not.toContain(t("update.complete", { version: "v1.4.5" }));
+  globalThis.fetch = (async () => new Response("v1.4.6")) as typeof fetch;
+  await act(async () => { await checkDaemonRelease(true); });
+  expect(host!.querySelector("[data-stage]")?.getAttribute("data-stage")).toBe("available");
+  expect(host!.textContent).toContain(t("update.now", { version: "v1.4.6" }));
+});
+
+test("a completed target and release with different v prefixes are recognized as running and current", async () => {
+  connect({ daemonUpdateStatus: async () => ({ ...idle, phase: "complete", target: "1.1.0" }), getConfig: async () => ({ build: "v1.1.0" }) }, "v1.1.0");
+  await act(async () => { await refreshDaemonUpdate(); });
+  daemonVersion()!.watched = true;
+  paintDaemon(true);
+  expect(host!.querySelector("[data-stage]")?.getAttribute("data-stage")).toBe("done");
+  daemonVersion()!.watched = false;
+  daemonVersion()!.checkedManually = true;
+  await act(async () => { await checkDaemonRelease(true); });
+  expect(host!.querySelector("[data-stage]")?.getAttribute("data-stage")).toBe("current");
+  expect(host!.textContent).toContain(t("update.latest"));
 });
 
 test("previous computer status cannot overwrite the current view", async () => {
@@ -358,7 +387,7 @@ test("update copy follows the selected language", async () => {
   setLang("en");
   paintDaemon(true);
   expect(host!.querySelector(".daemon-update-check")?.textContent).toBe("Check for updates");
-  expect(host!.textContent).toContain("Computer version");
+  expect(host!.textContent).toContain("Pairfob running version");
 });
 
 test("routine settings version stays compact even when background checks fail", async () => {

@@ -11,4 +11,8 @@ export function newerRelease(latest: string, current: string): boolean {
   for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return a[i] > b[i];
   return false;
 }
+export function sameRelease(a: string, b: string): boolean {
+  const left = releaseParts(a), right = releaseParts(b);
+  return !!left && !!right && left.length === right.length && left.every((part, i) => part === right[i]);
+}
 export function legacyBuild(build: string): boolean { return !build || build === "0.1.0"; }
