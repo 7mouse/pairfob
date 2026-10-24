@@ -2,11 +2,11 @@
 
 /*
   The screen is dark on both sides of the theme: xterm's own palette does not
-  follow the page, and neither does the chrome around it, because the error
-  panel and the scroll buttons sit on near-black plates. These two values are
-  scoped here rather than declared on :root, where they also serve code blocks
-  and the compose field — those follow the page, and a light document draws
-  their ink dark on paper.
+  follow the page, and neither does the chrome around it, because the header,
+  the error panel and the scroll buttons sit on near-black plates. These values
+  are scoped here rather than declared on :root, where they also serve code
+  blocks and the compose field — those follow the page, and a light document
+  draws their ink dark on paper.
 */
 .full-terminal-root {
   --term-ink: #dfe5ee;
@@ -14,6 +14,10 @@
   --term-plate: #090c10;
   /* A field cut into the terminal is dark like the plate it sits on. */
   --sink: #141a22;
+  /* The header's ground, which the shared chrome reads, so its title and its
+     action icons stay on the dark side with the ink that is already here. */
+  --chrome-scrim: rgba(11, 14, 19, 0.88);
+  --chrome-scrim-2: rgba(11, 14, 19, 0.92);
   position: relative;
   display: flex;
   flex-direction: column;
