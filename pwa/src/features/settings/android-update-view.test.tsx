@@ -10,7 +10,8 @@ import { AndroidUpdateCard } from "./android-update-view";
 
 type Request = { id: string; method: string; url?: string };
 const release = { channel: "beta", versionCode: 13, versionName: "1.0.0-beta.13",
-  url: "/android/beta/pairfob-1.0.0-beta.13-13.apk", sha256: "a".repeat(64), size: 1000 };
+  url: "/android/beta/pairfob-1.0.0-beta.13-13.apk", sha256: "a".repeat(64), size: 1000,
+  notes: "English note", notesZh: "中文说明" };
 let root: Root | null, host: HTMLElement, port: NativeMessagePort;
 let native: { mockRestore(): void };
 let requests: Request[];
@@ -130,4 +131,27 @@ test("a retired Strict Mode version read cannot overwrite the current installed 
   expect(host.textContent).toContain("已安装 1.0.0-beta.13");
   expect(host.textContent).toContain(t("set.androidCurrent"));
   expect(host.querySelector(".android-update-install")).toBeNull();
+});
+
+test("shows the Chinese release note in the Chinese UI", async () => {
+  await render();
+  expect(host.textContent).toContain("中文说明");
+  expect(host.textContent).not.toContain("English note");
+});
+
+test("offers the beta feedback form inside the native app", async () => {
+  await render();
+  const link = host.querySelector<HTMLAnchorElement>(".android-update-feedback");
+  expect(link).not.toBeNull();
+  expect(link!.href).toBe("https://github.com/arronKler/pairfob/issues/new?template=android-beta.yml");
+  expect(link!.target).toBe("_blank");
+  expect(link!.rel).toBe("noreferrer");
+  expect(link!.textContent).toBe(t("set.androidFeedbackOpen"));
+});
+
+test("stays out of the hosted web app", async () => {
+  native.mockRestore();
+  native = spyOn(platform, "nativePlatform").mockReturnValue(null);
+  await render();
+  expect(host.innerHTML).toBe("");
 });

@@ -54,3 +54,5 @@
 .android-update-notes summary::-webkit-details-marker { display: none; }
 .android-update-notes[open] .set-disclosure { transform: rotate(180deg); }
 .android-update-notes p { padding-bottom: 4px; white-space: pre-line; }
+
+.android-update-feedback { text-decoration: none; }

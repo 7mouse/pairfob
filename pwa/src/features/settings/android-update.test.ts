@@ -6,6 +6,7 @@ import {
   markChecked,
   parseAndroidBuild,
   parseAndroidRelease,
+  releaseNotes,
   resolveReleaseURL,
 } from "./android-update";
 
@@ -52,7 +53,17 @@ describe("android beta release", () => {
       sha256: "a".repeat(64),
       size: 5_000_000,
       notes: valid.notes,
+      notesZh: "",
     });
+  });
+
+  test("localizes release notes and falls back to the default note", () => {
+    const localized = parseAndroidRelease({ ...valid, notesZh: "修复终端键盘。" })!;
+    expect(localized.notesZh).toBe("修复终端键盘。");
+    expect(releaseNotes(localized, "zh")).toBe("修复终端键盘。");
+    expect(releaseNotes(localized, "en")).toBe(valid.notes);
+    const fallback = parseAndroidRelease(valid)!;
+    expect(releaseNotes(fallback, "zh")).toBe(valid.notes);
   });
 
   test("rejects malformed manifests", () => {
@@ -67,6 +78,7 @@ describe("android beta release", () => {
       { ...valid, sha256: "abc" },
       { ...valid, size: 0 },
       { ...valid, notes: 42 },
+      { ...valid, notesZh: 42 },
     ];
     for (const item of cases) expect(parseAndroidRelease(item)).toBeNull();
   });

@@ -5,6 +5,7 @@
  * key, so this module never decides trust, only which file to offer.
  */
 
+import type { Lang } from "../../lib/i18n";
 import { nativeApp } from "../../lib/native-app";
 import { nativePlatform } from "../../lib/platform";
 import { downloadOrigin, downloadURL } from "../../lib/runtime-config";
@@ -17,6 +18,7 @@ export type AndroidRelease = {
   sha256: string;
   size: number;
   notes: string;
+  notesZh: string;
 };
 
 export type AndroidBuild = {
@@ -48,7 +50,9 @@ export function parseAndroidRelease(value: unknown): AndroidRelease | null {
   if (typeof raw.url !== "string" || !APK_PATH.test(raw.url)) return null;
   if (typeof raw.sha256 !== "string" || !SHA256.test(raw.sha256)) return null;
   if (raw.notes !== undefined && typeof raw.notes !== "string") return null;
+  if (raw.notesZh !== undefined && typeof raw.notesZh !== "string") return null;
   const notes = typeof raw.notes === "string" ? raw.notes.trim().slice(0, MAX_NOTES) : "";
+  const notesZh = typeof raw.notesZh === "string" ? raw.notesZh.trim().slice(0, MAX_NOTES) : "";
   return {
     channel: "beta",
     versionCode,
@@ -57,6 +61,7 @@ export function parseAndroidRelease(value: unknown): AndroidRelease | null {
     sha256: raw.sha256.toLowerCase(),
     size,
     notes,
+    notesZh,
   };
 }
 
@@ -73,6 +78,11 @@ export function parseAndroidBuild(version: unknown, build: unknown): AndroidBuil
 
 export function hasNewerRelease(installed: number, release: AndroidRelease): boolean {
   return release.versionCode > installed;
+}
+
+/** The Chinese note when the manifest has one; otherwise the default note. */
+export function releaseNotes(release: AndroidRelease, language: Lang): string {
+  return language === "zh" && release.notesZh ? release.notesZh : release.notes;
 }
 
 /**

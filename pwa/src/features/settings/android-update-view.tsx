@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown } from "lucide-react";
-import { t } from "../../lib/i18n";
+import { lang, t } from "../../lib/i18n";
 import { nativeApp } from "../../lib/native-app";
 import { nativePlatform } from "../../lib/platform";
 import { Button, SetAction, SetGroup, SetItem, SetTag, Spinner } from "../../shared/ui/primitives";
@@ -12,10 +12,13 @@ import {
   hasNewerRelease,
   markChecked,
   parseAndroidBuild,
+  releaseNotes,
   resolveReleaseURL,
   type AndroidBuild,
   type AndroidRelease,
 } from "./android-update";
+
+const FEEDBACK_URL = "https://github.com/arronKler/pairfob/issues/new?template=android-beta.yml";
 
 type Phase =
   | { kind: "reading" }
@@ -141,6 +144,7 @@ export function AndroidUpdateCard() {
   const release = "release" in phase ? phase.release : null;
   const failed = phase.kind === "read-error" || phase.kind === "check-error" || phase.kind === "open-error";
   const sub = build ? t("set.androidInstalled", { version: build.version }) : null;
+  const notes = release ? releaseNotes(release, lang()) : "";
   const status = phase.kind === "reading" ? t("set.androidReading")
     : phase.kind === "checking" ? t("set.androidChecking")
     : phase.kind === "current" ? t("set.androidCurrent")
@@ -172,12 +176,17 @@ export function AndroidUpdateCard() {
             {phase.kind === "opening" ? <Spinner /> : null}{t(phase.kind === "opening" ? "set.androidOpening" : phase.kind === "open-error" ? "set.androidRetryDownload" : "set.androidInstall")}
           </Button>
           <p className="android-update-hint">{t("set.androidInstallNote")}</p>
-          {release.notes ? <details className="android-update-notes">
+          {notes ? <details className="android-update-notes">
             <summary>{t("set.androidReleaseNotes")}<ChevronDown size={14} className="set-disclosure" aria-hidden="true" /></summary>
-            <p>{release.notes}</p>
+            <p>{notes}</p>
           </details> : null}
         </div>
       ) : null}
+      <SetItem
+        label={t("set.androidFeedback")}
+        sub={t("set.androidFeedbackHint")}
+        trailing={<a className="set-action android-update-feedback" href={FEEDBACK_URL} target="_blank" rel="noreferrer">{t("set.androidFeedbackOpen")}</a>}
+      />
     </SetGroup>
   );
 }
