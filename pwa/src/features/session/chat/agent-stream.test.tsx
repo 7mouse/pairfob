@@ -551,3 +551,27 @@ test("a finding spoken before the first step introduces the work, above the card
   expect(between!.textContent).toContain("Found it.");
   expect(Boolean(card.compareDocumentPosition(between!) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
 });
+
+test("a finished turn with more runs than the window keeps four rows, and reveals whole runs", () => {
+  // Five alternating runs of three: the case where a group count and a step
+  // offset disagree. The window holds four rows, and each row is a whole run.
+  const kinds = ["Read", "Bash", "Read", "Bash", "Read"];
+  const turn: AgentTraceItem[] = [{ type: "user", text: "go" }];
+  kinds.forEach((name, run) => {
+    for (let i = 0; i < 3; i += 1) {
+      turn.push({ type: "tool", name, label: `${name.toLowerCase()}-${run}-${i}`, toolState: "done", detailRef: `d${run}${i}` });
+    }
+  });
+  turn.push({ type: "assistant", text: "Done." });
+  act(() => renderReact(<AgentStream items={turn} working={false} empty={empty} verified />));
+  act(() => appRoot().querySelector<HTMLButtonElement>("button.work-head")!.click());
+  const rows = () => [...appRoot().querySelectorAll(".work-steps:not(.work-steps-pushed) > li")];
+  // Four rows for the five runs, and every row is a whole run of three.
+  expect(rows()).toHaveLength(4);
+  expect(rows().every((row) => row.querySelector(".work-folded-count")?.textContent === t("work.foldedCount", { n: 3 }))).toBe(true);
+  // The disclosure names the steps the hidden run holds, not the rows it stood for.
+  const earlier = appRoot().querySelector<HTMLButtonElement>(".work-earlier")!;
+  expect(earlier.textContent).toBe(t("work.earlier", { n: 3 }));
+  act(() => earlier.click());
+  expect(rows()).toHaveLength(5);
+});

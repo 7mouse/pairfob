@@ -86,13 +86,24 @@ export function WorkCard({ traceKey, entries, outcome, live, follow = true, kept
   const filtered = filter === "failed" ? failed : filter === "edits" ? edits : entries;
   // A running card draws every step as itself: the reader is watching the work
   // arrive, and a run that folded under them would hide steps they just saw. A
-  // finished card folds its runs, and its window counts rows, so hiding "four
-  // steps" never leaves two rows where there were three.
+  // finished card folds its runs, and its window holds four rows, so hiding
+  // "four steps" never leaves two rows where there were three.
+  //
+  // The window is measured in rows but cut from the raw steps the list receives,
+  // so the count is translated: the rows dropped are whole groups, and the steps
+  // those groups hold are what the list has to drop. A group is never split, and
+  // the disclosure says the number of steps it reveals.
   const foldsNow = !live && filter === "all";
   const groups = foldsNow ? groupSteps(filtered, breaks) : null;
-  const hidden = all || filter !== "all" ? 0
-    : groups ? Math.max(0, groups.length - LIVE_STEPS)
-      : Math.max(0, filtered.length - LIVE_STEPS);
+  let hidden = 0;
+  if (!all && filter === "all") {
+    if (groups) {
+      const drop = Math.max(0, groups.length - LIVE_STEPS);
+      hidden = groups.slice(0, drop).reduce((count, group) => count + group.steps.length, 0);
+    } else {
+      hidden = Math.max(0, filtered.length - LIVE_STEPS);
+    }
+  }
   // Followed here, above the details' own key: the card's first tool renames it and remounts its rows.
   const arrivals = useStepArrivals(filtered, hidden, `${filter}:${all ? "all" : "latest"}:${historyLoads}`);
   const openStep = (item: AgentTraceItem) => onOpen(item, entries);

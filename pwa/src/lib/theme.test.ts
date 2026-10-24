@@ -6,8 +6,10 @@ function install(systemLight: boolean) {
   const attributes = new Map<string, string>();
   // The page declares one handle per colour scheme, as index.html does.
   const metas = [
-    { content: "#0a0c10", media: "(prefers-color-scheme: dark)", hasAttribute: (name: string) => name === "media" },
-    { content: "#f5f6f8", media: "(prefers-color-scheme: light)", hasAttribute: (name: string) => name === "media" },
+    { content: "#0a0c10", media: "(prefers-color-scheme: dark)",
+      getAttribute: (name: string) => (name === "media" ? "(prefers-color-scheme: dark)" : null) },
+    { content: "#f5f6f8", media: "(prefers-color-scheme: light)",
+      getAttribute: (name: string) => (name === "media" ? "(prefers-color-scheme: light)" : null) },
   ];
   const listeners = new Set<() => void>();
   let light = systemLight;
@@ -99,16 +101,35 @@ describe("the theme a document wears", () => {
     expect(env!.attributes.has("data-theme")).toBe(false);
   });
 
-  test("the browser chrome colour follows the palette", () => {
-    // Following the system, each meta keeps its own media query and the browser picks.
+  test("the browser chrome colour follows the palette, and each scheme keeps its own", () => {
+    // Following the system, each meta holds the value its own media query declares.
     applyDocumentTheme();
-    expect(env!.metas[0]!.content).toBe("#0a0c10");
+    expect(env!.metas.map((meta) => meta.content)).toEqual(["#0a0c10", "#f5f6f8"]);
     expect(env!.metas[0]!.media).toBe("(prefers-color-scheme: dark)");
     // An explicit choice outranks the system, so both metas name that side.
     setThemePref("light");
     expect(env!.metas.map((meta) => meta.content)).toEqual(["#f5f6f8", "#f5f6f8"]);
     setThemePref("dark");
     expect(env!.metas.map((meta) => meta.content)).toEqual(["#0a0c10", "#0a0c10"]);
+  });
+
+  test("returning to auto restores each scheme's own colour", () => {
+    // The review's case: system light, choose Dark, then Follow the system.
+    env!.flipSystem(true);
+    applyDocumentTheme();
+    setThemePref("dark");
+    expect(env!.metas.map((meta) => meta.content)).toEqual(["#0a0c10", "#0a0c10"]);
+    setThemePref("auto");
+    // The light-media tag must be light again, or the chrome keeps the manual
+    // dark colour while the page has gone back to paper.
+    expect(theme()).toBe("light");
+    expect(env!.metas[0]!.content).toBe("#0a0c10");
+    expect(env!.metas[1]!.content).toBe("#f5f6f8");
+    // And a later system change still resolves to the right side.
+    env!.flipSystem(false);
+    expect(theme()).toBe("dark");
+    applyDocumentTheme();
+    expect(env!.metas.map((meta) => meta.content)).toEqual(["#0a0c10", "#f5f6f8"]);
   });
 
   test("a change notifies subscribers once, and a system flip only while following", () => {

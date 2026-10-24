@@ -65,6 +65,16 @@ function persist(value: ThemePref | null): void {
  * Write the attribute the tokens read. `auto` removes it, so the media query
  * decides and a reader who later changes their system setting follows it.
  */
+const CHROME: Record<Theme, string> = { light: "#f5f6f8", dark: "#0a0c10" };
+
+/** The side a `theme-color` meta is declared for, or null when it names none. */
+function metaSide(meta: HTMLMetaElement): Theme | null {
+  const media = meta.getAttribute("media") || "";
+  if (media.includes("prefers-color-scheme: light")) return "light";
+  if (media.includes("prefers-color-scheme: dark")) return "dark";
+  return null;
+}
+
 export function applyDocumentTheme(): void {
   if (typeof document === "undefined") return;
   const pref = themePref();
@@ -72,13 +82,14 @@ export function applyDocumentTheme(): void {
   if (pref === "auto") root.removeAttribute("data-theme");
   else root.dataset.theme = pref;
   // The browser's own chrome (address bar, PWA status bar) follows the palette.
-  // The page declares one `theme-color` per scheme, each with its own media
-  // query, so following the system needs no work here; an explicit choice
-  // outranks the system, so every meta is set to the chosen side.
-  const color = theme() === "light" ? "#f5f6f8" : "#0a0c10";
+  // Following the system, each meta keeps the value its own media query declares,
+  // so the browser picks per scheme with no script. An explicit choice outranks
+  // the system, so every meta is set to the chosen side; returning to auto puts
+  // each one back, or a stale manual value would survive the switch.
   for (const meta of document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]')) {
-    if (pref === "auto" && meta.hasAttribute("media")) continue;
-    meta.content = color;
+    const side = metaSide(meta);
+    if (pref === "auto") meta.content = CHROME[side ?? theme()];
+    else meta.content = CHROME[pref];
   }
 }
 
