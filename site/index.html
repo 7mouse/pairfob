@@ -6,7 +6,7 @@
     <title>Pairfob — continue the AI agent session on your computer from your phone</title>
     <meta
       name="description"
-      content="Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app, end-to-end encrypted."
+      content="Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app required; an optional Android beta is available. End-to-end encrypted."
     />
     <link rel="canonical" href="https://pairfob.com/" />
     <link rel="alternate" hreflang="en" href="https://pairfob.com/" />
@@ -22,7 +22,7 @@
     <meta property="og:title" content="Pairfob — continue the AI agent session on your computer from your phone" />
     <meta
       property="og:description"
-      content="Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app, end-to-end encrypted."
+      content="Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app required; an optional Android beta is available. End-to-end encrypted."
     />
     <meta property="og:image" content="https://pairfob.com/og-en.png" />
     <meta property="og:image:width" content="1200" />
@@ -34,7 +34,7 @@
     <meta name="twitter:title" content="Pairfob — continue the AI agent session on your computer from your phone" />
     <meta
       name="twitter:description"
-      content="Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app, end-to-end encrypted."
+      content="Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app required; an optional Android beta is available. End-to-end encrypted."
     />
     <meta name="twitter:image" content="https://pairfob.com/og-en.png" />
 
@@ -47,13 +47,13 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&family=Geist+Mono:wght@400;500;600&display=swap"
     />
-    <link rel="stylesheet" href="/css/base.css?v=70" />
-    <link rel="stylesheet" href="/css/device.css?v=70" />
-    <link rel="stylesheet" href="/css/hero.css?v=70" />
-    <link rel="stylesheet" href="/css/how.css?v=70" />
-    <link rel="stylesheet" href="/css/tour.css?v=70" />
-    <link rel="stylesheet" href="/css/safe.css?v=70" />
-    <link rel="stylesheet" href="/css/faq.css?v=70" />
+    <link rel="stylesheet" href="/css/base.css?v=71" />
+    <link rel="stylesheet" href="/css/device.css?v=71" />
+    <link rel="stylesheet" href="/css/hero.css?v=71" />
+    <link rel="stylesheet" href="/css/how.css?v=71" />
+    <link rel="stylesheet" href="/css/tour.css?v=71" />
+    <link rel="stylesheet" href="/css/safe.css?v=71" />
+    <link rel="stylesheet" href="/css/faq.css?v=71" />
     <script src="/lang.js?v=49"></script>
   </head>
   <body>
@@ -143,9 +143,10 @@
               <p class="chip"><i class="live" aria-hidden="true"></i><span data-i18n="hero.chip">Phone remote for coding agents</span><i class="chip-sep" aria-hidden="true"></i><span data-i18n="hero.chip2">Open source · Free</span></p>
               <h1 data-i18n="hero.title" data-i18n-html>Agents that run on your computer,<br />continued from your phone.</h1>
               <ul class="ticks">
-                <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick1">Runs in the browser, no app to install</span></li>
+                <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick1">Runs in the browser, no app required</span></li>
                 <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick2">No Pairfob account</span></li>
                 <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick3">End-to-end encrypted</span></li>
+                <li><svg><use href="#i-check" /></svg><span data-i18n="hero.tick4" data-i18n-html>Optional <a class="android-beta-link" href="/doc/android-beta">Android beta</a> for an installed app</span></li>
               </ul>
             </div>
             <div>
@@ -465,7 +466,7 @@
             <p class="faq-feedback" data-i18n="faq.feedback" data-i18n-html>Didn't find it? Read the <a href="/doc/faq" data-locale-href="faq">docs</a> or <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">open a GitHub issue</a>. Report security issues privately.</p>
           </header>
           <div class="faq">
-            <details open><summary data-i18n="faq.q0">Do I need to install an app on my phone?</summary><p data-i18n="faq.a0">No. Open pairfob.com/pair in the phone's browser. Add it to the Home Screen and it works like an app.</p></details>
+            <details open><summary data-i18n="faq.q0">Do I need to install an app on my phone?</summary><p data-i18n="faq.a0" data-i18n-html>No. Open pairfob.com/pair in the phone's browser. Add it to the Home Screen and it works like an app. If you prefer an installed app, there is an optional <a class="android-beta-link" href="/doc/android-beta">Android beta</a>.</p></details>
             <details><summary data-i18n="faq.q2">Does locking the screen or closing the lid still work?</summary><p data-i18n="faq.a2">A locked screen is fine. A closed lid only works if the machine does not sleep. Pairfob cannot wake a sleeping computer.</p></details>
             <details><summary data-i18n="faq.q3">Can I install pairfob on Windows?</summary><p data-i18n="faq.a3">Not yet. A Windows machine can open the page as another screen. The host still has to be macOS or Linux.</p></details>
             <details><summary data-i18n="faq.q4">Do I need Tailscale or an inbound port?</summary><p data-i18n="faq.a4">No. pairfob only dials out.</p></details>
@@ -496,6 +497,7 @@
         <p data-i18n="foot.blurb">Pairfob · control the agents on your computer from your phone. Built on Herdr. The computer has to be macOS or Linux for now.</p>
         <nav class="foot-nav" data-i18n-aria="foot.aria" aria-label="Footer">
           <a href="/doc/" data-locale-href="doc" data-i18n="nav.doc">Docs</a>
+          <a href="/doc/android-beta" data-locale-href="android" data-i18n="nav.android">Android beta</a>
           <a href="/doc/privacy" data-locale-href="privacy" data-i18n="nav.privacy">Privacy</a>
           <a href="/doc/faq" data-locale-href="faq" data-i18n="nav.faq">FAQ</a>
           <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer" data-i18n="nav.feedback">Feedback</a>
@@ -523,7 +525,7 @@
       }
     </script>
 
-    <script src="/home-i18n.js?v=73"></script>
+    <script src="/home-i18n.js?v=74"></script>
     <script src="/site.js?v=49"></script>
     <script src="/home-motion.js?v=1"></script>
   </body>

@@ -147,9 +147,9 @@ describe("homepage i18n", () => {
     expect(en["hero.sub"]).not.toContain("screenshot");
     expect(zh["hero.sub"]).not.toContain("截图");
     expect(en.description).toBe(
-      "Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app, end-to-end encrypted.",
+      "Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app required; an optional Android beta is available. End-to-end encrypted.",
     );
-    expect(zh.description).toBe("在手机上操控电脑里的编程 Agent：批命令、看 diff、开新会话。开源，不用装 App，端到端加密。");
+    expect(zh.description).toBe("在手机上操控电脑里的编程 Agent：批命令、看 diff、开新会话。开源，不必装 App；另有可选的 Android 测试版。端到端加密。");
     expect(html).toContain(en.description);
   });
 

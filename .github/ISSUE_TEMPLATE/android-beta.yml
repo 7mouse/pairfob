@@ -1,6 +1,7 @@
 name: Android beta feedback
 description: Report a problem with the Android beta / 反馈 Android 测试版问题
 title: "[Android beta] "
+labels: ["android-beta"]
 body:
   - type: markdown
     attributes:
@@ -25,6 +26,18 @@ body:
       options:
         - Fresh install / 全新安装
         - Update over an existing beta / 覆盖更新
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Download source / 下载来源
+      options:
+        - Official download host, dl.pairfob.com / 官方下载站
+        - GitHub Releases / GitHub 发布页
+        - Updated inside the app / 应用内检查更新
+        - Other / 其他
+        - Not sure / 不确定
     validations:
       required: true
   - type: textarea

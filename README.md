@@ -29,8 +29,9 @@ On the phone, open [pairfob.com/pair](https://pairfob.com/pair) and scan, then
 press Enter once on the computer to admit it. You can then create a Terminal
 session. To use an AI agent, install and sign in to that agent on the computer
 first; Pairfob does not install agents or configure their accounts. The phone
-only needs a browser, and no Pairfob account is required. Adding it to your Home
-Screen is optional. Full walkthrough: [Get started](https://pairfob.com/doc/start).
+only needs a browser; an optional Android beta is linked below, and no Pairfob
+account is required. Adding it to your Home Screen is optional. Full walkthrough:
+[Get started](https://pairfob.com/doc/start).
 
 Already living in Herdr? `herdr plugin install arronKler/pairfob` adds
 **Pairfob: Pair a device** to Herdr's action menu and installs the same verified
@@ -38,6 +39,19 @@ binary on first use. See [`plugin/herdr/`](plugin/herdr/README.md).
 
 Versioned macOS and Linux binaries, SHA-256 checksums and release notes are
 available on [GitHub Releases](https://github.com/arronKler/pairfob/releases).
+
+## Android beta (optional)
+
+The phone works in a browser. For an installed app, the optional Android beta is
+a sideloaded APK for Android 7.0 and newer. It is not on the Play Store.
+
+- Install, update and known limits: [pairfob.com/doc/android-beta](https://pairfob.com/doc/android-beta)
+- APK mirror, checksums and release notes: [GitHub Releases](https://github.com/arronKler/pairfob/releases)
+- Package: `com.pairfob.app`. Beta signing certificate SHA-256:
+  `1df205898f9e85ab178d280d3a7a5af5a683e5c686ac7e0df3c37057a64349dc`
+
+Install over an existing beta to keep pairings; updates are checked in Settings.
+Android background push is not available yet.
 
 ## What you can do from the phone
 

@@ -19,3 +19,9 @@ dashboard, not this repository. Local files that stay gitignored:
 A clone cannot enroll into production without those dashboard secrets and a
 Cloudflare login on the pairfob.com account. Keep account 2FA on. Do not put
 wrangler API tokens in the repo or in plaintext CI.
+
+## Android beta signing key
+
+The beta APK signing key and its passwords stay on the release machine and are
+not in this repository. If you suspect the key was exposed, use the private
+advisory link above; do not open a public issue.

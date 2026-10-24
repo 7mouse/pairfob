@@ -109,6 +109,16 @@ a {
   text-decoration: none;
 }
 
+.android-beta-link {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, currentColor 45%, transparent);
+  text-underline-offset: 2px;
+}
+
+.android-beta-link:hover {
+  text-decoration-color: currentColor;
+}
+
 button {
   font: inherit;
   color: inherit;

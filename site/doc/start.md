@@ -87,6 +87,9 @@ iOS is meant to run from the Home Screen. A Safari tab still works; notification
 
 Chrome may offer “Install app”, or use the menu → Install app / Add to Home Screen.
 
+If you prefer an installed app, the optional [Android beta](/android-beta) bundles
+the same screens in a sideloaded APK.
+
 The credential lives in **this browser profile on this device**. Another browser, cleared site data, or a private tab means pairing again.
 
 ## What success looks like

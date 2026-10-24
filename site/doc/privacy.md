@@ -9,7 +9,7 @@ Pairfob connects your paired browser to the computer running Pairfob. The offici
 
 ## Your content and keys
 
-Pairing credentials and session encryption keys stay on your computer and paired devices. Terminal content, agent conversations, files and commands travel inside encrypted envelopes. The relay routes those envelopes; it does not decrypt or inspect their contents. Your computer stores its device list and push subscriptions locally. Your browser stores pairing credentials and preferences locally.
+Pairing credentials and session encryption keys stay on your computer and paired devices. Terminal content, agent conversations, files and commands travel inside encrypted envelopes. The relay routes those envelopes; it does not decrypt or inspect their contents. Your computer stores its device list and push subscriptions locally. Your browser stores pairing credentials and preferences locally. The optional Android beta stores the same data in the app's WebView. Uninstalling the app or clearing its data removes the pairing; use [Devices](/devices) to revoke access first if the phone is lost.
 
 ## Service metadata and usage measurements
 

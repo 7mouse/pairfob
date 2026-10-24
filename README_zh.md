@@ -25,9 +25,9 @@ pairfob pair
 
 在手机上打开 [pairfob.com/pair](https://pairfob.com/pair) 扫码，然后在电脑上按
 一次回车放行这台设备。配对后可以创建终端会话；使用 AI Agent 前，需要先在
-电脑上安装并登录对应 Agent，Pairfob 不负责安装 Agent 或配置其账号。手机只需
-浏览器，无需注册 Pairfob 账号，也可以选择加到主屏幕。完整步骤见
-[开始使用](https://pairfob.com/doc/zh/start)。
+电脑上安装并登录对应 Agent，Pairfob 不负责安装 Agent 或配置其账号。手机用
+浏览器即可；另有可选的 Android 测试版，见下文。无需注册 Pairfob 账号，也可以
+选择加到主屏幕。完整步骤见[开始使用](https://pairfob.com/doc/zh/start)。
 
 平时就在 Herdr 里？`herdr plugin install arronKler/pairfob` 会把
 **Pairfob: Pair a device** 加进 Herdr 的动作菜单，首次使用时安装同一个经过
@@ -35,6 +35,18 @@ pairfob pair
 
 各版本的 macOS、Linux 二进制、SHA-256 校验文件和更新说明见
 [GitHub Releases](https://github.com/arronKler/pairfob/releases)。
+
+## Android 测试版（可选）
+
+手机用浏览器就能用。想安装成应用，可以试试可选的 Android 测试版。它是侧载
+APK，支持 Android 7.0 及以上，尚未上架应用商店。
+
+- 安装、更新和已知限制：[pairfob.com/doc/zh/android-beta](https://pairfob.com/doc/zh/android-beta)
+- APK 镜像、校验和与更新说明：[GitHub Releases](https://github.com/arronKler/pairfob/releases)
+- 包名：`com.pairfob.app`。beta 签名证书 SHA-256：
+  `1df205898f9e85ab178d280d3a7a5af5a683e5c686ac7e0df3c37057a64349dc`
+
+从旧 beta 覆盖安装可以保留配对；更新在设置里检查。Android 后台系统推送暂不可用。
 
 ## 在手机上能做什么
 

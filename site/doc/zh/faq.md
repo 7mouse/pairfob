@@ -9,6 +9,10 @@ description: 账号、Herdr、锁屏、合盖、断网、丢失手机、Windows�
 
 不要。没有邮箱登录。电脑跑安装脚本时完成登记，设备用配对拿到凭证。凭证分别在电脑和这台浏览器里。
 
+## 有 Android App 吗？
+
+有可选的 Android 测试版。它是侧载 APK，尚未上架应用商店。不装也能用浏览器。安装、更新和已知限制见 [Android 测试版](/zh/android-beta)。
+
 ## Pairfob 能单独跑 agent 吗？
 
 不能。它是编程 Agent 的手机遥控器，在手机上操控电脑里的编程 Agent。会话在 [Herdr](https://herdr.dev) 里运行。电脑需要 Herdr 0.8 或更高；缺少时，Pairfob 安装脚本会自动补装最新稳定版。`pairfob` 会在启动时自动拉起 Herdr。自动启动失败时列表会显示 Herdr 离线，手动运行 `herdr` 后会自动恢复。

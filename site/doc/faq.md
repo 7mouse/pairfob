@@ -9,6 +9,10 @@ description: Accounts, Herdr, lock screen, a closed lid, offline, a lost phone, 
 
 No. There is no email login. The computer enrolls when you run the installer. Devices get a credential from pairing. Credentials live on the computer and in this browser.
 
+## Is there an Android app?
+
+There is an optional Android beta. It is a sideloaded APK, not a Play Store release. The browser works without it. Installation, updates and known limits are on [Android beta](/android-beta).
+
 ## Can Pairfob run agents by itself?
 
 No. It is a phone remote for the coding agents on your computer. Sessions run in [Herdr](https://herdr.dev). The computer needs Herdr 0.8 or newer; the Pairfob installer automatically adds the latest stable release if it is missing. `pairfob` starts Herdr when needed. If automatic startup fails, the list shows Herdr offline and recovers after you run `herdr` manually.

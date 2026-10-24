@@ -13,14 +13,20 @@ APK, not a Play Store release. Keep the computer running and online.
 
 1. Use Android 7.0 or newer, with an up-to-date Android System WebView and browser.
 2. [Install Pairfob on your computer](/install) and start its service.
-3. [Download beta.13](https://dl.pairfob.com/android/beta/pairfob-1.0.0-beta.13-13.apk).
-   Later versions are listed in the [release manifest](https://dl.pairfob.com/android/beta/latest.json).
+3. [Download beta.14](https://dl.pairfob.com/android/beta/pairfob-1.0.0-beta.14-14.apk).
+   The current version and its notes are in the
+   [release manifest](https://dl.pairfob.com/android/beta/latest.json); past
+   builds are on [GitHub Releases](https://github.com/arronKler/pairfob/releases).
 4. Open the downloaded APK. If Android asks, allow installation from the browser
    you used. You can turn this permission off again after installation.
 5. Open Pairfob. Run `pairfob pair` on the computer, scan the QR or enter the
    pairing code, compare the confirmation words and confirm on the computer.
 
-Only use the official download host. The package is `com.pairfob.app`.
+The Android app carries its own copy of the web app. A change on pairfob.com
+arrives with the next beta APK, not automatically.
+
+Only use the official download host or the GitHub release linked above. The
+package is `com.pairfob.app`.
 The beta signing certificate SHA-256 is:
 
 ```text

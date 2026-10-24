@@ -4,7 +4,7 @@
   const zh = {
     title: "Pairfob — 手机接着操作电脑上的 AI Agent 会话",
     description:
-      "在手机上操控电脑里的编程 Agent：批命令、看 diff、开新会话。开源，不用装 App，端到端加密。",
+      "在手机上操控电脑里的编程 Agent：批命令、看 diff、开新会话。开源，不必装 App；另有可选的 Android 测试版。端到端加密。",
     "og.image.alt": "Pairfob：电脑和手机上是同一份 Agent 会话列表",
     skip: "跳到正文",
     "brand.aria": "Pairfob 首页",
@@ -15,6 +15,7 @@
     "nav.faq": "常见问题",
     "nav.privacy": "隐私说明",
     "nav.doc": "文档",
+    "nav.android": "Android 测试版",
     "nav.github": "GitHub 上的源码",
     "nav.feedback": "反馈",
     "lang.aria": "语言",
@@ -25,9 +26,10 @@
     "hero.chip": "编程 Agent 的手机遥控器",
     "hero.chip2": "开源 · 免费",
     "hero.title": "电脑上跑的 Agent，<br />手机随时接着操作。",
-    "hero.tick1": "浏览器打开就能用，不装 App",
+    "hero.tick1": "浏览器打开就能用，不必装 App",
     "hero.tick2": "无需 Pairfob 账号",
     "hero.tick3": "端到端加密",
+    "hero.tick4": '想装应用时，可选 <a class="android-beta-link" href="/doc/zh/android-beta">Android 测试版</a>',
     "hero.sub":
       "Codex、Claude 在电脑上跑着，你<b>离开座位也不用停</b>：在手机上看进度、回它一句、替它按下确认。手机和电脑是<b>同一个终端</b>，不是远程桌面。",
     "hero.cta.how": "三步开始用",
@@ -166,7 +168,7 @@
     "faq.feedback":
       '没找到答案？看<a href="/doc/zh/faq" data-locale-href="faq">文档</a>，或者<a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">去 GitHub 开 issue</a>。安全漏洞请私下报告。',
     "faq.q0": "要不要在手机上装 App？",
-    "faq.a0": "不用。在手机浏览器打开 pairfob.com/pair 就行，添加到主屏幕后用起来像一个 App。",
+    "faq.a0": '不用。在手机浏览器打开 pairfob.com/pair 就行，添加到主屏幕后用起来像一个 App。如果更想用安装好的应用，还有可选的 <a class="android-beta-link" href="/doc/zh/android-beta">Android 测试版</a>。',
     "faq.q2": "锁屏或合盖之后还能用吗？",
     "faq.a2": "锁屏可以。合盖只有系统没睡才行。Pairfob 唤不醒已经睡着的电脑。",
     "faq.q3": "能在 Windows 上装 pairfob 吗？",
@@ -189,7 +191,7 @@
   const en = {
     title: "Pairfob — continue the AI agent session on your computer from your phone",
     description:
-      "Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app, end-to-end encrypted.",
+      "Control the coding agents on your computer from your phone. Approve commands, review diffs, start new sessions. Open source, no app required; an optional Android beta is available. End-to-end encrypted.",
     "og.image.alt": "Pairfob: the same agent list on computer and phone",
     skip: "Skip to content",
     "brand.aria": "Pairfob home",
@@ -200,6 +202,7 @@
     "nav.faq": "FAQ",
     "nav.privacy": "Privacy",
     "nav.doc": "Docs",
+    "nav.android": "Android beta",
     "nav.github": "Source on GitHub",
     "nav.feedback": "Feedback",
     "lang.aria": "Language",
@@ -210,9 +213,10 @@
     "hero.chip": "Phone remote for coding agents",
     "hero.chip2": "Open source · Free",
     "hero.title": "Agents that run on your computer,<br />continued from your phone.",
-    "hero.tick1": "Runs in the browser, no app to install",
+    "hero.tick1": "Runs in the browser, no app required",
     "hero.tick2": "No Pairfob account",
     "hero.tick3": "End-to-end encrypted",
+    "hero.tick4": 'Optional <a class="android-beta-link" href="/doc/android-beta">Android beta</a> for an installed app',
     "hero.sub":
       "Codex and Claude keep running on your computer, and <b>leaving your desk doesn't stop the work</b>: check progress, reply, and confirm from your phone. Phone and computer share <b>the same terminal</b>. It is not a remote desktop.",
     "hero.cta.how": "Get started in 3 steps",
@@ -356,7 +360,7 @@
     "faq.feedback":
       'Didn\'t find it? Read the <a href="/doc/faq" data-locale-href="faq">docs</a> or <a href="https://github.com/arronKler/pairfob/issues/new" target="_blank" rel="noreferrer">open a GitHub issue</a>. Report security issues privately.',
     "faq.q0": "Do I need to install an app on my phone?",
-    "faq.a0": "No. Open pairfob.com/pair in the phone's browser. Add it to the Home Screen and it works like an app.",
+    "faq.a0": 'No. Open pairfob.com/pair in the phone\'s browser. Add it to the Home Screen and it works like an app. If you prefer an installed app, there is an optional <a class="android-beta-link" href="/doc/android-beta">Android beta</a>.',
     "faq.q2": "Does locking the screen or closing the lid still work?",
     "faq.a2": "A locked screen is fine. A closed lid only works if the machine does not sleep. Pairfob cannot wake a sleeping computer.",
     "faq.q3": "Can I install pairfob on Windows?",
@@ -438,6 +442,8 @@
 
     const docHref = lang === "en" ? "/doc/" : "/doc/zh/";
     document.querySelectorAll("[data-locale-href=doc]").forEach((el) => el.setAttribute("href", docHref));
+    const androidHref = lang === "en" ? "/doc/android-beta" : "/doc/zh/android-beta";
+    document.querySelectorAll("[data-locale-href=android]").forEach((el) => el.setAttribute("href", androidHref));
     const faqHref = lang === "en" ? "/doc/faq" : "/doc/zh/faq";
     document.querySelectorAll("[data-locale-href=privacy]").forEach((el) => el.setAttribute("href", lang === "zh" ? "/doc/zh/privacy" : "/doc/privacy"));
     document.querySelectorAll("[data-locale-href=faq]").forEach((el) => el.setAttribute("href", faqHref));
