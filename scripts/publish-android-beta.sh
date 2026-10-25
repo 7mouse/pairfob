@@ -72,7 +72,10 @@ if [[ "$LEGACY_ONLY" == "1" || "$LEGACY_RELAY" == "1" ]]; then
   [[ -f "$RELAY/public-dist/index.html" ]] || { echo "relay live asset pack is missing; run scripts/pack-origin-assets.sh first" >&2; exit 1; }
 fi
 
-DOWNLOAD_LOCK="$DOWNLOADS/.publish.lock"
+# Both publishers deploy the same Worker. Keep the lock outside the checkout so
+# two checkouts on one machine cannot publish concurrently.
+DOWNLOAD_LOCK="${PAIRFOB_PUBLISH_LOCK:-$HOME/.cache/pairfob/publish.lock}"
+mkdir -p "$(dirname "$DOWNLOAD_LOCK")"
 if ! mkdir "$DOWNLOAD_LOCK" 2>/dev/null; then
   echo "another download publication is running: $DOWNLOAD_LOCK" >&2
   exit 1

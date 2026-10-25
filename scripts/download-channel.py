@@ -14,6 +14,8 @@ from urllib.parse import urlsplit
 DAEMON_FILES = {"VERSION", "SHA256SUMS", "pairfob-darwin-amd64", "pairfob-darwin-arm64",
                 "pairfob-linux-amd64", "pairfob-linux-arm64"}
 DAEMON_PATHS = {"daemon/" + name for name in DAEMON_FILES} | {"install.sh"}
+# The release moved here from the relay; validate a first bootstrap against it.
+LEGACY_DAEMON_ORIGIN = "https://pairfob.com/dl"
 APK_PATH = re.compile(r"/android/beta/[A-Za-z0-9._-]+\.apk\Z")
 SHA = re.compile(r"[0-9a-f]{64}\Z")
 VERSION = re.compile(r"v?(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\Z")
@@ -57,6 +59,18 @@ def fetch(base, path, limit=65536, optional=False):
         if len(data) > limit:
             raise ValueError(f"download too large: {path}")
         return data
+
+
+def legacy_inventory(data):
+    entries = {}
+    for line in data.decode().splitlines():
+        match = re.fullmatch(r"([0-9a-f]{64})  (.+)", line.strip())
+        if not match:
+            raise ValueError("invalid legacy daemon checksum inventory")
+        entries[match.group(2)] = match.group(1)
+    if set(entries) != DAEMON_FILES:
+        raise ValueError("invalid legacy daemon checksum inventory")
+    return entries
 
 
 def daemon_manifest(data):
@@ -202,7 +216,24 @@ def stage_daemon(base, public, source, installer, receipt_path):
                           for name, path in sorted(paths.items())}}
     daemon_manifest(json.dumps(manifest))
     old = fetch(base, "/daemon/release.json", optional=True)
-    if old is not None:
+    if old is None:
+        # The first publish moves the live release from the relay. Validate that
+        # move against the legacy channel instead of trusting a local artifact.
+        legacy_version = fetch(LEGACY_DAEMON_ORIGIN, "/VERSION", optional=True)
+        if legacy_version is not None:
+            legacy_sums = fetch(LEGACY_DAEMON_ORIGIN, "/SHA256SUMS", optional=True)
+            if legacy_sums is None:
+                raise ValueError("legacy daemon inventory is missing")
+            legacy_release = legacy_version.decode().strip()
+            version(legacy_release)
+            if version(release) < version(legacy_release):
+                raise ValueError("refusing daemon version rollback")
+            if version(release) == version(legacy_release):
+                entries = legacy_inventory(legacy_sums)
+                for name in DAEMON_FILES - {"VERSION", "SHA256SUMS"}:
+                    if entries[name] != manifest["files"]["daemon/" + name]["sha256"]:
+                        raise ValueError("legacy daemon version already has different binary bytes")
+    else:
         prior = daemon_manifest(old)
         if version(release) < version(prior["version"]):
             raise ValueError("refusing daemon version rollback")

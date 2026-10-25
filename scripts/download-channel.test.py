@@ -21,8 +21,16 @@ class Publication(unittest.TestCase):
         self.public.mkdir()
         self.receipt = self.root / "receipt.json"
         self.live = {}
+        self.legacy_assets = {}
         self.origin = "https://dl.pairfob.com"
         def fetch(base, path, limit=65536, optional=False):
+            if base == channel.LEGACY_DAEMON_ORIGIN:
+                data = self.legacy_assets.get(path)
+                if data is None:
+                    if optional:
+                        return None
+                    raise ValueError("missing legacy " + path)
+                return data
             self.assertEqual(base, self.origin)
             if path not in self.live:
                 if optional:
@@ -140,6 +148,39 @@ class Publication(unittest.TestCase):
                     f"build\tvcs.modified=false\nbuild\tvcs.revision={'b' * 40}\n"
                     f"build\t-ldflags=-s -w -X main.version={release}\n")
         return source, installer, metadata
+
+    def legacy(self, release="v1.4.5", mutate=None):
+        sums = []
+        for name in channel.DAEMON_FILES:
+            data = (release if name == "VERSION" else "new:" + name).encode()
+            sha = channel.digest(data)
+            if name == mutate:
+                sha = "0" * 64
+            sums.append(f"{sha}  {name}")
+        self.legacy_assets["/VERSION"] = release.encode()
+        self.legacy_assets["/SHA256SUMS"] = ("\n".join(sums) + "\n").encode()
+
+    def test_bootstrap_rejects_a_newer_legacy_release(self):
+        source, installer, metadata = self.source("v1.4.5")
+        self.legacy("v1.4.6")
+        with patch.object(channel.subprocess, "check_output", side_effect=metadata):
+            with self.assertRaisesRegex(ValueError, "rollback"):
+                channel.stage_daemon(self.origin, self.public, source, installer, self.receipt)
+
+    def test_bootstrap_rejects_changed_legacy_binary_bytes(self):
+        source, installer, metadata = self.source("v1.4.5")
+        self.legacy("v1.4.5", mutate="pairfob-darwin-arm64")
+        with patch.object(channel.subprocess, "check_output", side_effect=metadata):
+            with self.assertRaisesRegex(ValueError, "different binary bytes"):
+                channel.stage_daemon(self.origin, self.public, source, installer, self.receipt)
+
+    def test_bootstrap_accepts_a_matching_legacy_release(self):
+        source, installer, metadata = self.source("v1.4.5")
+        self.legacy("v1.4.5")
+        with patch.object(channel.subprocess, "check_output", side_effect=metadata):
+            channel.stage_daemon(self.origin, self.public, source, installer, self.receipt)
+        candidate = channel.daemon_manifest((self.public / "daemon/release.json").read_bytes())
+        self.assertEqual(candidate["version"], "v1.4.5")
 
     def test_stage_checks_clean_builds_and_saves_deployment_precondition(self):
         self.daemon()
