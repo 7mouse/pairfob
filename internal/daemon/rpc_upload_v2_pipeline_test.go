@@ -121,7 +121,9 @@ func TestUploadV2WindowMaxFour(t *testing.T) {
 		}(i)
 	}
 	// Wait for four admissions to register (root holds prove they arrived).
-	waitForCondition(t, 2*time.Second, func() bool {
+	// The race detector slows the four goroutines enough that a race build can
+	// miss a short wait even though every write is admitted.
+	waitForCondition(t, 10*time.Second, func() bool {
 		entry := engine.uploads.lookup(client.DeviceID, uuid)
 		if entry == nil || entry.pipeline == nil {
 			return false

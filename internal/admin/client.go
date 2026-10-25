@@ -12,6 +12,12 @@ import (
 var ErrNotRunning = errors.New("pairfob is not running")
 
 func Call(sock string, req Request) (Response, error) {
+	return CallWithTimeout(sock, req, timeoutFor(req.Op))
+}
+
+// CallWithTimeout lets a test extend the deadline for an operation whose cost
+// the race detector multiplies, without changing the production deadline.
+func CallWithTimeout(sock string, req Request, timeout time.Duration) (Response, error) {
 	path, err := validatePath(sock)
 	if err != nil {
 		return Response{}, err
@@ -21,7 +27,7 @@ func Call(sock string, req Request) (Response, error) {
 		return Response{}, fmt.Errorf("%w at %s", ErrNotRunning, path)
 	}
 	defer conn.Close()
-	_ = conn.SetDeadline(time.Now().Add(timeoutFor(req.Op)))
+	_ = conn.SetDeadline(time.Now().Add(timeout))
 	if err := json.NewEncoder(conn).Encode(req); err != nil {
 		return Response{}, err
 	}

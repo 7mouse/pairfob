@@ -286,7 +286,9 @@ func TestPairNewReturnsFreshCodesToTheLocalOperator(t *testing.T) {
 	eng := daemon.NewEngine(nil, a, runtime.NewFake())
 	eng.DaemonID = "d_test"
 	sock := startLiveAdmin(t, eng)
-	resp, err := admin.Call(sock, admin.Request{Op: "pair.new"})
+	// The race detector multiplies the Argon2 cost of OpenPairing; the
+	// production 30s deadline is too tight for a race build under parallel load.
+	resp, err := admin.CallWithTimeout(sock, admin.Request{Op: "pair.new"}, 2*time.Minute)
 	if err != nil {
 		t.Fatal(err)
 	}
