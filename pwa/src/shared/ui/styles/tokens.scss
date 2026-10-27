@@ -186,8 +186,9 @@
 /*
   Light theme. The same roles, restated for paper: ink is near-black, surfaces
   climb from white, and the washes flip to a dark alpha so a hairline still
-  reads as a hairline. It follows the system setting by default; an explicit
-  `data-theme` on the root wins, which is what the settings switch writes.
+  reads as a hairline. Dark is the palette a document wears until the reader
+  chooses otherwise; this one applies when they pick Light, or pick Follow the
+  system and their system is light. The root's `data-theme` carries the choice.
 */
 @mixin light-theme {
   color-scheme: light;
@@ -288,9 +289,9 @@
   --focus-ring: 0 0 0 3px rgba(47, 111, 228, 0.2);
 }
 
-/* The system setting, unless the reader chose a side of their own. */
+/* The system setting, when following it is the reader's own choice. */
 @media (prefers-color-scheme: light) {
-  :root:not([data-theme="dark"]) { @include light-theme; }
+  :root[data-theme="auto"] { @include light-theme; }
 }
 
 /* An explicit choice always wins, on either side of the system setting. */

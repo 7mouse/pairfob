@@ -1,9 +1,10 @@
 /**
- * Light or dark, chosen by the reader or followed from the system. The tokens
- * carry both palettes; this module only decides which one a document wears, and
- * writes the choice where a reload can find it. Nothing here paints: the root's
- * `data-theme` attribute is the whole switch, so a change is one attribute and
- * every token-derived colour follows in the same frame.
+ * Light or dark, chosen by the reader or followed from the system. Dark is what
+ * a document wears until it is told otherwise. The tokens carry both palettes;
+ * this module only decides which one a document wears, and writes the choice
+ * where a reload can find it. Nothing here paints: the root's `data-theme`
+ * attribute is the whole switch, so a change is one attribute and every
+ * token-derived colour follows in the same frame.
  */
 
 export type ThemePref = "auto" | "light" | "dark";
@@ -11,6 +12,8 @@ export type Theme = "light" | "dark";
 
 const THEME_KEY = "pairfob_theme";
 const YEAR = 60 * 60 * 24 * 365;
+/** A fresh document is dark; following the system is a choice of its own. */
+const DEFAULT_PREF: ThemePref = "dark";
 
 let listeners: Set<() => void> | null = null;
 let revision = 0;
@@ -39,7 +42,7 @@ function readStored(): ThemePref | null {
 }
 
 export function themePref(): ThemePref {
-  return readStored() ?? "auto";
+  return readStored() ?? DEFAULT_PREF;
 }
 
 /** What the document is wearing now, system setting included. */
@@ -48,22 +51,21 @@ export function theme(): Theme {
   return pref === "auto" ? systemTheme() : pref;
 }
 
-function persist(value: ThemePref | null): void {
+function persist(value: ThemePref): void {
+  // `auto` is a choice too: without it a new document would fall back to dark.
   try {
-    if (value && value !== "auto") localStorage.setItem(THEME_KEY, value);
-    else localStorage.removeItem(THEME_KEY);
+    localStorage.setItem(THEME_KEY, value);
   } catch {
     /* private mode */
   }
   if (typeof document === "undefined") return;
-  document.cookie = value && value !== "auto"
-    ? `${THEME_KEY}=${value};path=/;max-age=${YEAR};SameSite=Lax`
-    : `${THEME_KEY}=;path=/;max-age=0;SameSite=Lax`;
+  document.cookie = `${THEME_KEY}=${value};path=/;max-age=${YEAR};SameSite=Lax`;
 }
 
 /**
- * Write the attribute the tokens read. `auto` removes it, so the media query
- * decides and a reader who later changes their system setting follows it.
+ * Write the attribute the tokens read. `auto` keeps the system media query in
+ * charge, so a reader who later changes their system setting follows it; every
+ * other value names the palette outright.
  */
 const CHROME: Record<Theme, string> = { light: "#f5f6f8", dark: "#0a0c10" };
 
@@ -79,8 +81,9 @@ export function applyDocumentTheme(): void {
   if (typeof document === "undefined") return;
   const pref = themePref();
   const root = document.documentElement;
-  if (pref === "auto") root.removeAttribute("data-theme");
-  else root.dataset.theme = pref;
+  // The attribute is always written: an unmarked root is the dark default, and
+  // `auto` marks the document as one that follows the system.
+  root.dataset.theme = pref;
   // The browser's own chrome (address bar, PWA status bar) follows the palette.
   // Following the system, each meta keeps the value its own media query declares,
   // so the browser picks per scheme with no script. An explicit choice outranks

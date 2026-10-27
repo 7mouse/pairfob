@@ -73,13 +73,25 @@ beforeEach(() => {
 afterEach(() => env?.restore());
 
 describe("the theme a document wears", () => {
-  test("auto follows the system and leaves the root unmarked", () => {
-    expect(themePref()).toBe("auto");
+  test("a fresh document is dark, whatever the system says", () => {
+    expect(themePref()).toBe("dark");
     expect(theme()).toBe("dark");
     applyDocumentTheme();
-    expect(env!.attributes.has("data-theme")).toBe(false);
+    expect(env!.attributes.get("data-theme")).toBe("dark");
+    // A light system changes nothing until the reader chooses to follow it.
+    env!.flipSystem(true);
+    expect(theme()).toBe("dark");
+    expect(env!.attributes.get("data-theme")).toBe("dark");
+  });
+
+  test("auto follows the system and marks the root as following", () => {
+    setThemePref("auto");
+    expect(env!.store.get("pairfob_theme")).toBe("auto");
+    expect(env!.attributes.get("data-theme")).toBe("auto");
+    expect(theme()).toBe("dark");
     env!.flipSystem(true);
     expect(theme()).toBe("light");
+    expect(env!.attributes.get("data-theme")).toBe("auto");
   });
 
   test("an explicit side wins over the system and is written for the reload", () => {
@@ -94,16 +106,16 @@ describe("the theme a document wears", () => {
     expect(theme()).toBe("dark");
   });
 
-  test("going back to auto clears the stored choice and the attribute", () => {
+  test("going back to auto records the choice and marks the root", () => {
     setThemePref("light");
     setThemePref("auto");
-    expect(env!.store.has("pairfob_theme")).toBe(false);
-    expect(env!.attributes.has("data-theme")).toBe(false);
+    expect(env!.store.get("pairfob_theme")).toBe("auto");
+    expect(env!.attributes.get("data-theme")).toBe("auto");
   });
 
   test("the browser chrome colour follows the palette, and each scheme keeps its own", () => {
     // Following the system, each meta holds the value its own media query declares.
-    applyDocumentTheme();
+    setThemePref("auto");
     expect(env!.metas.map((meta) => meta.content)).toEqual(["#0a0c10", "#f5f6f8"]);
     expect(env!.metas[0]!.media).toBe("(prefers-color-scheme: dark)");
     // An explicit choice outranks the system, so both metas name that side.
@@ -114,9 +126,11 @@ describe("the theme a document wears", () => {
   });
 
   test("returning to auto restores each scheme's own colour", () => {
-    // The review's case: system light, choose Dark, then Follow the system.
+    // The review's case: system light, a manual side overwrites both tags, and
+    // Follow the system must put each scheme's own colour back.
     env!.flipSystem(true);
-    applyDocumentTheme();
+    setThemePref("light");
+    expect(env!.metas.map((meta) => meta.content)).toEqual(["#f5f6f8", "#f5f6f8"]);
     setThemePref("dark");
     expect(env!.metas.map((meta) => meta.content)).toEqual(["#0a0c10", "#0a0c10"]);
     setThemePref("auto");
