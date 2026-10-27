@@ -242,6 +242,7 @@ export const enWorkspace = {
   "diffNotes.stateAnswered": "The agent has replied",
   "diffNotes.deleteNote": "Delete comment",
   'preview.title': 'HTML preview',
+  'preview.markdownTitle': 'Markdown preview',
   'preview.preview': 'Preview',
   'preview.source': 'Source',
   'preview.reload': 'Reload',

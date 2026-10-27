@@ -266,12 +266,43 @@ export function directory(path = ""): WorkspaceDirectoryPage {
   return { path, entries: nested, next_cursor: null, truncated: false, revision: REVISION };
 }
 
+/** A README's shapes: headings, a list, a table, a fence, a quote, and file references. */
+const README_MARKDOWN = [
+  "# Pairfob",
+  "",
+  "Pair the phone with the computer that runs your agents. **No open port**, no",
+  "SSH, no tunnel to configure.",
+  "",
+  "## Quick start",
+  "",
+  "1. Install the daemon on the computer.",
+  "2. Scan the pairing code with this phone.",
+  "3. Pick a pane and keep working.",
+  "",
+  "| Surface | Layout |",
+  "| --- | --- |",
+  "| Phone | One screen, tabs at the bottom |",
+  "| Desktop | List, session and files side by side |",
+  "",
+  "```sh",
+  "pairfob daemon --origin https://pairfob.com",
+  "```",
+  "",
+  "> The relay only forwards encrypted frames; identity and keys stay on the computer.",
+  "",
+  "The mux routes frames in `internal/mux/hub.go`, and the browser handshake lives",
+  "in `pwa/src/lib/protocol/client.ts`.",
+  "",
+].join("\n");
+
+const APP_SOURCE = 'import { createRoot } from "react-dom/client";\n\nexport function App() {\n  return <main className="workspace">Ready</main>;\n}\n\ncreateRoot(document.getElementById("app")!).render(<App />);\n';
+
 export function file(path = "src/app.ts"): WorkspaceFile {
   // An image is read as bytes through the media calls; the file read only says that it is one.
   if (/\.(png|jpe?g|gif|webp)$/i.test(path)) {
     return { path, kind: "binary", size: imageAt(path).bytes.length, modified_ms: FIXED_NOW - 3600000, content: "", truncated: false, revision: REVISION };
   }
-  const content = 'import { createRoot } from "react-dom/client";\n\nexport function App() {\n  return <main className="workspace">Ready</main>;\n}\n\ncreateRoot(document.getElementById("app")!).render(<App />);\n';
+  const content = /\.(md|markdown)$/i.test(path) ? README_MARKDOWN : APP_SOURCE;
   return { path, kind: "text", size: new TextEncoder().encode(content).length, modified_ms: FIXED_NOW - 3600000,
     content, truncated: false, revision: REVISION };
 }

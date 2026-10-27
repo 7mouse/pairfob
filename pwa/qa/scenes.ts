@@ -134,6 +134,7 @@ export const scenes: FixtureScene[] = [
   { name: "workspace-directory", description: "Nested directory breadcrumbs" },
   { name: "workspace-file", description: "Highlighted source file" },
   { name: "workspace-file-loading", description: "Pending source file skeleton" },
+  { name: "workspace-markdown", description: "Markdown file as source, with the rendered document one choice away" },
   { name: "workspace-changes", description: "Staged and working-tree groups" },
   { name: "workspace-changes-many", description: "Fifteen changed files: a list longer than its column" },
   { name: "workspace-image", description: "A 1600 by 900 picture in the viewer: fitted under its own size, so 100% and a double press have somewhere to go" },
@@ -573,6 +574,7 @@ export async function applyScene(name: string, session: FixtureSession): Promise
       const pending = loadWorkspaceFile("src/app.ts");
       if (name.endsWith("loading")) { void pending; await pendingReveal(); } else await pending;
     }
+    if (name === "workspace-markdown") await loadWorkspaceFile("README.md");
     if (name === "workspace-image") {
       await loadWorkspaceFile(WIDE_PNG_PATH);
       // The picture is read after the file: the scene is the viewer with it drawn.

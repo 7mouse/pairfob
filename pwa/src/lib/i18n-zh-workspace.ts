@@ -242,6 +242,7 @@ export const zhWorkspace = {
   "diffNotes.stateAnswered": "Agent 已回复",
   "diffNotes.deleteNote": "删除批注",
   'preview.title': 'HTML 预览',
+  'preview.markdownTitle': 'Markdown 预览',
   'preview.preview': '预览',
   'preview.source': '源码',
   'preview.reload': '重新加载',

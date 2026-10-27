@@ -6,12 +6,19 @@ import { PREVIEW_WIDTHS, setPreviewWidth, usePreviewWidth, type PreviewWidth } f
 import { thumbAt } from "./thumb";
 
 export const isHTMLFile = (path: string) => /\.html?$/i.test(path);
+export const isMarkdownFile = (path: string) => /\.(md|markdown)$/i.test(path);
 type PreviewMode = "preview" | "source";
 
 /** The info bar and document share one state, scoped to the file being viewed. */
 export function usePreviewControls(snapshot: WorkspaceSnapshot) {
+  const path = snapshot.file?.path ?? snapshot.detailPath;
+  // A Markdown file is read as its source until the reader asks for the
+  // document: the text they opened stays the default, as it did before the
+  // preview existed. A line target is source's own, whatever the type.
+  const markdown = isMarkdownFile(path);
   const key = `${snapshot.paneId}:${snapshot.descriptor?.root}:${snapshot.file?.path}:${snapshot.sourceLine}`;
-  const initial = { key, mode: snapshot.sourceLine ? "source" as const : "preview" as const, started: !snapshot.sourceLine, reload: 0 };
+  const initial = { key, markdown, mode: snapshot.sourceLine || markdown ? "source" as const : "preview" as const,
+    started: !snapshot.sourceLine, reload: 0 };
   const [state, setState] = useState(initial);
   const current = state.key === key ? state : initial;
   if (state.key !== key) setState(initial);
@@ -83,9 +90,12 @@ function WidthSwitch() {
 }
 
 export function PreviewSwitch({ controls }: { controls: PreviewControls }) {
-  const widths = usePreviewWidthOffered() && controls.mode === "preview";
+  const offered = usePreviewWidthOffered();
+  // A page is tried at a device's width; a Markdown document is simply read.
+  const widths = offered && !controls.markdown && controls.mode === "preview";
   return <>
-    <span className="workspace-layer-switch workspace-preview-switch" role="group" aria-label={t("preview.title")}
+    <span className="workspace-layer-switch workspace-preview-switch" role="group"
+      aria-label={t(controls.markdown ? "preview.markdownTitle" : "preview.title")}
       style={thumbAt(controls.mode === "preview" ? 0 : 1, 2)}>
       <Button aria-pressed={controls.mode === "preview"} onClick={() => controls.select("preview")}>{t("preview.preview")}</Button>
       <Button aria-pressed={controls.mode === "source"} onClick={() => controls.select("source")}>{t("preview.source")}</Button>

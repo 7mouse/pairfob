@@ -1,6 +1,6 @@
 import { HTMLPreview, isHTMLFile } from "./html-preview";
 import { FileSource } from "./file-source";
-import { PreviewSwitch, usePreviewControls, type PreviewControls } from "./preview-controls";
+import { PreviewSwitch, isMarkdownFile, usePreviewControls, type PreviewControls } from "./preview-controls";
 import { Ellipsis, FileDiff, RotateCw, Search, WrapText } from "lucide-react";
 import { useMemo } from "react";
 import { highlightSource, type SyntaxToken } from "../../lib/syntax-highlight";
@@ -12,6 +12,7 @@ import { openDetailMenu } from "./detail-menu";
 import { viewWorkspaceChanges } from "./file-actions";
 import { FileFindBar, foundLines, useFileFind, type FileFind } from "./file-find";
 import { FileIcon } from "./file-icon";
+import { MarkdownPreview } from "./markdown-preview";
 import { useNoteLines } from "./file-line-actions";
 import { formatBytes, formatModified } from "./format";
 import { GitMark } from "./git-mark";
@@ -83,7 +84,8 @@ export function useFileView(snapshot: WorkspaceSnapshot): FileView {
       .filter(Boolean).join(" · ")
     : null;
   return {
-    file, path, preview: file && isHTMLFile(path) ? preview : null, text: text !== null, lines, wrap, mark,
+    file, path, preview: file && (isHTMLFile(path) || isMarkdownFile(path)) ? preview : null,
+    text: text !== null, lines, wrap, mark,
     viewChanges: mark ? viewWorkspaceChanges(path) : undefined, meta, find,
   };
 }
@@ -121,7 +123,7 @@ export function FileActions({ view }: { view: FileView }) {
       title={t("workspace.viewChanges")} onClick={view.viewChanges}>
       <FileDiff size={16} aria-hidden="true" /><GitMark kind={view.mark} />
     </Button>}
-    {view.preview && <Button className="icon-btn workspace-tool workspace-preview-action" aria-label={t("preview.reload")}
+    {view.preview && !view.preview.markdown && <Button className="icon-btn workspace-tool workspace-preview-action" aria-label={t("preview.reload")}
       title={t("preview.reload")} onClick={view.preview.refresh}><RotateCw size={16} aria-hidden="true" /></Button>}
     <DetailMoreButton />
   </span>;
@@ -146,8 +148,12 @@ export function FileBody({ snapshot, view }: { snapshot: WorkspaceSnapshot; view
       </div>
     ) : !file ? (
       snapshot.loading && snapshot.pendingReveal ? <FilePending /> : null
-    ) : view.preview ? (
-      <HTMLPreview key={view.preview.key} snapshot={snapshot} wrap={wrap} controls={view.preview} found={foundLines(view.find)} />
+    ) : view.preview && (!view.preview.markdown || view.preview.mode === "preview") ? (
+      // The page keeps its frame mounted while its source is read; a document
+      // has no frame, so its source is the ordinary file source below.
+      view.preview.markdown
+        ? <MarkdownPreview content={file.content} root={snapshot.descriptor?.root ?? ""} />
+        : <HTMLPreview key={view.preview.key} snapshot={snapshot} wrap={wrap} controls={view.preview} found={foundLines(view.find)} />
     ) : file.kind === "binary" ? (
       <WorkspaceMedia media={snapshot.media} />
     ) : (

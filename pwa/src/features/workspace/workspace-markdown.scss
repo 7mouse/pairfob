@@ -1,0 +1,23 @@
+/* A Markdown file read as a document. The type is the chat's own `.agent-md`
+   (loaded with the app's styles); this partial only gives it a readable
+   measure and the stage's whole height to scroll in. */
+.workspace-markdown {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workspace-markdown-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 20px clamp(16px, 5vw, 48px) calc(40px + env(safe-area-inset-bottom, 0px));
+}
+
+.workspace-markdown-body {
+  max-width: 78ch;
+  margin: 0 auto;
+}
