@@ -26,6 +26,7 @@ import { scenes, resetFixtureBaseline, applyScene, afterScenePaint, sceneSource,
 import { createSession, type FixtureSession } from "./session";
 import { renderTerminalShell, disposeTerminalShell } from "./terminal-shell";
 import { advanceClock, calls, errors, record, resetClock, settlePaint } from "./environment";
+import { applyCompletionObservation } from "./completion-scenes";
 import type { FixtureAPI, FixtureRect, FixtureSnapshot, FixtureTerminalFrame, FixtureMode } from "./types";
 
 /**
@@ -263,6 +264,13 @@ export async function createFixtureAPI(language: "zh" | "en", initialScene: stri
     },
     async setAgentStatus(status) {
       applyFocusedStatus(status);
+      commitView();
+      await settlePaint();
+      return snapshot();
+    },
+    async setCompletionObservation(stage) {
+      if (currentScene !== "completion-recovery") throw new Error("Completion observations require completion-recovery");
+      applyCompletionObservation(stage);
       commitView();
       await settlePaint();
       return snapshot();

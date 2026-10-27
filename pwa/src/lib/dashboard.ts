@@ -31,6 +31,7 @@ export type SnapshotWire = {
     agent_instance_id?: unknown;
     revision?: unknown;
     state_change_seq?: unknown;
+    completion_id?: unknown;
     interactive_ready?: unknown;
     launch_pending?: unknown;
     activity?: unknown;
@@ -101,6 +102,7 @@ export function mapSnapshotAgents(snapshot: SnapshotWire): DashboardAgentCard[] 
         agentInstanceId: boundedString(pane.agent_instance_id),
         revision: safeCounter(pane.revision),
         stateChangeSeq: safeCounter(pane.state_change_seq),
+        completionId: typeof pane.completion_id === "string" && /^[0-9a-f]{64}$/.test(pane.completion_id) ? pane.completion_id : undefined,
         interactiveReady: wireBoolean(pane.interactive_ready),
         launchPending: wireBoolean(pane.launch_pending),
         runtimeSession: boundedString(snapshot.session),
@@ -386,6 +388,7 @@ export function herdSignature(agents: DashboardAgentCard[]): string {
       agent.agentInstanceId ?? null,
       agent.revision ?? null,
       agent.stateChangeSeq ?? null,
+      agent.completionId ?? null,
       agent.interactiveReady ?? null,
       agent.launchPending ?? null,
       agent.runtimeSession ?? null,

@@ -1,6 +1,7 @@
 import type { SessionEvent } from "../src/lib/protocol/session-types";
 import type { Phase } from "../src/features/connection/connection-store";
 import type { Screen } from "../src/app/navigation-store";
+import type { CompletionObservation } from "./completion-scenes";
 
 /**
  * QA fixture contract.
@@ -58,6 +59,7 @@ export type FixtureAPI = {
   appendChatTurn(): void;
   appendChatStep(): void;
   setAgentStatus(status: string): Promise<FixtureSnapshot>;
+  setCompletionObservation(stage: CompletionObservation): Promise<FixtureSnapshot>;
   setExtraSessions(count: number): Promise<FixtureSnapshot>;
   refreshChat(): Promise<FixtureSnapshot>;
   terminalFrame(text: string, options?: FixtureTerminalFrame): boolean;

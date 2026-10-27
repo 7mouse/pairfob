@@ -54,6 +54,7 @@ import { openInspectorScene } from "./inspector-scenes";
 import { WIDE_PNG_PATH } from "./wide-image";
 import { paneScreen, wideScreen } from "./terminal-screens";
 import { ICON_PANE_TEXT, iconScreen } from "./icon-screens";
+import { completionSnapshot } from "./completion-scenes";
 
 /**
  * Named-domain fixture setup for deterministic QA scenes.
@@ -87,6 +88,7 @@ export const scenes: FixtureScene[] = [
   { name: "home-empty", description: "No session yet" },
   { name: "home-notifications", description: "Post-pair notification invitation; permission is locally denied" },
   { name: "home-populated", description: "Flat session list" },
+  { name: "completion-recovery", description: "Three completed tasks: acknowledge, churn runtime state, recover, then finish a new turn" },
   { name: "attention-rich", description: "Rich task readiness and completion facts" },
   { name: "attention-rich-updated", description: "Runtime occupant replacement and newer completion sequence" },
   { name: "attention-empty", description: "Attention filters with no matching checking tasks" },
@@ -211,6 +213,7 @@ const TERMINAL_SCREENS: Record<string, NonNullable<SessionSource["terminalScreen
 
 /** The computer a scene talks to: busy scenes bring their own snapshot and screens. */
 export function sceneSource(name: string): SessionSource {
+  if (name === "completion-recovery") return { snapshot: completionSnapshot };
   if (name === "chat-needs-you") return { snapshot: blockedFocusedSnapshot, paneText: () => data.NEEDS_YOU_SCREEN };
   if (name === "chat-needs-you-grok") return { snapshot: blockedGrokSnapshot, paneText: () => data.GROK_NEEDS_YOU_SCREEN };
   if (name === "chat-needs-you-pi") return { snapshot: blockedPiSnapshot, paneText: () => data.PI_NEEDS_YOU_SCREEN };
@@ -488,6 +491,7 @@ export async function applyScene(name: string, session: FixtureSession): Promise
     replaceAgentsFromSnapshot(data.attentionSnapshot(name === "attention-rich-updated"));
   if (name === "attention-empty") replaceAgentsFromSnapshot({ ...data.snapshot(), panes: data.snapshot().panes?.filter((pane) => pane.agent_status !== "unknown") });
   if (name === "attention-legacy") replaceAgentsFromSnapshot(data.snapshot());
+  if (name === "completion-recovery") replaceAgentsFromSnapshot(completionSnapshot());
   if (name === "home-grouped") { setListGroup("space"); togglePanePin("w1:p3"); }
   if (name === "home-recent" || name === "palette-recent") {
     for (const [paneId, minutesAgo] of RECENT_OPENS) clockAt(FIXED_NOW - minutesAgo * 60_000, () => rememberPane(paneId));

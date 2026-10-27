@@ -153,13 +153,15 @@ type Pane struct {
 	// Runtime observations are optional so snapshots from older Herdr versions
 	// retain their exact legacy shape. AgentInstanceID is a one-way binding and
 	// never contains the native AgentSession value.
-	TerminalID       string  `json:"terminal_id,omitempty"`
-	AgentInstanceID  string  `json:"agent_instance_id,omitempty"`
-	Revision         *uint64 `json:"revision,omitempty"`
-	StateChangeSeq   *uint64 `json:"state_change_seq,omitempty"`
-	InteractiveReady *bool   `json:"interactive_ready,omitempty"`
-	LaunchPending    *bool   `json:"launch_pending,omitempty"`
-	HistoryAvailable bool    `json:"history_available"`
+	TerminalID      string  `json:"terminal_id,omitempty"`
+	AgentInstanceID string  `json:"agent_instance_id,omitempty"`
+	Revision        *uint64 `json:"revision,omitempty"`
+	StateChangeSeq  *uint64 `json:"state_change_seq,omitempty"`
+	// CompletionID identifies transcript evidence, independently of runtime status churn.
+	CompletionID     string `json:"completion_id,omitempty"`
+	InteractiveReady *bool  `json:"interactive_ready,omitempty"`
+	LaunchPending    *bool  `json:"launch_pending,omitempty"`
+	HistoryAvailable bool   `json:"history_available"`
 	// AgentSession is trusted runtime state for transcript adapters. It must
 	// never be serialized to a Web client.
 	AgentSession *AgentSessionRef `json:"-"`

@@ -9,6 +9,12 @@ Use a dedicated browser context and the same browser version, installed fonts, t
 URLs (replace server port as needed):
 
 - `/qa/index.html?scene=home-populated&lang=zh`
+- `/qa/index.html?scene=completion-recovery&lang=zh`: three unread completions.
+  Mark all read with the real list control, then use
+  `qa.setCompletionObservation(stage)` with `idle`, `working`, `unknown`,
+  `missing`, and `recovered`. Recovery must keep all three read despite changed
+  runtime sequences; `new-turn` makes only Completion 2 unread. Check touch at
+  390×844 and 1024×768 and mouse/keyboard at 1440×900.
 - `/qa/index.html?scene=connect-manual&lang=en`
 - `/qa/index.html?scene=guided-ime&lang=zh`
 - `/qa/index.html?scene=guided-attachments&lang=zh` and `guided-attachments-relay`: the attachment tray above the guided dock. The first seeds an in-body image, a ready (compressed) photo, an uploading file, a failed file and a restored, paused upload; the relay scene seeds fresh picks waiting for a direct connection (tap 连接 to switch the fixture to P2P and watch them upload). Every scene starts with an empty tray, an in-memory journal and a local fixture transfer port (`qa/attachments.ts`), so 📎 and paste upload in a few steps without a computer.

@@ -1,6 +1,8 @@
 package daemon
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"time"
 
 	"pairfob/internal/journal"
@@ -16,12 +18,18 @@ func (e *Engine) decorateAgentActivity(snapshot runtime.Snapshot) runtime.Snapsh
 		pane := &snapshot.Panes[i]
 		e.decorateAgentTitle(pane)
 		pane.TaskEvidence = ""
+		pane.CompletionID = ""
 		pane.Activity = nil
 		if pane.Agent == "" || pane.AgentStatus == "unknown" {
 			continue
 		}
 		if pane.AgentStatus != "blocked" {
 			e.decorateTaskStatus(pane)
+		}
+		if pane.AgentStatus == "done" && pane.TaskEvidence != "" {
+			// Scope the digest to the occupant; never send transcript bytes or native IDs.
+			digest := sha256.Sum256([]byte("pairfob-completion-v1\x00" + pane.TerminalID + "\x00" + pane.AgentInstanceID + "\x00" + pane.TaskEvidence))
+			pane.CompletionID = hex.EncodeToString(digest[:])
 		}
 		e.decorateTurnActivity(pane)
 	}

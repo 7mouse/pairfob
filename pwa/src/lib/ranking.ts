@@ -29,6 +29,7 @@ export interface AgentCard extends DisplayMetadata {
   agentInstanceId?: string;
   revision?: number;
   stateChangeSeq?: number;
+  completionId?: string;
   interactiveReady?: boolean;
   launchPending?: boolean;
   runtimeSession?: string;

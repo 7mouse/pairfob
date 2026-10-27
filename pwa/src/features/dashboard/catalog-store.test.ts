@@ -217,4 +217,29 @@ describe("dashboard domain", () => {
     replaceAgentsFromSnapshot({ panes: [] });
     expect(loadCompletionSeen()).toEqual({});
   });
+
+  test("bulk read receipts survive persisted runtime churn; only fresh task evidence rearms", () => {
+    useTestDaemon();
+    const finished: SnapshotWire = {
+      panes: ["p1", "p2", "p3"].map((paneId, index) => ({
+        pane_id: paneId, workspace_id: "w1", agent: "codex", agent_status: "done",
+        terminal_id: `terminal-${paneId}`, agent_instance_id: `instance-${paneId}`, state_change_seq: 7,
+        completion_id: String(index + 1).repeat(64),
+      })),
+    };
+    replaceAgentsFromSnapshot(finished);
+    expect(acknowledgeAllCompletions()?.count).toBe(3);
+    const seen = loadCompletionSeen();
+    for (const status of ["idle", "working", "unknown", "done"]) {
+      replaceAgentsFromSnapshot({ panes: finished.panes!.map(p => ({ ...p, agent_status: status, state_change_seq: 11, completion_id: undefined })) });
+      expect(loadCompletionSeen()).toEqual(seen);
+    }
+    resetDashboard();
+    reloadCompletionSeen();
+    replaceAgentsFromSnapshot({ panes: finished.panes!.map(p => ({ ...p, state_change_seq: 12 })) });
+    expect(dashboardStore.get().agents.map(a => a.status)).toEqual(["idle", "idle", "idle"]);
+    replaceAgentsFromSnapshot({ panes: finished.panes!.map((p, index) => ({ ...p, state_change_seq: 12, completion_id: index === 1 ? "f".repeat(64) : p.completion_id })) });
+    expect(dashboardStore.get().agents.map(a => a.status)).toEqual(["idle", "done", "idle"]);
+    expect(loadCompletionSeen()).toEqual({ p1: seen.p1, p3: seen.p3 });
+  });
 });

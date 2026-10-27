@@ -105,6 +105,11 @@
           "type": "string",
           "pattern": "^[0-9a-f]{64}$"
         },
+        "completion_id": {
+          "description": "Opaque daemon-derived transcript completion evidence, independent of runtime status sequence; see runtime-observations.md.",
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
         "revision": {
           "type": "integer",
           "minimum": 0,
