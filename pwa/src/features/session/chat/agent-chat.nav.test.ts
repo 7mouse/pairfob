@@ -438,9 +438,9 @@ describe("agent-chat remembers its mode per pane", () => {
     expect(preamble.textContent).toContain("I will inspect it first.");
     expect(tool.textContent).toContain("Read a.ts");
     expect(final.textContent).toContain("Everything is fine.");
-    // Source order holds across the card's edge: card, then the finding, then the reply.
-    expect(Boolean(fold.compareDocumentPosition(preamble) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
-    expect(Boolean(preamble.compareDocumentPosition(final) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    // Source order holds across the card's edge: the introductory finding, card, then reply.
+    expect(Boolean(preamble.compareDocumentPosition(fold) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
+    expect(Boolean(fold.compareDocumentPosition(final) & Node.DOCUMENT_POSITION_FOLLOWING)).toBe(true);
   }));
 
   test("anchors an optimistic prompt before output that arrives ahead of its transcript echo", async () => await act(async () => {
