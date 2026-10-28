@@ -264,7 +264,8 @@ describe("the inspector beside the desk session", () => {
     expect(diffNoteScope()?.paneId).toBe("p1");
     const incarnation = currentViewIncarnation();
 
-    await click(".inspector-close");
+    // Inspect the exit synchronously; yielding can outlast its timer on a busy machine.
+    act(() => { inColumn(".inspector-close").click(); });
     // The reader's close: the column is still there, marked and out of the pointer's way, while its content goes.
     expect(inspectorOpen()).toBeTrue();
     expect(column()?.classList.contains("is-leaving")).toBeTrue();
