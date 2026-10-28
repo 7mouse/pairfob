@@ -216,12 +216,12 @@ describe("React diff notes", () => {
     await settle();
     const view = appRoot().ownerDocument.defaultView!;
     const at = { clientX: 292, clientY: 759 };
+    // Keep both presses in the same turn; yielding can expire the tap guard.
     const chip = appRoot().querySelector<HTMLButtonElement>(".workspace-notes-terminal")!;
-    await act(async () => {
+    act(() => {
       chip.dispatchEvent(new view.PointerEvent("pointerdown", { bubbles: true, pointerId: 1, isPrimary: true, ...at }));
       chip.dispatchEvent(new view.MouseEvent("click", { bubbles: true, cancelable: true, detail: 1, ...at }));
     });
-    await settle();
     expect(currentScreen()).toBe("pane");
     // The session's key row stands where the chip was, and a key there is sent as it is
     // pressed: neither the press nor its click may reach it.
