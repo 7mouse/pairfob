@@ -33,6 +33,8 @@ func TestLocalTranscriptsShowNoInjectedContext(t *testing.T) {
 		parse   traceParser
 		history func([]byte) (Message, bool)
 	}{
+		{"copilot", filepath.Join(reader.NativeRoots["copilot"], "session-state", "*", "events.jsonl"), parseCopilotTrace, parseCopilot},
+		{"kimi", filepath.Join(reader.NativeRoots["kimi"], "sessions", "*", "*", "wire.jsonl"), parseKimiTrace, parseKimi},
 		{"claude", filepath.Join(reader.ClaudeRoot, "projects", "*", "*.jsonl"), parseClaudeTrace, parseClaude},
 		{"codex", filepath.Join(reader.CodexRoot, "sessions", "*", "*", "*", "*.jsonl"), parseCodexTrace, parseCodex},
 		{"grok", filepath.Join(reader.GrokRoot, "sessions", "*", "*", "updates.jsonl"), parseGrokTrace, parseGrok},
@@ -145,7 +147,14 @@ func scanLocalTranscript(t *testing.T, path string, parse traceParser) []parsedE
 		if oversized {
 			t.Logf("%s: skipped a record over %d bytes", filepath.Base(path), maxTraceLine)
 		} else {
-			events = append(events, parse(line)...)
+			// Only turn heads are inspected for injected user context. Retaining
+			// every tool output from multi-hundred-MiB logs can otherwise make
+			// this diagnostic exhaust memory before it reports any findings.
+			for _, event := range parse(line) {
+				if turnHead(event.Type) {
+					events = append(events, event)
+				}
+			}
 		}
 		return true
 	}); err != nil {

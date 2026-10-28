@@ -336,6 +336,8 @@ func (e *Engine) dispatch(s *sess, id, op string, params json.RawMessage) {
 		go e.dispatchWorkspaceRead(s, id, op, params)
 	case "WorkspaceMediaOpenAtRoot", "WorkspaceMediaOpen", "WorkspaceMediaRead", "WorkspaceMediaClose":
 		go e.dispatchWorkspaceMedia(s, id, op, params)
+	case "WorkspaceDownloadOpenAtRoot", "WorkspaceDownloadOpen", "WorkspaceDownloadRead", "WorkspaceDownloadClose":
+		go e.dispatchWorkspaceDownload(s, id, op, params)
 	case "WorkspaceUploadBegin", "WorkspaceUploadWrite", "WorkspaceUploadStatus", "WorkspaceUploadCommit", "WorkspaceUploadCancel":
 		go e.dispatchUpload(s, id, op, params)
 	case "WorkspaceUploadBeginV2":

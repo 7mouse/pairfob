@@ -1,5 +1,5 @@
-const CACHE = "pairfob-shell-v12";
-const PREVIOUS_CACHE = "pairfob-shell-v11";
+const CACHE = "pairfob-shell-v13";
+const PREVIOUS_CACHE = "pairfob-shell-v12";
 const PREF = "pairfob-pref";
 const NOTIFY_DIAGNOSTICS = "pairfob-notification-diagnostics-v1";
 const NOTIFY_LOG = "/__pairfob_notification_diagnostics__";
@@ -190,10 +190,138 @@ async function shellNetworkFirst(event, request, fallback) {
   return cached;
 }
 
+const DOWNLOAD_CHANNEL = "pairfob-download-v1";
+const DOWNLOAD_ROUTE = "/__pairfob_download__/";
+const DOWNLOAD_MAX_BYTES = 1073741824;
+const DOWNLOAD_PULL_TIMEOUT_MS = 30000;
+
+function downloadFileName(value) {
+  const base = String(value || "download").split(/[\\/]/).pop()
+    .replace(/[\u0000-\u001f\u007f"\\;]/g, "_").slice(0, 180);
+  return base || "download";
+}
+
+function downloadDisposition(name) {
+  const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
+  const encoded = encodeURIComponent(name).replace(/['()*]/g, value =>
+    `%${value.charCodeAt(0).toString(16).toUpperCase()}`);
+  return `attachment; filename="${ascii}"; filename*=UTF-8''${encoded}`;
+}
+
+/**
+ * A download is a page-driven BYTE stream. The service worker cannot read the
+ * encrypted Pairfob session itself, so each pull asks the page for one chunk
+ * over a BroadcastChannel. The page reads the RPC and posts the chunk back;
+ * one outstanding request is the backpressure.
+ */
+function downloadStreamResponse(url, routeAt = url.pathname.indexOf(DOWNLOAD_ROUTE)) {
+  if (routeAt < 0) return new Response("bad download route", { status: 400 });
+  const id = url.pathname.slice(routeAt + DOWNLOAD_ROUTE.length);
+  if (!/^[a-f0-9]{32}$/.test(id)) return new Response("bad download id", { status: 400 });
+  const name = downloadFileName(url.searchParams.get("name"));
+  const size = Number(url.searchParams.get("size"));
+  if (!Number.isSafeInteger(size) || size < 0 || size > DOWNLOAD_MAX_BYTES) {
+    return new Response("bad download size", { status: 400 });
+  }
+  const rawMime = url.searchParams.get("mime") || "application/octet-stream";
+  const mime = /^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,63}\/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,63}$/.test(rawMime)
+    ? rawMime : "application/octet-stream";
+  const channel = new BroadcastChannel(DOWNLOAD_CHANNEL);
+  let streamController;
+  let pending = null;
+  let finished = false;
+  let timer = null;
+  const close = () => {
+    if (finished) return;
+    finished = true;
+    if (timer) clearTimeout(timer);
+    channel.close();
+  };
+  const fail = (message) => {
+    const error = new Error(message);
+    if (pending) {
+      const waiting = pending;
+      pending = null;
+      if (timer) clearTimeout(timer);
+      waiting.reject(error);
+    }
+    // Cancellation can arrive between pulls while a chunk is still queued.
+    try { streamController.error(error); } catch { /* already closed */ }
+    close();
+  };
+  channel.onmessage = (event) => {
+    const data = event.data;
+    if (!data || data.id !== id) return;
+    if (data.type === "chunk") {
+      if (!pending) return;
+      const waiting = pending;
+      pending = null;
+      if (timer) clearTimeout(timer);
+      const bytes = data.bytes instanceof ArrayBuffer ? new Uint8Array(data.bytes) : data.bytes;
+      if (!(bytes instanceof Uint8Array)) {
+        waiting.reject(new Error("invalid download chunk"));
+        try { waiting.controller.error(new Error("invalid download chunk")); } catch { /* already closed */ }
+        close();
+        return;
+      }
+      waiting.controller.enqueue(bytes);
+      waiting.resolve();
+      if (data.eof) {
+        try { waiting.controller.close(); } catch { /* already closed */ }
+        channel.postMessage({ type: "done", id });
+        setTimeout(close, 1000);
+      }
+      return;
+    }
+    if (data.type === "error") fail(String(data.message || "download failed"));
+    if (data.type === "cancel") fail("download canceled");
+  };
+  const stream = new ReadableStream({
+    start(controller) {
+      streamController = controller;
+      channel.postMessage({ type: "start", id, size });
+    },
+    pull(controller) {
+      if (finished) return;
+      if (pending) return pending.promise;
+      let resolve;
+      let reject;
+      const promise = new Promise((done, failed) => { resolve = done; reject = failed; });
+      pending = { controller, resolve, reject, promise };
+      timer = setTimeout(() => {
+        if (!pending) return;
+        pending = null;
+        reject(new Error("download source timed out"));
+        try { controller.error(new Error("download source timed out")); } catch { /* already closed */ }
+        close();
+      }, DOWNLOAD_PULL_TIMEOUT_MS);
+      channel.postMessage({ type: "need", id });
+      return promise;
+    },
+    cancel() {
+      channel.postMessage({ type: "cancel", id });
+      close();
+    },
+  });
+  return new Response(stream, {
+    headers: {
+      "Content-Type": mime,
+      "Content-Disposition": downloadDisposition(name),
+      "Content-Length": String(size),
+      "Cache-Control": "no-store",
+    },
+  });
+}
+
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   const url = new URL(request.url);
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
+  const downloadAt = url.pathname.indexOf(DOWNLOAD_ROUTE);
+  if (downloadAt >= 0) {
+    event.respondWith(downloadStreamResponse(url, downloadAt));
+    return;
+  }
   if (url.pathname.startsWith("/api/") || url.pathname.startsWith("/v1/") || url.pathname.startsWith("/v2/")) return;
   // Runner owns a distinct sandbox/CSP; never substitute a cached app shell.
   if (url.pathname.startsWith("/preview/")) return;

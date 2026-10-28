@@ -289,3 +289,17 @@ func TestClaudeAPIErrorsStayVisibleButPlaceholdersDoNot(t *testing.T) {
 		t.Fatalf("history=%q", got)
 	}
 }
+
+func TestCodexReviewInjectionDoesNotBecomeUserPrompt(t *testing.T) {
+	wrapper := "<user_action>\n<context>User initiated a review task. Here is the reviewer output.</context>\n<results>Generated findings</results>\n</user_action>"
+	if got := visibleCodexUserText(wrapper); got != "" {
+		t.Fatalf("review injection: %q", got)
+	}
+	if got := visibleCodexUserText(wrapper + "\nFix the first finding"); got != "Fix the first finding" {
+		t.Fatalf("typed suffix: %q", got)
+	}
+	typed := "Explain <user_action><context>my markup</context></user_action>"
+	if got := visibleCodexUserText(typed); got != typed {
+		t.Fatalf("user markup changed: %q", got)
+	}
+}

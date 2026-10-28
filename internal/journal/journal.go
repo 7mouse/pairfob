@@ -68,6 +68,9 @@ type Reader struct {
 	// HermesRoot holds state.db; OpencodeRoot holds storage/.
 	HermesRoot   string
 	OpencodeRoot string
+	// NativeRoots configures additional providers without changing their trusted
+	// session identity or allowing a caller to supply arbitrary transcript paths.
+	NativeRoots map[string]string
 
 	indexMu       sync.Mutex
 	traceMu       sync.Mutex
@@ -133,6 +136,7 @@ func NewDefault() *Reader {
 	return &Reader{
 		CodexRoot: codexRoot, ClaudeRoot: claudeRoot, GrokRoot: grokRoot, PiRoot: piRoot,
 		CursorRoot: filepath.Join(home, ".cursor"), HermesRoot: hermesRoot, OpencodeRoot: filepath.Join(dataHome, "opencode"),
+		NativeRoots: defaultNativeRoots(home, dataHome),
 	}
 }
 
@@ -140,6 +144,12 @@ func (r *Reader) Supports(ref Ref) bool {
 	if ref.Source == "herdr:pi" && ref.Agent == "pi" && r.PiRoot != "" {
 		return (ref.Kind == "id" && sessionID.MatchString(ref.Value)) ||
 			(ref.Kind == "path" && piPathSyntax(r.PiRoot, ref.Value))
+	}
+	if ref.Source == "herdr:devin" && ref.Agent == "devin" && ref.Kind == "id" {
+		return devinSessionID.MatchString(ref.Value) && r.NativeRoots["devin"] != ""
+	}
+	if ref.Source == "herdr:letta" && ref.Agent == "letta" && ref.Kind == "id" && strings.HasPrefix(ref.Value, "default:agent-") {
+		return sessionID.MatchString(strings.TrimPrefix(ref.Value, "default:")) && r.NativeRoots["letta"] != ""
 	}
 	if ref.Kind != "id" || !sessionID.MatchString(ref.Value) {
 		return false
@@ -158,7 +168,7 @@ func (r *Reader) Supports(ref Ref) bool {
 	case ref.Source == "herdr:opencode" && ref.Agent == "opencode":
 		return r.OpencodeRoot != ""
 	default:
-		return false
+		return ref.Source == "herdr:"+ref.Agent && nativeAgent(ref.Agent) && r.NativeRoots[ref.Agent] != ""
 	}
 }
 
@@ -220,8 +230,10 @@ func (r *Reader) transcriptPath(ref Ref, refreshMissing bool) (string, error) {
 		path, err = r.findPiTranscript(ref, refreshMissing)
 	case "cursor":
 		path, err = findCursorTranscript(r.CursorRoot, ref.Value)
-	default:
+	case "grok":
 		path, err = findGrokTranscript(r.GrokRoot, ref.Value)
+	default:
+		path, err = r.nativeTranscriptPath(ref)
 	}
 	if err != nil {
 		if errors.Is(err, fs.ErrNotExist) || errors.Is(err, ErrUnavailable) {

@@ -17,9 +17,21 @@ const (
 	mediaHandleIdle        = 120 * time.Second
 	mediaHandleTTL         = 10 * time.Minute
 	mediaHandlePattern     = `^media_[0-9a-f]{32}$`
+
+	maxDownloadHandlesSession = 2
+	maxDownloadHandlesGlobal  = 8
+	downloadHandleIdle        = 2 * time.Minute
+	downloadHandleTTL         = 30 * time.Minute
+	downloadHandlePattern     = `^dl_[0-9a-f]{32}$`
+
+	purposeMedia    = "media"
+	purposeDownload = "download"
 )
 
-var mediaRPCSlots = make(chan struct{}, 2)
+var (
+	mediaRPCSlots    = make(chan struct{}, 2)
+	downloadRPCSlots = make(chan struct{}, 2)
+)
 
 type mediaHandle struct {
 	id         string
@@ -29,6 +41,9 @@ type mediaHandle struct {
 	paneID     string
 	root       string
 	relPath    string
+	purpose    string
+	idle       time.Duration
+	ttl        time.Duration
 	file       *workspace.MediaFile
 	opened     time.Time
 	deadline   time.Time
@@ -37,33 +52,56 @@ type mediaHandle struct {
 }
 
 type mediaRegistry struct {
-	mu        sync.Mutex
-	byHandle  map[string]*mediaHandle
-	bySession map[*sess]map[string]struct{}
-	ctxs      map[*sess]context.Context
-	cancels   map[*sess]context.CancelFunc
-	bandwidth mediaBandwidth
+	mu                sync.Mutex
+	byHandle          map[string]*mediaHandle
+	bySession         map[*sess]map[string]struct{}
+	ctxs              map[*sess]context.Context
+	cancels           map[*sess]context.CancelFunc
+	bandwidth         mediaBandwidth
+	downloadBandwidth mediaBandwidth
 }
 
 func newMediaRegistry() *mediaRegistry {
 	return &mediaRegistry{
-		byHandle:  map[string]*mediaHandle{},
-		bySession: map[*sess]map[string]struct{}{},
-		ctxs:      map[*sess]context.Context{},
-		cancels:   map[*sess]context.CancelFunc{},
-		bandwidth: newMediaBandwidth(),
+		byHandle:          map[string]*mediaHandle{},
+		bySession:         map[*sess]map[string]struct{}{},
+		ctxs:              map[*sess]context.Context{},
+		cancels:           map[*sess]context.CancelFunc{},
+		bandwidth:         newMediaBandwidth(),
+		downloadBandwidth: newDownloadBandwidth(),
 	}
 }
 
-func newMediaHandleID() (string, error) {
+func newHandleID(prefix string) (string, error) {
 	var raw [16]byte
 	if _, err := rand.Read(raw[:]); err != nil {
 		return "", err
 	}
-	return "media_" + hex.EncodeToString(raw[:]), nil
+	return prefix + hex.EncodeToString(raw[:]), nil
+}
+
+func newMediaHandleID() (string, error) {
+	return newHandleID("media_")
+}
+
+func newDownloadHandleID() (string, error) {
+	return newHandleID("dl_")
 }
 
 func (e *Engine) mediaPut(h *mediaHandle) error {
+	if h.purpose == "" {
+		h.purpose = purposeMedia
+	}
+	if h.idle == 0 {
+		h.idle = mediaHandleIdle
+	}
+	if h.ttl == 0 {
+		h.ttl = mediaHandleTTL
+	}
+	maxSession, maxGlobal := maxMediaHandlesSession, maxMediaHandlesGlobal
+	if h.purpose == purposeDownload {
+		maxSession, maxGlobal = maxDownloadHandlesSession, maxDownloadHandlesGlobal
+	}
 	e.media.mu.Lock()
 	defer e.media.mu.Unlock()
 	e.mu.Lock()
@@ -72,11 +110,23 @@ func (e *Engine) mediaPut(h *mediaHandle) error {
 	if !live {
 		return errMediaClosed
 	}
-	if len(e.media.byHandle) >= maxMediaHandlesGlobal {
+	global := 0
+	for _, current := range e.media.byHandle {
+		if current.purpose == h.purpose {
+			global++
+		}
+	}
+	if global >= maxGlobal {
 		return errMediaQuota
 	}
 	owned := e.media.bySession[h.session]
-	if len(owned) >= maxMediaHandlesSession {
+	count := 0
+	for id := range owned {
+		if current := e.media.byHandle[id]; current != nil && current.purpose == h.purpose {
+			count++
+		}
+	}
+	if count >= maxSession {
 		return errMediaQuota
 	}
 	if owned == nil {
@@ -102,8 +152,15 @@ func (e *Engine) mediaExpire(id string) {
 }
 
 func (e *Engine) mediaTouch(h *mediaHandle) {
-	idle := time.Now().Add(mediaHandleIdle)
-	abs := h.opened.Add(mediaHandleTTL)
+	idleSpan, ttl := h.idle, h.ttl
+	if idleSpan == 0 {
+		idleSpan = mediaHandleIdle
+	}
+	if ttl == 0 {
+		ttl = mediaHandleTTL
+	}
+	idle := time.Now().Add(idleSpan)
+	abs := h.opened.Add(ttl)
 	if idle.After(abs) {
 		h.deadline = abs
 	} else {
@@ -198,6 +255,7 @@ func (e *Engine) closeSessionMedia(s *sess) {
 		}
 	}
 	e.media.bandwidth.dropSession(s)
+	e.media.downloadBandwidth.dropSession(s)
 	e.media.mu.Unlock()
 	for _, h := range handles {
 		_ = h.file.Close()

@@ -86,6 +86,15 @@ func visibleCodexUserText(text string) string {
 	rest := text
 	for {
 		rest = strings.TrimLeft(rest, " \t\r\n")
+		// /review re-injects the reviewer's output as a synthetic user action.
+		// Keep ordinary user-authored XML; only this generated context matches.
+		if body, ok := leadingTaggedBody(rest, "user_action"); ok && strings.HasPrefix(strings.TrimSpace(body), "<context>User initiated a review task.") {
+			if next, stripped := withoutLeadingBlock(rest, []string{"user_action"}); stripped {
+				rest = next
+				continue
+			}
+		}
+
 		if loc := codexImageReference.FindStringIndex(rest); loc != nil {
 			rest = rest[loc[1]:]
 			continue

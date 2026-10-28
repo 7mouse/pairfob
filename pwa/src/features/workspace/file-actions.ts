@@ -7,6 +7,7 @@ import { liveSession } from "../computers/catalog-store";
 import { showError, showStatus } from "../../app/notices-store";
 import { messageOf } from "../../lib/notices";
 import { bindObjectPress } from "../../shared/ui/overlay/object-press";
+import { downloadActionAvailable, openWorkspaceDownload } from "./download-file";
 import { openFileMenu, type FileMenuSpec } from "./file-menu";
 import { clearWorkspaceError, loadGitDiff, markWorkspaceBrowser, refreshWorkspace } from "./actions";
 import { noteRowRenamed } from "./focus-landing";
@@ -159,11 +160,14 @@ export function openWorkspaceFileMenu(entry: WorkspaceEntry, extra: Partial<File
   if (entry.kind !== "file" || operationBusy()) return;
   const snap = getWorkspaceSnapshot();
   const mutations = workspaceFileMutations(entry);
+  const canDownload = downloadActionAvailable();
   openFileMenu({
     name: entry.name,
     directory: entry.path.includes("/") ? entry.path.slice(0, entry.path.lastIndexOf("/")) : t("workspace.repoRoot"),
     mark: gitMarks(snap.status).files.get(entry.path) ?? null,
     viewChanges: viewWorkspaceChanges(entry.path),
+    download: canDownload ? () => openWorkspaceDownload(entry.path, entry.size) : undefined,
+    downloadDetail: canDownload ? t("workspace.download.p2pShort") : undefined,
     copyPath: () => copyWorkspacePath(entry.path),
     rename: mutations.rename,
     remove: mutations.remove,

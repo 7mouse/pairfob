@@ -113,7 +113,9 @@ package can express that duty.
   `unknown_outcome` only refreshes, never replays.
 - The `GetConfig.capabilities` keys are the authority for showing and
   allowing operations; do not invent aggregate aliases. `rename_file` and
-  `delete_file` advertise workspace file mutations; absence on older daemons means false.
+  `delete_file` advertise workspace file mutations; `download_file` advertises
+  the P2P-only chunked file download (`proto/workspace-download.md`); absence on
+  older daemons means false.
 - `link_machine` advertises machine linking (`proto/machine-link.md`). A linked
   machine keeps its own daemon identity; never proxy its panes or hold its keys
   on the linking computer, and never send an SSH target to a paired device.

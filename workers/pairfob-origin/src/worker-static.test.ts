@@ -168,3 +168,17 @@ test('the preview runner bypasses HTML canonicalization with its own response po
   expect(res.headers.get('Content-Security-Policy')).toContain('sandbox allow-scripts');
   expect(await res.text()).toContain('Pairfob preview');
 });
+
+test("the service-worker download route never falls through to the app shell", async () => {
+  const env = testEnv({ assets: assets({ "/index.html": "<html>shell</html>" }) });
+  const res = await handleFetch(new Request(`https://pairfob.com/__pairfob_download__/${"a".repeat(32)}`), env);
+  expect(res.status).toBe(404);
+  expect(await res.text()).not.toContain("shell");
+});
+
+test("the /pair-scoped download route also never serves the app shell", async () => {
+  const env = testEnv({ assets: assets({ "/index.html": "<html>shell</html>" }) });
+  const res = await handleFetch(new Request(`https://pairfob.com/pair/__pairfob_download__/${"b".repeat(32)}`), env);
+  expect(res.status).toBe(404);
+  expect(await res.text()).not.toContain("shell");
+});

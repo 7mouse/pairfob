@@ -34,6 +34,22 @@ var quotaProviders = []quotaProvider{
 	{name: "grok", source: "oauth", locate: locateGrokQuota},
 }
 
+// quotaAccountRead asks a provider whose allowance is not a set of percentage
+// windows; it builds the account's meters itself.
+type quotaAccountRead func(context.Context) QuotaAccount
+
+// A quotaAccountProvider is only on AgentQuotaV2: the first operation's six
+// items are frozen, so a newer provider never appears there.
+type quotaAccountProvider struct {
+	name   string
+	source string
+	locate func(context.Context) (quotaAccountRead, AgentQuota)
+}
+
+var quotaAccountProviders = []quotaAccountProvider{
+	{name: "deepseek", source: "api", locate: locateDeepSeekQuota},
+}
+
 // Reads that start a CLI share these slots. HTTP reads are not limited: run
 // together, the batch takes as long as its slowest provider and nothing queues.
 var quotaSpawnSlots = make(chan struct{}, 3)
@@ -47,9 +63,12 @@ type QuotaSource struct {
 
 // QuotaSources lists the accounts this build can read, configured or not.
 func QuotaSources() []QuotaSource {
-	out := make([]QuotaSource, len(quotaProviders))
-	for i, p := range quotaProviders {
-		out[i] = QuotaSource{ID: p.name, Read: p.read}
+	out := make([]QuotaSource, 0, len(quotaProviders)+len(quotaAccountProviders))
+	for _, p := range quotaProviders {
+		out = append(out, QuotaSource{ID: p.name, Read: p.read})
+	}
+	for _, p := range quotaAccountProviders {
+		out = append(out, QuotaSource{ID: p.name, Read: p.read})
 	}
 	return out
 }
@@ -81,6 +100,25 @@ func (p quotaProvider) read(parent context.Context) QuotaReading {
 		account.RetryAt = note.retry()
 	}
 	return QuotaReading{Account: account, Legacy: &legacy}
+}
+
+// read is the same two steps for an account provider. It has no first-operation
+// item, so Legacy stays nil and an older phone never sees a seventh item.
+func (p quotaAccountProvider) read(parent context.Context) QuotaReading {
+	note := &quotaNote{}
+	ctx := context.WithValue(parent, quotaNoteKey{}, note)
+	locate, q := p.locate(ctx)
+	account := quotaAccount(q)
+	if locate != nil {
+		account = locate(ctx)
+		if account.State == "failed" && account.Reason == "unavailable" && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			account.Reason = "timeout"
+		}
+	}
+	if account.State == "throttled" {
+		account.RetryAt = note.retry()
+	}
+	return QuotaReading{Account: account}
 }
 
 func (p quotaProvider) ask(ctx context.Context, read quotaRead) AgentQuota {

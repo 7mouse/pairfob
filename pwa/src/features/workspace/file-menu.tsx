@@ -1,4 +1,4 @@
-import { Circle, CircleCheck, Copy, FileDiff, FileText, LogOut, Pencil, RefreshCw, Trash2 } from "lucide-react";
+import { Circle, CircleCheck, Copy, Download, FileDiff, FileText, LogOut, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { t } from "../../lib/i18n";
 import type { GitChangeKind } from "../../lib/workspace";
 import { showActionSheet, type SheetAction } from "../../shared/ui/overlay/action-sheet";
@@ -17,6 +17,8 @@ export type FileMenuSpec = {
   mark?: GitChangeKind | null;
   viewChanges?: SheetAction;
   openFile?: SheetAction;
+  download?: SheetAction;
+  downloadDetail?: string;
   copyPath: SheetAction;
   /** A diff's own mark: seen as it stands, or unseen again. */
   review?: { seen: boolean; toggle: SheetAction };
@@ -37,6 +39,8 @@ export function openFileMenu(spec: FileMenuSpec): void {
       {spec.viewChanges && <MenuRow modal={modal} action={spec.viewChanges} icon={<FileDiff size={ICON} />}
         label={t("workspace.viewChanges")} detail={spec.mark ? changeKindLabel(spec.mark) : undefined} />}
       {spec.openFile && <MenuRow modal={modal} action={spec.openFile} icon={<FileText size={ICON} />} label={t("workspace.openFile")} />}
+      {spec.download && <MenuRow modal={modal} action={spec.download} icon={<Download size={ICON} />}
+        label={t("workspace.download.menu")} detail={spec.downloadDetail} />}
       <MenuRow modal={modal} action={spec.copyPath} icon={<Copy size={ICON} />} label={t("workspace.copyPath")} />
       {spec.review && <MenuRow modal={modal} action={spec.review.toggle}
         icon={spec.review.seen ? <Circle size={ICON} /> : <CircleCheck size={ICON} />}

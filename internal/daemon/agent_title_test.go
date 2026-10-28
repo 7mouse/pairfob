@@ -102,3 +102,41 @@ func TestTitleOnlyChangePokesButAnimationDoesNot(t *testing.T) {
 		t.Fatal("OSC title change did not cause a snapshot poke")
 	}
 }
+
+func TestAgentTitleUsesBoundClaudeSession(t *testing.T) {
+	e := NewEngine(nil, nil, newMonitorTestRuntime())
+	root := t.TempDir()
+	id := "claude_session_1234"
+	path := filepath.Join(root, "projects", "-repo", id+".jsonl")
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		t.Fatal(err)
+	}
+	data := `{"type":"user","message":{"role":"user","content":"First request"}}` + "\n" +
+		`{"type":"ai-title","sessionId":"claude_session_1234","aiTitle":"修复 Claude 会话标题"}` + "\n"
+	if err := os.WriteFile(path, []byte(data), 0600); err != nil {
+		t.Fatal(err)
+	}
+	e.Journal = &journal.Reader{ClaudeRoot: root}
+	ref := &runtime.AgentSessionRef{Source: "herdr:claude", Agent: "claude", Kind: "id", Value: id}
+	pane := runtime.Pane{PaneID: "p1", Agent: "claude", AgentStatus: "blocked", AgentSession: ref, TerminalTitle: "Claude Code", Tokens: map[string]string{"phase": "review"}}
+	got := e.decorateAgentActivity(runtime.Snapshot{Panes: []runtime.Pane{pane}}).Panes[0]
+	if got.Tokens["task"] != "修复 Claude 会话标题" || got.TerminalTitle != "Claude Code" || got.Tokens["phase"] != "review" || pane.Tokens["task"] != "" {
+		t.Fatalf("decorated=%+v", got)
+	}
+	if !observedPaneChanged(monitoredPane{pane: pane}, monitoredPane{pane: got}) {
+		t.Fatal("generated Claude title did not trigger a snapshot poke")
+	}
+	wire, _ := json.Marshal(got)
+	if strings.Contains(string(wire), id) || strings.Contains(string(wire), root) {
+		t.Fatal("native binding leaked")
+	}
+	pane.Tokens["task"] = "Runtime name"
+	if got := e.decorateAgentActivity(runtime.Snapshot{Panes: []runtime.Pane{pane}}).Panes[0]; got.Tokens["task"] != "Runtime name" {
+		t.Fatal("overrode runtime name")
+	}
+	delete(pane.Tokens, "task")
+	pane.AgentSession = nil
+	if got := e.decorateAgentActivity(runtime.Snapshot{Panes: []runtime.Pane{pane}}).Panes[0]; got.Tokens["task"] != "" {
+		t.Fatal("unbound pane borrowed Claude title")
+	}
+}

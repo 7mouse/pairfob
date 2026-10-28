@@ -59,8 +59,12 @@ export type SessionSource = {
 };
 
 /** Every request is local and logged. Holds/errors allow deliberate async interaction probes. */
+const DOWNLOAD_FIXTURE_SIZE = 8 * 1024 * 1024;
+
 export function createSession(source: SessionSource = {}): FixtureSession {
   const preview = createPreviewFiles();
+  const downloads = new Map<string, string>();
+  let downloadSerial = 0;
   let connected = true;
   let disposed = false;
   let operation = 0;
@@ -213,6 +217,29 @@ export function createSession(source: SessionSource = {}): FixtureSession {
       return preview.read(handle, offset, length) ?? data.mediaChunk(handle, offset, length);
     }),
     workspaceMediaClose: (handle: string) => request("workspaceMediaClose", [handle], () => { preview.close(handle); return { handle, closed: true as const }; }),
+    workspaceDownloadOpen: (paneId: string, path: string, root?: string) => request("workspaceDownloadOpen", [paneId, path, ...(root === undefined ? [] : [root])], () => {
+      if (root !== undefined && root !== data.ROOT) throw new ProtocolError('conflict');
+      if (sessionTransport() !== 'p2p') throw new ProtocolError('p2p_required');
+      const handle = `dl_${(++downloadSerial).toString(16).padStart(32, "0")}`;
+      downloads.set(handle, path);
+      return {
+        handle, path, kind: 'download' as const, mime: 'application/octet-stream',
+        size: DOWNLOAD_FIXTURE_SIZE, modified_ms: 1,
+        revision: 'c'.repeat(64), expires_ms: Date.now() + 120_000,
+        chunk_bytes: 65_536, max_bytes: 1_073_741_824,
+      };
+    }),
+    workspaceDownloadRead: (handle: string, offset: number, length: number) => request("workspaceDownloadRead", [handle, offset, length], () => {
+      if (!downloads.has(handle)) throw new ProtocolError('workspace_not_found');
+      const actual = Math.min(Math.max(0, length), 65_536, Math.max(0, DOWNLOAD_FIXTURE_SIZE - offset));
+      const bytes = new Uint8Array(actual);
+      for (let index = 0; index < actual; index += 1) bytes[index] = ((offset + index) * 31 + 7) & 0xff;
+      return { handle, offset, length: actual, bytes, eof: offset + actual >= DOWNLOAD_FIXTURE_SIZE };
+    }),
+    workspaceDownloadClose: (handle: string) => request("workspaceDownloadClose", [handle], () => {
+      downloads.delete(handle);
+      return { handle, closed: true as const };
+    }),
     gitStatus: (paneId: string) => request("gitStatus", [paneId], source.status ?? data.status),
     gitDiff: (paneId: string, path: string, layer: "staged" | "worktree") => request("gitDiff", [paneId, path, layer], () => data.diff(path, layer)),
     gitBranches: (paneId: string) => request("gitBranches", [paneId], () => ({ items: [

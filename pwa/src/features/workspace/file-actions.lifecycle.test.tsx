@@ -3,7 +3,7 @@ import { closeTestDialogs } from "../../../test-support/close-dialogs";
 import { afterEach, beforeEach, expect, test } from "bun:test";
 import { act } from "react";
 import { setLang } from "../../lib/i18n";
-import { NO_OPERATION_CAPABILITIES } from "../../lib/operations";
+import { NO_OPERATION_CAPABILITIES, type OperationCapabilities } from "../../lib/operations";
 import type { LiveSession } from "../../lib/protocol/client";
 import { WorkspaceSnapshotRestorer } from "../../../test-support/workspace-snapshot-restore";
 import { setScreen } from "../../app/navigation-store";
@@ -29,7 +29,7 @@ function trigger(): HTMLButtonElement {
   return button;
 }
 
-function fileRow(): { row: HTMLButtonElement; mutations: string[] } {
+function fileRow(extra: Partial<OperationCapabilities> = { rename_file: true, delete_file: true }): { row: HTMLButtonElement; mutations: string[] } {
   const mutations: string[] = [];
   seedRestorer.capture();
   attachLiveSession({
@@ -38,7 +38,7 @@ function fileRow(): { row: HTMLButtonElement; mutations: string[] } {
     workspaceDelete: async () => { mutations.push("delete"); },
   } as unknown as LiveSession);
   setScreen("workspace");
-  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, rename_file: true, delete_file: true }, advertisedAgentKinds());
+  applyCapabilities({ ...NO_OPERATION_CAPABILITIES, ...extra }, advertisedAgentKinds());
   replaceAgentsFromSnapshot({
     focused: { workspace_id: "w1", tab_id: "w1:t1", pane_id: "p1" },
     workspaces: [{ workspace_id: "w1", label: "repo" }],
@@ -109,4 +109,16 @@ test("the returned file binding disposer prevents future keyboard and context-me
   expect(row.hasAttribute("aria-haspopup")).toBeFalse();
   expect(row.classList.contains("workspace-file-actionable")).toBeFalse();
   expect(mutations).toEqual([]);
+});
+
+test("the file menu offers the P2P download only when the daemon advertises it", async () => {
+  fileRow({ rename_file: true, delete_file: true, download_file: true });
+  const labels = [...sheet().querySelectorAll<HTMLButtonElement>(".menu-row")].map(button => button.textContent);
+  expect(labels.some(label => label?.includes("下载到设备"))).toBeTrue();
+});
+
+test("without download_file the file menu has no download row", async () => {
+  fileRow({ rename_file: true, delete_file: true, download_file: false });
+  const labels = [...sheet().querySelectorAll<HTMLButtonElement>(".menu-row")].map(button => button.textContent);
+  expect(labels.some(label => label?.includes("下载到设备"))).toBeFalse();
 });

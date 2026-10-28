@@ -24,6 +24,7 @@ const NAMES: Record<string, CopyKey> = {
   "seven day routines": "quota.window.sevenDayRoutines",
   "spend limit": "quota.window.spend",
   "top up": "quota.name.topUp",
+  balance: "quota.name.balance",
   "monthly credits": "quota.name.monthlyCredits",
   "premium requests": "quota.name.premiumRequests",
   "model quota": "quota.name.modelQuota",

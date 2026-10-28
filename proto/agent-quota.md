@@ -103,6 +103,7 @@ which meters are headline, because it knows each provider's shapes:
 | Cursor | `Included plan` | |
 | Grok Build | `Shared subscription quota` | |
 | Antigravity | Every model bucket, each its own pool: none is the plan's total | |
+| DeepSeek | Its only balance meter | |
 
 Freshness is judged where it is shown. All meters of one read share the
 account's `observed_at`; each is also past use once its own `resets_at` has
@@ -199,6 +200,19 @@ which can differ from the one the background service was installed from.
   x.ai login, is `not_logged_in`; an API key and non-User or missing principal
   types are unsupported.
   No CLI process, model turn, token refresh, or browser-cookie collection occurs.
+
+- DeepSeek: reads `DEEPSEEK_API_KEY`, otherwise the key file
+  `$PAIRFOB_STATE_DIR/deepseek.key` (default
+  `~/.config/pairfob/deepseek.key`), then GETs
+  `https://api.deepseek.com/user/balance`. `total_balance` becomes one
+  `balance` meter in `cny` or `usd`; the balance is the spendable amount and is
+  never converted to a share. `granted_balance` and `topped_up_balance` are
+  parts of that amount, not separate allowances. `is_available` is required,
+  and false is still a real balance rather than invented usage. An unknown
+  currency or an amount that is not a two-decimal value is `unavailable`. A
+  missing or unusable local key is `not_logged_in`. This provider is V2-only:
+  the first operation keeps its six items. No model turn or credential write
+  occurs.
 
 Gemini CLI is deliberately excluded. Each provider represents the locally
 selected account, not an aggregation of multiple login profiles. Provider

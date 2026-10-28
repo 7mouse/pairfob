@@ -254,11 +254,8 @@ function whoLabel(agent: AgentCard): string {
   return agent.agent.trim() || t("title.terminal");
 }
 
-/** Agents whose daemon-derived session title lands in tokens.task. */
-const NATIVE_TITLE_AGENTS = new Set(["codex", "pi"]);
-
 function taskTitle(agent: AgentCard): string {
-  const task = NATIVE_TITLE_AGENTS.has(agent.agent.trim().toLowerCase()) ? agent.tokens?.task?.trim() : "";
+  const task = agent.tokens?.task?.trim();
   return task || usefulTerminalTitle(agent);
 }
 
@@ -269,7 +266,7 @@ export function agentTitle(agent: AgentCard, group: ListGroup = "flat"): string 
     const conversation = conversationLabel(agent);
     if (conversation) return conversation;
   }
-  // The daemon resolves this from the bound Codex or Pi session, including a
+  // The daemon resolves this from the bound native session, including a
   // stable first-request excerpt while native automatic naming is unavailable.
   const hint = taskTitle(agent);
   if (hint) return hint;

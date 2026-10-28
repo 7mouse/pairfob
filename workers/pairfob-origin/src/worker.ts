@@ -78,6 +78,13 @@ export async function handleFetch(req: Request, env: Env): Promise<Response> {
 
   if (path === "/v2/ws") return routeWs(req, env);
 
+  // A live download stream is produced by the app's service worker from P2P
+  // bytes. If the request reaches the origin the worker is not controlling the
+  // page; never hand the app shell back as a file.
+  if (path.includes("/__pairfob_download__/")) {
+    return new Response("download stream unavailable", { status: 404, headers: noStore() });
+  }
+
   const response = await staticOrPlaceholder(req, env, build);
   if (APP_CORS_ASSETS.has(path)) return withCors(response, appCorsHeaders(req, env));
   return response;

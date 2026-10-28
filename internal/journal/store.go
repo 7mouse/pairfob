@@ -70,12 +70,13 @@ type storeEntry struct {
 	err      error
 	used     uint64
 	opencode *opencodeState
+	title    Title
 }
 
 var storeRevision atomic.Int64
 
 func storeAgent(agent string) bool {
-	return agent == "hermes" || agent == "opencode"
+	return agent == "hermes" || agent == "opencode" || agent == "kilo" || nativeStoreAgent(agent)
 }
 
 // loadStore returns the session's rendered lines. refresh forces a look at the
@@ -106,15 +107,17 @@ func (r *Reader) loadStore(ref Ref, refresh bool) (*storeSnapshot, error) {
 		err     error
 	)
 	switch ref.Agent {
+	case "gemini", "qwen", "cline", "amp", "droid", "maki", "muse", "agy", "letta", "qodercli", "kiro", "kimi":
+		records, stamp, same, err = r.loadNativeStore(ref, entry)
+	case "devin":
+		records, stamp, same, err = r.loadDevinStore(ref, entry)
 	case "hermes":
 		stamp, err = r.hermesStamp()
 		if same = err == nil && stamp == entry.stamp && entry.loadedAt != (time.Time{}); !same && err == nil {
 			records, err = r.loadHermes(ref.Value)
 		}
-	case "opencode":
-		previous := entry.opencode
-		records, stamp, err = r.loadOpencode(ref.Value, entry)
-		same = err == nil && previous != nil && stamp == entry.stamp
+	case "opencode", "kilo":
+		records, stamp, same, err = r.loadOpencodeStore(ref, entry)
 	default:
 		err = ErrUnavailable
 	}

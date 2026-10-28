@@ -37,39 +37,39 @@ export type WorkspaceMediaChunk = {
 
 export type WorkspaceMediaClose = { handle: string; closed: true };
 
-function invalid(label: string): never {
+export function invalid(label: string): never {
   throw new Error(`${label} 响应格式不正确`);
 }
 
-function record(value: unknown, label: string): Record<string, unknown> {
+export function record(value: unknown, label: string): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) return invalid(label);
   return value as Record<string, unknown>;
 }
 
-function exact(value: Record<string, unknown>, keys: string[], label: string): void {
+export function exact(value: Record<string, unknown>, keys: string[], label: string): void {
   const actual = Object.keys(value).sort();
   const wanted = [...keys].sort();
   if (actual.length !== wanted.length || actual.some((key, index) => key !== wanted[index])) invalid(label);
 }
 
-function text(value: unknown, label: string, max: number, empty = true): string {
+export function text(value: unknown, label: string, max: number, empty = true): string {
   if (typeof value !== "string" || value.length > max || (!empty && value.length === 0) || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/u.test(value)) {
     return invalid(label);
   }
   return value;
 }
 
-function integer(value: unknown, label: string, minimum = 0, maximum = Number.MAX_SAFE_INTEGER): number {
+export function integer(value: unknown, label: string, minimum = 0, maximum = Number.MAX_SAFE_INTEGER): number {
   if (!Number.isSafeInteger(value) || (value as number) < minimum || (value as number) > maximum) return invalid(label);
   return value as number;
 }
 
-function bool(value: unknown, label: string): boolean {
+export function bool(value: unknown, label: string): boolean {
   if (typeof value !== "boolean") return invalid(label);
   return value;
 }
 
-function relative(value: unknown, label: string): string {
+export function relative(value: unknown, label: string): string {
   const result = text(value, label, 4096, false);
   if (/[\u0000-\u001f\u007f]/u.test(result) || result.startsWith("/") || result.startsWith("\\") || result.split(/[\\/]/u).some((part) => part === "..")) {
     return invalid(label);
@@ -83,7 +83,7 @@ function handle(value: unknown, label: string): string {
   return result;
 }
 
-function digest(value: unknown, label: string): string {
+export function digest(value: unknown, label: string): string {
   const result = text(value, label, 64, false);
   if (!/^[0-9a-f]{64}$/u.test(result)) invalid(label);
   return result;

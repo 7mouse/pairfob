@@ -9,7 +9,7 @@ import (
 )
 
 func TestQuotaListPrintsStatesAndSharesOnly(t *testing.T) {
-	used, low, amount := 28.0, 94.0, int64(1240)
+	used, low, amount, cash := 28.0, 94.0, int64(1240), int64(21139)
 	var out bytes.Buffer
 	printQuotaAccounts(&out, []runtime.QuotaReading{
 		{Account: runtime.QuotaAccount{ID: "codex", Provider: "codex", Plan: "pro", State: "ok", Meters: []runtime.QuotaMeter{
@@ -21,6 +21,9 @@ func TestQuotaListPrintsStatesAndSharesOnly(t *testing.T) {
 			{Kind: "unlimited", Name: "premium interactions", Pool: "premium-interactions", Headline: true},
 			{Kind: "balance", Name: "top up", Pool: "top-up", Headline: true, Amount: &amount, Scale: 2, Unit: "usd"},
 		}}},
+		{Account: runtime.QuotaAccount{ID: "deepseek", Provider: "deepseek", State: "ok", Meters: []runtime.QuotaMeter{
+			{Kind: "balance", Name: "balance", Pool: "cny", Headline: true, Amount: &cash, Scale: 2, Unit: "cny"},
+		}}},
 		{Account: runtime.QuotaAccount{ID: "grok", Provider: "grok", State: "needs_action", Reason: "relogin"}},
 		{Account: runtime.QuotaAccount{ID: "antigravity", Provider: "antigravity", State: "not_configured", Reason: "not_running"}},
 	})
@@ -28,6 +31,7 @@ func TestQuotaListPrintsStatesAndSharesOnly(t *testing.T) {
 	for _, want := range []string{
 		"codex        ok              pro  5h 72% left · 7d 6% left · 1 more",
 		"copilot      ok              -    premium interactions unlimited · top up 12.40 usd",
+		"deepseek     ok              -    balance 211.39 cny",
 		"grok         needs action    -    sign in again on this computer",
 		"antigravity  not configured  -    app not running",
 	} {

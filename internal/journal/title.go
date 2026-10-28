@@ -38,10 +38,28 @@ func (r *Reader) ReadTitle(ref Ref) Title {
 		return Title{}
 	}
 	switch ref.Agent {
+	case "claude":
+		return r.cachedTitle(r.ClaudeRoot, ref, r.claudeTitle)
 	case "codex":
 		return r.cachedTitle(r.CodexRoot, ref, r.codexTitle)
 	case "pi":
 		return r.cachedTitle(r.PiRoot, ref, r.piTitle)
+	case "grok":
+		return r.cachedTitle(r.GrokRoot, ref, r.grokTitle)
+	case "cursor":
+		return r.cachedTitle(r.CursorRoot, ref, r.lineTitle)
+	case "hermes":
+		return r.cachedTitle(r.HermesRoot, ref, r.hermesTitle)
+	case "kilo":
+		return r.cachedTitle(r.NativeRoots[ref.Agent], ref, r.kiloTitle)
+	case "opencode":
+		return r.cachedTitle(r.OpencodeRoot, ref, r.opencodeTitle)
+	case "gemini", "qwen", "cline", "amp", "droid", "maki", "agy", "letta", "qodercli", "kiro", "devin", "kimi":
+		return r.cachedTitle(r.NativeRoots[ref.Agent], ref, r.nativeStoreTitle)
+	case "muse":
+		return r.cachedTitle(r.NativeRoots[ref.Agent], ref, r.museTitle)
+	case "copilot":
+		return r.cachedTitle(r.NativeRoots[ref.Agent], ref, r.nativeLineTitle)
 	default:
 		return Title{}
 	}

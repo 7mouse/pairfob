@@ -1,3 +1,4 @@
+import { WorkspaceDownloadRPC } from "./workspace-download-rpc";
 import { WorkspaceMediaRPC } from "./workspace-media-rpc";
 import { parseWorkspaceReference } from "./workspace-reference";
 import { RecoveryDiagnostics } from "./recovery-diagnostics";
@@ -436,6 +437,10 @@ class ReconnectingSession implements LiveSession {
   workspaceMediaRead = this.mediaRPC.read;
   workspaceMediaClose = async (handle: string) =>
     parseWorkspaceMediaClose(await this.readRPC("WorkspaceMediaClose", { handle }));
+  private readonly downloadRPC = new WorkspaceDownloadRPC(() => this.captureTransport(), () => this.herdSessionName);
+  workspaceDownloadOpen = this.downloadRPC.open;
+  workspaceDownloadRead = this.downloadRPC.read;
+  workspaceDownloadClose = this.downloadRPC.close;
   workspaceUploadBegin = async (input: UploadBeginInput): Promise<UploadState> =>
     parseUploadState(await this.mutationRPC("WorkspaceUploadBegin", withOperationID(input)), input.upload_id);
   workspaceUploadWrite = async (input: UploadWriteInput): Promise<UploadState> =>

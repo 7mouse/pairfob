@@ -71,6 +71,8 @@ describe("what a meter paints", () => {
     expect(meterModel("Letta", level("empty"), NOW)).toMatchObject({ pips: 0, word: "用尽", tone: "error" });
     expect(meterModel("Letta", level("full"), NOW)).toMatchObject({ pips: 5, word: "充足", tone: "ok" });
     expect(meterModel("Nous", balance(1240), NOW)).toEqual({ kind: "balance", text: "$12.40", aria: "Nous 充值余额：$12.40" });
+    const cash: QuotaMeter = { ...base, kind: "balance", name: "balance", amount: 21139, scale: 2, unit: "cny", headline: true };
+    expect([meterLabel(cash), meterModel("DeepSeek", cash, NOW)]).toEqual(["余额", { kind: "balance", text: "¥211.39", aria: "DeepSeek 余额：¥211.39" }]);
     expect(amountText(128000, 2, "credits")).toBe("1,280.00 credits");
     expect(amountText(3050, 2, "cny")).toBe("¥30.50");
     expect(amountText(188, 0, "requests")).toBe("188 次");
@@ -165,6 +167,14 @@ describe("the quota page's three groups", () => {
     // With nothing marked there is nothing to set aside: every meter is a row.
     const unmarked = quotaCardModel(account({ meters: [share(10, { name: "chat", headline: false }), unlimited()] }), NOW);
     expect([unmarked.rows.length, unmarked.more]).toEqual([2, null]);
+  });
+
+  test("a DeepSeek card is its balance, and says that balance does not reset", () => {
+    const cash: QuotaMeter = { ...base, kind: "balance", name: "balance", amount: 21139, scale: 2, unit: "cny", headline: true };
+    const card = quotaCardModel(account({ provider: "deepseek", plan: "", source: "api", meters: [cash] }), NOW);
+    expect([card.title, card.plan, card.rows.map(row => [row.label, row.meter])])
+      .toEqual(["DeepSeek", null, [["余额", { kind: "balance", text: "¥211.39", aria: "DeepSeek 余额：¥211.39" }]]]);
+    expect(card.notes).toEqual([t("quota.deepseekNote")]);
   });
 
   test("a second account of a provider says which one it is", () => {

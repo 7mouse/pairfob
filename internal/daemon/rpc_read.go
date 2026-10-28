@@ -53,7 +53,11 @@ func (e *Engine) rpcGetConfig(s *sess, id string, params json.RawMessage) {
 		"zoom_pane":           descriptor.Supports(runtime.FeatureLayoutZoom),
 		"rename_file":         describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
 		"delete_file":         describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
-		"upload_file":         describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
+		// download_file: P2P-only, chunked workspace file download. The client
+		// also requires the live transport to be P2P; this key only says the
+		// daemon has the RPCs.
+		"download_file": describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
+		"upload_file":   describeErr == nil && descriptor.Supports(runtime.FeatureSnapshot),
 		// upload_file_v2: the ordered V2 write pipeline (bounded max-4
 		// window, durable ordered offsets, out-of-order notification, fail-
 		// closed roots) is complete and the backend suite passes, so

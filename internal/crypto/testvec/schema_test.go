@@ -85,7 +85,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		"PushSubscribe", "RevokeDevice", "ListDevices", "ListSessions", "History", "AgentTrace", "AgentTraceSummary", "AgentTraceModelSummary", "AgentTraceDetail", "RenamePane",
 		"RenameTab", "RenameWorkspace", "ClosePane", "CloseTab", "CloseWorkspace",
 		"CreateConversation", "CreateTab", "SplitPane", "PromptAgent", "ListWorktrees",
-		"WorkspaceOpen", "WorkspaceResolve", "WorkspaceSearch", "WorkspaceList", "WorkspaceListAtRoot", "WorkspaceRead", "WorkspaceReadAtRoot", "WorkspaceMediaOpen", "WorkspaceMediaOpenAtRoot", "WorkspaceMediaRead", "WorkspaceMediaClose", "WorkspaceUploadBegin", "WorkspaceUploadWrite", "WorkspaceUploadStatus", "WorkspaceUploadCommit", "WorkspaceUploadCancel", "WorkspaceUploadBeginV2", "WorkspaceUploadWriteV2", "WorkspaceUploadStatusV2", "WorkspaceUploadCommitV2", "WorkspaceUploadCancelV2", "WorkspaceRename", "WorkspaceDelete", "GitStatus", "GitDiff", "GitBranches",
+		"WorkspaceOpen", "WorkspaceResolve", "WorkspaceSearch", "WorkspaceList", "WorkspaceListAtRoot", "WorkspaceRead", "WorkspaceReadAtRoot", "WorkspaceMediaOpen", "WorkspaceMediaOpenAtRoot", "WorkspaceMediaRead", "WorkspaceMediaClose", "WorkspaceDownloadOpen", "WorkspaceDownloadOpenAtRoot", "WorkspaceDownloadRead", "WorkspaceDownloadClose", "WorkspaceUploadBegin", "WorkspaceUploadWrite", "WorkspaceUploadStatus", "WorkspaceUploadCommit", "WorkspaceUploadCancel", "WorkspaceUploadBeginV2", "WorkspaceUploadWriteV2", "WorkspaceUploadStatusV2", "WorkspaceUploadCommitV2", "WorkspaceUploadCancelV2", "WorkspaceRename", "WorkspaceDelete", "GitStatus", "GitDiff", "GitBranches",
 		"CreateWorktree", "OpenWorktree", "ResizePane", "SwapPane", "ZoomPane",
 		"TerminalOpen", "TerminalInput", "TerminalResize", "TerminalScroll", "TerminalClose",
 		"TransportOffer", "TransportCommit", "TransportRestart",
@@ -201,6 +201,22 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 	if mediaClose.AdditionalProperties == nil || *mediaClose.AdditionalProperties {
 		t.Error("WorkspaceMediaClose params must reject additional properties")
 	}
+	for op, want := range map[string][]string{
+		"WorkspaceDownloadOpen":       {"pane_id", "path"},
+		"WorkspaceDownloadOpenAtRoot": {"pane_id", "root", "path"},
+		"WorkspaceDownloadRead":       {"handle", "offset", "length"},
+		"WorkspaceDownloadClose":      {"handle"},
+	} {
+		params := paramsByOp[op]
+		sorted := slices.Clone(params.Required)
+		sort.Strings(sorted)
+		sortedWant := slices.Clone(want)
+		sort.Strings(sortedWant)
+		if !slices.Equal(sorted, sortedWant) || params.AdditionalProperties == nil || *params.AdditionalProperties {
+			t.Errorf("%s params required=%q additional=%v", op, params.Required, params.AdditionalProperties)
+		}
+	}
+
 	for op, required := range map[string][]string{
 		"WorkspaceResolve":         {"pane_id", "root", "path"},
 		"WorkspaceSearch":          {"pane_id", "root", "query"},
@@ -299,7 +315,7 @@ func TestRPCSchemaListsExactSurface(t *testing.T) {
 		"create_conversation", "create_tab", "split_pane", "prompt_agent", "history",
 		"list_worktrees", "create_worktree", "open_worktree", "resize_pane", "swap_pane", "zoom_pane",
 	}
-	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_models", "trace_writes", "git_change_stats", "search_files"), capabilities)
+	requireExactObjectFields(t, schema.Defs, "capabilities", append(slices.Clone(capabilities), "agent_inspect", "rename_file", "delete_file", "download_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_models", "trace_writes", "git_change_stats", "search_files"), capabilities)
 
 	// Machine linking names machines by opaque ID only: no SSH target, host,
 	// or path may be added to these objects.

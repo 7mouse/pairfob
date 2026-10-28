@@ -16,6 +16,10 @@ const (
 	MediaChunkBytes     = 64 * 1024
 	MaxMediaPixels      = 16_777_216
 	MaxMediaDimension   = 8192
+	// MaxDownloadBytes bounds the P2P-only workspace file download. It is
+	// deliberately separate from the preview media cap: a download is streamed
+	// to the phone in chunks and never buffered whole.
+	MaxDownloadBytes = 1 << 30
 )
 
 var (
@@ -91,9 +95,13 @@ type MediaInfo struct {
 	Size       int64
 	ModifiedMS int64
 	SHA256     string
-	MaxBytes   int64
-	Width      int
-	Height     int
+	// Revision identifies a download's bytes for resume without reading the
+	// whole file: SHA-256 of the sniffed head, size and mtime. It is not a
+	// whole-file digest.
+	Revision string
+	MaxBytes int64
+	Width    int
+	Height   int
 }
 
 type Change struct {

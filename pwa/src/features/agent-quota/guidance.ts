@@ -16,6 +16,7 @@ const PROVIDER_HELP = {
   copilot: "quota.copilotHelp",
   cursor: "quota.cursorHelp",
   grok: "quota.grokHelp",
+  deepseek: "quota.deepseekHelp",
 } as const satisfies Record<QuotaProvider, CopyKey>;
 
 /** The sign-in command of a provider whose CLI has one that is safe to name. */

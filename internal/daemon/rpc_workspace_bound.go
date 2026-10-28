@@ -30,6 +30,8 @@ func (e *Engine) rpcWorkspaceBound(s *sess, id, op string, params json.RawMessag
 		e.rpcWorkspaceRead(s, id, raw, inspector, root)
 	case "WorkspaceMediaOpenAtRoot":
 		e.rpcWorkspaceMediaOpen(s, id, raw, root)
+	case "WorkspaceDownloadOpenAtRoot":
+		e.rpcWorkspaceDownloadOpen(s, id, raw, root)
 	}
 }
 

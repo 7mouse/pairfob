@@ -1,5 +1,6 @@
 import { t } from "../../lib/i18n";
 import { leaveWorkspace, loadWorkspaceFile, refreshWorkspace } from "./actions";
+import { downloadActionAvailable, openWorkspaceDownload } from "./download-file";
 import { copyWorkspacePath, viewWorkspaceChanges, workspaceFileMutations } from "./file-actions";
 import { openFileMenu } from "./file-menu";
 import { returnLabel } from "./format";
@@ -19,10 +20,13 @@ export function openDetailMenu(): void {
   if (!path || snap.view === "browser") return;
   const cut = path.lastIndexOf("/");
   const mark = gitMarks(snap.status).files.get(path) ?? null;
+  const canDownload = downloadActionAvailable() && Boolean(snap.file);
   const common = {
     name: cut >= 0 ? path.slice(cut + 1) : path,
     directory: cut >= 0 ? path.slice(0, cut) : t("workspace.repoRoot"),
     mark,
+    download: canDownload ? () => openWorkspaceDownload(path, snap.file!.size) : undefined,
+    downloadDetail: canDownload ? t("workspace.download.p2pShort") : undefined,
     copyPath: () => copyWorkspacePath(path),
     refresh: () => refreshWorkspace(),
     // Beside the session there is no workspace to leave: the column has its own close.

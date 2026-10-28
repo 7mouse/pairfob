@@ -66,6 +66,8 @@ export const zh = {
   "quota.summaryNote": "概览环显示已报告窗口中最低的剩余比例，不是额度总和。灰环表示余量未知或已过期，∞ 表示明确无限额。",
   "quota.copilotNote": "Copilot 的 chat、completions 是独立分类额度，不能代表订阅总余量。概览只使用已报告的 premium 配额；没有该数据时显示未知。",
   "quota.grokHelp": "在本机运行 grok login 登录后刷新。",
+  "quota.deepseekHelp": "在电脑上把 DeepSeek API key 保存到 ~/.config/pairfob/deepseek.key（仅本人可读），或让运行 Pairfob 的进程带有 DEEPSEEK_API_KEY，然后刷新。",
+  "quota.deepseekNote": "DeepSeek 显示的是 API 余额，按实际用量扣费，不随周期重置。",
   "quota.grokNote": "Grok 订阅共享额度，由 Build、Chat 等产品共同使用。",
   "quota.cursorHelp": "在运行 Pairfob 的电脑上执行 cursor-agent login 后刷新；需使用同一系统用户和凭据存储设置，登录凭据须可读取。",
   "quota.cursorUnsupportedHelp": "请使用 Cursor 官方服务的 CLI 浏览器登录。若安装后台服务时设置了临时 token、API key 或自定义服务地址，请先清除这些环境设置，再执行 cursor-agent login 和 pairfob service install。",

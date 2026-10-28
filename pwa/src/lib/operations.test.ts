@@ -102,6 +102,13 @@ describe("runtime operation config", () => {
     });
   });
 
+  test("download_file is optional and fails closed when malformed", () => {
+    const { download_file, ...older } = NO_OPERATION_CAPABILITIES;
+    expect(parseRuntimeOperationsConfig(config(older)).capabilities.download_file).toBeFalse();
+    expect(parseRuntimeOperationsConfig(config({ ...older, download_file: true })).capabilities.download_file).toBeTrue();
+    expect(() => parseRuntimeOperationsConfig(config({ ...older, download_file: "yes" }))).toThrow();
+  });
+
   test("trace_markers is optional for daemons that predate trace markers", () => {
     const { trace_markers, ...older } = NO_OPERATION_CAPABILITIES;
     expect(parseRuntimeOperationsConfig(config(older)).capabilities.trace_markers).toBeFalse();

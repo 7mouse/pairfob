@@ -47,6 +47,10 @@
       "type": "string",
       "pattern": "^media_[0-9a-f]{32}$"
     },
+    "downloadHandle": {
+      "type": "string",
+      "pattern": "^dl_[0-9a-f]{32}$"
+    },
     "terminalSequence": {
       "type": "integer",
       "minimum": 1
@@ -196,6 +200,7 @@
         "zoom_pane": { "type": "boolean" },
         "rename_file": { "type": "boolean" },
         "delete_file": { "type": "boolean" },
+        "download_file": { "type": "boolean" },
         "upload_file": { "type": "boolean" },
         "upload_file_v2": { "type": "boolean" },
         "link_machine": { "type": "boolean" },
@@ -691,6 +696,44 @@
       "required": ["handle", "closed"],
       "properties": {
         "handle": { "$ref": "#/$defs/mediaHandle" },
+        "closed": { "const": true }
+      },
+      "additionalProperties": false
+    },
+    "workspaceDownloadOpenResult": {
+      "type": "object",
+      "required": ["handle", "path", "kind", "mime", "size", "modified_ms", "revision", "expires_ms", "chunk_bytes", "max_bytes"],
+      "properties": {
+        "handle": { "$ref": "#/$defs/downloadHandle" },
+        "path": { "type": "string", "minLength": 1, "maxLength": 4096 },
+        "kind": { "$ref": "#/$defs/workspaceMediaKind" },
+        "mime": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "size": { "type": "integer", "minimum": 0, "maximum": 1073741824 },
+        "modified_ms": { "type": "integer" },
+        "revision": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "expires_ms": { "type": "integer", "minimum": 0 },
+        "chunk_bytes": { "const": 65536 },
+        "max_bytes": { "type": "integer", "minimum": 1, "maximum": 1073741824 }
+      },
+      "additionalProperties": false
+    },
+    "workspaceDownloadReadResult": {
+      "type": "object",
+      "required": ["handle", "offset", "length", "bytes", "eof"],
+      "properties": {
+        "handle": { "$ref": "#/$defs/downloadHandle" },
+        "offset": { "type": "integer", "minimum": 0, "maximum": 1073741824 },
+        "length": { "type": "integer", "minimum": 0, "maximum": 65536 },
+        "bytes": { "type": "string", "maxLength": 87384, "contentEncoding": "base64" },
+        "eof": { "type": "boolean" }
+      },
+      "additionalProperties": false
+    },
+    "workspaceDownloadCloseResult": {
+      "type": "object",
+      "required": ["handle", "closed"],
+      "properties": {
+        "handle": { "$ref": "#/$defs/downloadHandle" },
         "closed": { "const": true }
       },
       "additionalProperties": false
@@ -1258,6 +1301,10 @@
             "WorkspaceMediaOpenAtRoot",
             "WorkspaceMediaRead",
             "WorkspaceMediaClose",
+            "WorkspaceDownloadOpen",
+            "WorkspaceDownloadOpenAtRoot",
+            "WorkspaceDownloadRead",
+            "WorkspaceDownloadClose",
             "WorkspaceUploadBegin",
             "WorkspaceUploadWrite",
             "WorkspaceUploadStatus",
@@ -1977,6 +2024,73 @@
                 "required": ["handle"],
                 "properties": {
                   "handle": { "$ref": "#/$defs/mediaHandle" }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceDownloadOpen" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "path"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "path": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceDownloadOpenAtRoot" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["pane_id", "root", "path"],
+                "properties": {
+                  "session": { "$ref": "#/$defs/session" },
+                  "pane_id": { "$ref": "#/$defs/paneId" },
+                  "root": { "$ref": "#/$defs/path" },
+                  "path": { "type": "string", "minLength": 1, "maxLength": 4096 }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceDownloadRead" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["handle", "offset", "length"],
+                "properties": {
+                  "handle": { "$ref": "#/$defs/downloadHandle" },
+                  "offset": { "type": "integer", "minimum": 0, "maximum": 1073741824 },
+                  "length": { "type": "integer", "minimum": 1, "maximum": 65536 }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "op": { "const": "WorkspaceDownloadClose" } } },
+          "then": {
+            "properties": {
+              "params": {
+                "type": "object",
+                "required": ["handle"],
+                "properties": {
+                  "handle": { "$ref": "#/$defs/downloadHandle" }
                 },
                 "additionalProperties": false
               }

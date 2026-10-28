@@ -23,7 +23,7 @@ export const HERD_SESSION_SCOPED_OPS: ReadonlySet<string> = new Set([
   "ListWorktrees", "OpenWorktree", "PaneRead", "PromptAgent",
   "RenamePane", "RenameTab", "RenameWorkspace", "ResizePane",
   "SendKeys", "SendText", "Snapshot", "SplitPane", "SwapPane", "TerminalOpen",
-  "WorkspaceDelete", "WorkspaceList", "WorkspaceMediaOpen", "WorkspaceOpen",
+  "WorkspaceDelete", "WorkspaceDownloadOpen", "WorkspaceDownloadOpenAtRoot", "WorkspaceList", "WorkspaceMediaOpen", "WorkspaceOpen",
   "WorkspaceListAtRoot", "WorkspaceReadAtRoot", "WorkspaceMediaOpenAtRoot",
   "WorkspaceRead", "WorkspaceRename", "WorkspaceResolve", "WorkspaceSearch",
   "WorkspaceUploadBegin", "WorkspaceUploadBeginV2", "WorkspaceUploadCancel", "WorkspaceUploadCancelV2",

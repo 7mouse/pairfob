@@ -8,6 +8,9 @@ import "path/filepath"
 // session tree instead of an append-only log and has its own reader (pi.go).
 
 func historyParserFor(agent string) func([]byte) (Message, bool) {
+	if storeAgent(agent) {
+		return parseStore
+	}
 	switch agent {
 	case "codex":
 		return parseCodex
@@ -15,14 +18,19 @@ func historyParserFor(agent string) func([]byte) (Message, bool) {
 		return parseClaude
 	case "cursor":
 		return parseCursor
-	case "hermes", "opencode":
-		return parseStore
-	default:
+	case "copilot":
+		return parseCopilot
+	case "grok":
 		return parseGrok
+	default:
+		return func([]byte) (Message, bool) { return Message{}, false }
 	}
 }
 
 func traceParserFor(agent string) traceParser {
+	if storeAgent(agent) {
+		return parseStoreTrace
+	}
 	switch agent {
 	case "codex":
 		return parseCodexTrace
@@ -30,10 +38,12 @@ func traceParserFor(agent string) traceParser {
 		return parseClaudeTrace
 	case "cursor":
 		return parseCursorTrace
-	case "hermes", "opencode":
-		return parseStoreTrace
-	default:
+	case "copilot":
+		return parseCopilotTrace
+	case "grok":
 		return parseGrokTrace
+	default:
+		return func([]byte) []parsedEvent { return nil }
 	}
 }
 
@@ -48,6 +58,8 @@ func (r *Reader) transcriptBase(agent string) string {
 		return filepath.Join(r.PiRoot, "sessions")
 	case "cursor":
 		return filepath.Join(r.CursorRoot, "projects")
+	case "copilot", "kimi":
+		return r.NativeRoots[agent]
 	default:
 		return filepath.Join(r.GrokRoot, "sessions")
 	}

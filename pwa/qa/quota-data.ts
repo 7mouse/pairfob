@@ -29,7 +29,7 @@ const claudeModels = (): QuotaMeter[] => [
   quota("seven day routines", 0, 10080, 5 * DAY, { pool: "seven-day-routines", headline: false }),
 ];
 
-/** The settled page: four accounts with numbers, one login to renew, one app that is not open. */
+/** The settled page: five accounts with numbers, one login to renew, one app that is not open. */
 export function quotas(): QuotaAccount[] {
   return [
     account("codex", "codex", { plan: "Pro", observed_at: sec() - 30, meters: [quota("codex", 28, 300, 2 * HOUR), quota("codex", 54, 10080, 4 * DAY)] }),
@@ -41,6 +41,9 @@ export function quotas(): QuotaAccount[] {
       quota("completions", 12, 0, 18 * DAY, { pool: "completions", headline: false }),
     ] }),
     account("cursor", "cursor", { plan: "Pro", meters: [quota("Included plan", 45, 0, 9 * DAY)] }),
+    account("deepseek", "deepseek", { source: "api", meters: [
+      { kind: "balance", name: "balance", pool: "cny", headline: true, amount: 21139, scale: 2, unit: "cny", window_minutes: 0, resets_at: 0 },
+    ] }),
     off("grok", "grok", "needs_action", "relogin"),
   ];
 }

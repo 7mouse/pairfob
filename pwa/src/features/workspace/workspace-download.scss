@@ -1,0 +1,52 @@
+.workspace-download {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.workspace-download-name {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  font-weight: 650;
+}
+
+.workspace-download-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: var(--text-caption);
+  line-height: 1.45;
+}
+
+.workspace-download-error {
+  margin: 0;
+  color: var(--error);
+  font-size: var(--text-secondary);
+  line-height: 1.45;
+}
+
+.workspace-download-progress {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-2);
+}
+
+.workspace-download-progress > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  transition: width 150ms linear;
+}
+
+.workspace-download-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.workspace-download-actions .btn-primary {
+  min-height: 44px;
+}

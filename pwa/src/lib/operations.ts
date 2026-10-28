@@ -17,6 +17,7 @@ export const OPERATION_CAPABILITY_KEYS = [
   "zoom_pane",
   "rename_file",
   "delete_file",
+  "download_file",
   "upload_file",
   "upload_file_v2",
   "link_machine",
@@ -48,6 +49,7 @@ export const NO_OPERATION_CAPABILITIES: OperationCapabilities = {
   zoom_pane: false,
   rename_file: false,
   delete_file: false,
+  download_file: false,
   upload_file: false,
   upload_file_v2: false,
   link_machine: false,
@@ -414,7 +416,7 @@ export function parseRuntimeOperationsConfig(value: unknown): RuntimeOperationsC
 	const rawCapabilities = isRecord(config.capabilities) ? config.capabilities : {};
 	const capabilities = { ...NO_OPERATION_CAPABILITIES };
 	const capabilityKeys = Object.keys(rawCapabilities);
-	const optionalCapabilities = new Set(["agent_inspect", "rename_file", "delete_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_models", "trace_writes", "git_change_stats", "search_files"]);
+	const optionalCapabilities = new Set(["agent_inspect", "rename_file", "delete_file", "download_file", "upload_file", "upload_file_v2", "list_sessions", "link_machine", "trace_markers", "trace_labels", "trace_times", "trace_models", "trace_writes", "git_change_stats", "search_files"]);
 	const capabilitiesValid = capabilityKeys.every((key) => (OPERATION_CAPABILITY_KEYS as readonly string[]).includes(key))
 		&& OPERATION_CAPABILITY_KEYS.every((key) => typeof rawCapabilities[key] === "boolean"
       || (optionalCapabilities.has(key) && !(key in rawCapabilities)));

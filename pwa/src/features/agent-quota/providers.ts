@@ -9,13 +9,13 @@ export type { QuotaProvider };
 
 export const providerNames: Record<QuotaProvider, string> = {
   codex: "Codex", claude: "Claude Code", antigravity: "Antigravity",
-  copilot: "GitHub Copilot", cursor: "Cursor", grok: "Grok Build",
+  copilot: "GitHub Copilot", cursor: "Cursor", grok: "Grok Build", deepseek: "DeepSeek",
 };
 
 /** Short names for the settings module rows. */
 export const shortProviderNames: Record<QuotaProvider, string> = {
   codex: "Codex", claude: "Claude", antigravity: "Antigravity",
-  copilot: "Copilot", cursor: "Cursor", grok: "Grok",
+  copilot: "Copilot", cursor: "Cursor", grok: "Grok", deepseek: "DeepSeek",
 };
 
 /**

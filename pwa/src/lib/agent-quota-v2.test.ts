@@ -77,6 +77,13 @@ describe("AgentQuotaV2 boundary", () => {
     }
   });
 
+  test("DeepSeek is an account with a cash balance, not a percentage window", () => {
+    const balance = { kind: "balance", name: "balance", pool: "cny", headline: true, amount: 21139, scale: 2, unit: "cny" };
+    const { accounts, unknown } = parseQuotaAccounts(one({ id: "deepseek", provider: "deepseek", plan: "", source: "api", meters: [balance] }));
+    expect(unknown).toBe(0);
+    expect(accounts[0]!.meters[0]).toMatchObject({ kind: "balance", amount: 21139, scale: 2, unit: "cny", headline: true });
+  });
+
   test("an account of a provider this build cannot name is left out, and the rest still show", () => {
     const later = { ...ok, id: "kimi-1", provider: "kimi", meters: [{ kind: "tokens", name: "a kind from the future", pool: "x" }] };
     const { accounts, unknown } = parseQuotaAccounts({ items: [later, ok, { ...later, id: "kimi-2" }] });

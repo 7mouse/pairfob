@@ -42,9 +42,25 @@ export function productionModules(root: string, sub = ""): string[] {
     .sort();
 }
 
+/**
+ * Parsed sources and resolved specifiers are cached for the run.
+ *
+ * The suite only reads the tree: no test rewrites a module it already walked,
+ * including the fixtures under `architecture-fixtures`. The architecture suites
+ * audit the same files once per layer, so without this cache every layer parses
+ * the whole graph again — the cost that pushed the two largest scans against
+ * Bun's default timeout. Caches are keyed by absolute path and live for one
+ * process, so a fresh run always sees the files on disk.
+ */
+const sources = new Map<string, ts.SourceFile>();
+
 function parse(file: string): ts.SourceFile {
-  return ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true,
+  const cached = sources.get(file);
+  if (cached) return cached;
+  const source = ts.createSourceFile(file, readFileSync(file, "utf8"), ts.ScriptTarget.Latest, true,
     file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
+  sources.set(file, source);
+  return source;
 }
 
 /**
@@ -62,6 +78,9 @@ function specifierText(node: ts.Node | undefined): string | null {
   return null;
 }
 
+/** Parsed import specifiers per file, computed once per run. */
+const specifiers = new Map<string, string[]>();
+
 /**
  * The specifiers one file depends on, read from its syntax tree.
  * Covers static imports (including `import type`), `export ... from`, literal
@@ -71,6 +90,8 @@ function specifierText(node: ts.Node | undefined): string | null {
  * has no statically resolvable specifier and is deliberately skipped.
  */
 export function importSpecifiers(file: string): string[] {
+  const cached = specifiers.get(file);
+  if (cached) return cached;
   const found: string[] = [];
   function visit(node: ts.Node): void {
     if (ts.isImportDeclaration(node) || ts.isExportDeclaration(node)) {
@@ -89,17 +110,26 @@ export function importSpecifiers(file: string): string[] {
     node.forEachChild(visit);
   }
   visit(parse(file));
+  specifiers.set(file, found);
   return found;
 }
 
+/** Resolved local targets, keyed by root, importing file and specifier. */
+const resolutions = new Map<string, string | null>();
+
 /** Resolve one specifier to a real file under `root`, or null if it leaves the project. */
 export function resolveLocal(root: string, fromFile: string, specifier: string): string | null {
+  const key = `${root}\0${fromFile}\0${specifier}`;
+  if (resolutions.has(key)) return resolutions.get(key)!;
   const resolved = ts.resolveModuleName(specifier, fromFile, compilerOptions, resolutionHost).resolvedModule;
-  if (!resolved || resolved.isExternalLibraryImport) return null;
-  const file = resolved.resolvedFileName;
-  if (file.endsWith(".d.ts")) return null;
-  const inside = resolve(file).startsWith(root.endsWith(sep) ? root : root + sep);
-  return inside ? file : null;
+  let target: string | null = null;
+  if (resolved && !resolved.isExternalLibraryImport) {
+    const file = resolved.resolvedFileName;
+    const inside = resolve(file).startsWith(root.endsWith(sep) ? root : root + sep);
+    if (!file.endsWith(".d.ts") && inside) target = file;
+  }
+  resolutions.set(key, target);
+  return target;
 }
 
 /** The module id for an absolute file: root-relative, posix separators, no extension. */
@@ -142,8 +172,8 @@ export function reachable(root: string, entryFiles: string[], opaque: Iterable<M
     }
   }
   const fileOf = new Map<ModuleId, string>(entryFiles.map(file => [moduleId(root, file), file]));
-  while (queue.length) {
-    const id = queue.shift()!;
+  for (let head = 0; head < queue.length; head += 1) {
+    const id = queue[head];
     if (opaqueHit(id)) continue;
     const file = fileOf.get(id);
     if (!file) continue;

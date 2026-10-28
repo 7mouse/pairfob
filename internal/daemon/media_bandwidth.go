@@ -18,6 +18,18 @@ const (
 	mediaGlobalNetPerSec   = 8 << 20
 	mediaGlobalNetBurst    = 1 << 20
 	mediaOpenDeadline      = 20 * time.Second
+
+	// A P2P-only download is not relay traffic, but it still reads the daemon's
+	// disk and protects interactive latency. These budgets are deliberately
+	// larger than preview media: a file is meant to be saved whole.
+	downloadSessionDiskPerSec = 8 << 20
+	downloadSessionDiskBurst  = 256 << 10
+	downloadGlobalDiskPerSec  = 32 << 20
+	downloadGlobalDiskBurst   = 1 << 20
+	downloadSessionNetPerSec  = 8 << 20
+	downloadSessionNetBurst   = 256 << 10
+	downloadGlobalNetPerSec   = 32 << 20
+	downloadGlobalNetBurst    = 1 << 20
 )
 
 type mediaQuotaKind int
@@ -92,6 +104,18 @@ func newMediaBandwidth() mediaBandwidth {
 		sessionDiskBurst: mediaSessionDiskBurst,
 		sessionNetRate:   mediaSessionNetPerSec,
 		sessionNetBurst:  mediaSessionNetBurst,
+		session:          map[*sess]*mediaSessionQuota{},
+	}
+}
+
+func newDownloadBandwidth() mediaBandwidth {
+	return mediaBandwidth{
+		diskGlobal:       mediaWindow{rate: downloadGlobalDiskPerSec, burst: downloadGlobalDiskBurst},
+		netGlobal:        mediaWindow{rate: downloadGlobalNetPerSec, burst: downloadGlobalNetBurst},
+		sessionDiskRate:  downloadSessionDiskPerSec,
+		sessionDiskBurst: downloadSessionDiskBurst,
+		sessionNetRate:   downloadSessionNetPerSec,
+		sessionNetBurst:  downloadSessionNetBurst,
 		session:          map[*sess]*mediaSessionQuota{},
 	}
 }

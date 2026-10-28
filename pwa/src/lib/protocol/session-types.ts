@@ -45,6 +45,11 @@ import type {
   WorkspaceMediaClose,
   WorkspaceMediaOpen,
 } from "./workspace-media.ts";
+import type {
+  WorkspaceDownloadChunk,
+  WorkspaceDownloadClose,
+  WorkspaceDownloadOpen,
+} from "./workspace-download.ts";
 
 export interface SessionEvent {
   type: "checking" | "connected" | "disconnected" | "reconnecting" | "latency" | "poke" | "terminal" | "terminal_frame" | "terminal_closed";
@@ -138,6 +143,10 @@ export type LiveSession = {
   workspaceMediaOpen: (paneId: string, path: string, root?: string, options?: MediaReadOptions) => Promise<WorkspaceMediaOpen>;
   workspaceMediaRead: (handle: string, offset: number, length: number, options?: MediaReadOptions) => Promise<WorkspaceMediaChunk>;
   workspaceMediaClose: (handle: string) => Promise<WorkspaceMediaClose>;
+  /** P2P-only file download; absent on older daemons and mocks. */
+  workspaceDownloadOpen?: (paneId: string, path: string, root?: string) => Promise<WorkspaceDownloadOpen>;
+  workspaceDownloadRead?: (handle: string, offset: number, length: number) => Promise<WorkspaceDownloadChunk>;
+  workspaceDownloadClose?: (handle: string) => Promise<WorkspaceDownloadClose>;
   /** Optional attachment uploads; absent on older daemons and mocks. */
   workspaceUploadBegin?: (input: UploadBeginInput) => Promise<UploadState>;
   workspaceUploadWrite?: (input: UploadWriteInput) => Promise<UploadState>;

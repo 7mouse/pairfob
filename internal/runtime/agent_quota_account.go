@@ -156,11 +156,27 @@ func quotaAccount(q AgentQuota) QuotaAccount {
 		}
 		a.Meters = append(a.Meters, m)
 	}
+	a = finishQuotaAccount(a)
+	if a.State == "ok" {
+		a.ObservedAt = q.ObservedAt
+	}
+	return a
+}
+
+// finishQuotaAccount checks the meters of an account a provider built directly,
+// rather than from quota windows. An invalid account keeps no sample: numbers
+// and the time they were read come together.
+func finishQuotaAccount(a QuotaAccount) QuotaAccount {
 	if len(a.Meters) == 0 || len(a.Meters) > quotaMaxMeters {
-		a.State, a.Reason, a.Meters = "failed", "unavailable", []QuotaMeter{}
+		a.State, a.Reason, a.Meters, a.ObservedAt = "failed", "unavailable", []QuotaMeter{}, 0
 		return a
 	}
-	a.ObservedAt = q.ObservedAt
+	for _, m := range a.Meters {
+		if !validQuotaMeter(m) {
+			a.State, a.Reason, a.Meters, a.ObservedAt = "failed", "unavailable", []QuotaMeter{}, 0
+			return a
+		}
+	}
 	return a
 }
 

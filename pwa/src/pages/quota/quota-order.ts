@@ -16,6 +16,8 @@ const KINDS: Record<QuotaProvider, readonly string[]> = {
   copilot: ["copilot", "github-copilot", "copilot-cli"],
   cursor: ["cursor", "cursor-agent", "cursor-cli"],
   grok: ["grok", "grok-cli"],
+  // DeepSeek is an API balance; no agent kind of this build reports it.
+  deepseek: [],
 };
 
 export function quotaProviderOrder(memory: Pick<CreateMemory, "pinned" | "uses">): QuotaProvider[] {

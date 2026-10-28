@@ -21,8 +21,7 @@ import (
 //	part/<message>/<part>.json
 //
 // Message and part ids sort in the order they were made. opencode 1.2 and
-// later keep sessions in a SQLite database instead, which this reader does not
-// open: such a session is unavailable.
+// later keep sessions in SQLite, read by opencode_sqlite.go.
 
 const (
 	// A session shows its newest messages within these bounds.
