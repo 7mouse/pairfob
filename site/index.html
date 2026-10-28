@@ -55,6 +55,10 @@
     <link rel="stylesheet" href="/css/safe.css?v=71" />
     <link rel="stylesheet" href="/css/faq.css?v=71" />
     <script src="/lang.js?v=49"></script>
+    <!-- Copy wiring must be ready as soon as the page is readable: the buttons
+         render long before the scripts at the end of the body arrive on a slow
+         link. It binds on document, so an early run is safe. -->
+    <script src="/site.js?v=50" async></script>
   </head>
   <body>
     <svg class="sprite" aria-hidden="true">
@@ -526,7 +530,6 @@
     </script>
 
     <script src="/home-i18n.js?v=74"></script>
-    <script src="/site.js?v=49"></script>
     <script src="/home-motion.js?v=1"></script>
   </body>
 </html>
